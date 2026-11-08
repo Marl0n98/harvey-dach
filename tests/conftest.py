@@ -21,6 +21,12 @@ def pytest_configure(config):
 
 
 @pytest.fixture(autouse=True)
+def _no_mail_server_checks(monkeypatch):
+    """Unit tests never ask real mail servers; tests of the check turn it back on."""
+    monkeypatch.setenv("HARVEY_SMTP_CHECK", "0")
+
+
+@pytest.fixture(autouse=True)
 def _private_dashboard_token(tmp_path_factory):
     """Never create or read the checkout's real data/dashboard-token."""
     import harvey.dashboard as dash

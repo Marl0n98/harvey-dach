@@ -28,6 +28,7 @@ Hardening notes:
 import asyncio
 import json
 import logging
+import os
 import random
 import re
 from datetime import datetime, timezone
@@ -48,9 +49,20 @@ from harvey.integrations.email_finder import (
 from harvey.integrations.linkedin import LinkedInAutomation
 from harvey.models.company import Company
 from harvey.models.prospect import COMPANY_INBOX_SOURCE, Prospect
-from harvey.public_http import public_http_client
+from harvey.public_http import public_http_client, page_text
 from harvey.state import StateManager
 from harvey.untrusted import UNTRUSTED_RULE, fence
+
+# The free mail-server check for addresses no paid verifier looked at.
+SMTP_CHECK_ENV = "HARVEY_SMTP_CHECK"
+# What a mail server's answer means for sending (harvey.leads verdicts).
+# Microsoft accepts every address before checking, so that is only "risky".
+SMTP_VERDICT_STATUS = {
+    "bestätigt": "verified",
+    "Catch-all": "risky",
+    "angenommen (Microsoft, unsicher)": "risky",
+    "ungültig": "invalid",
+}
 
 logger = logging.getLogger("harvey.scout")
 
@@ -311,7 +323,7 @@ class Scout:
             if resp is not None:
                 last_status = resp.status_code
                 if resp.status_code in (200, 202, 403, 429, 503) and self._looks_blocked(
-                        getattr(resp, "text", "") or "", resp.status_code):
+                        page_text(resp), resp.status_code):
                     # A bot challenge won't clear on retry: note it and stop.
                     self.__dict__.setdefault("_challenged", set()).add(self._host(url))
                     logger.debug(f"Fetch got a bot challenge ({resp.status_code}) for {url[:80]}")
@@ -474,7 +486,7 @@ class Scout:
         if resp is None:
             return []
 
-        soup = self._safe_soup(resp.text)
+        soup = self._safe_soup(page_text(resp))
         if soup is None:
             return []
 
@@ -509,7 +521,7 @@ class Scout:
         if resp is None:
             return []
 
-        soup = self._safe_soup(resp.text)
+        soup = self._safe_soup(page_text(resp))
         if soup is None:
             return []
 
@@ -536,7 +548,7 @@ class Scout:
         if resp is None:
             return []
 
-        soup = self._safe_soup(resp.text)
+        soup = self._safe_soup(page_text(resp))
         if soup is None:
             return []
 
@@ -1114,7 +1126,7 @@ class Scout:
         if resp is None:
             return []
 
-        soup = self._safe_soup(resp.text)
+        soup = self._safe_soup(page_text(resp))
         if soup is None:
             return []
 
@@ -1229,7 +1241,28 @@ class Scout:
         except Exception as e:
             logger.debug(f"find_email failed for {domain}: {e}")
             return "", "invalid"
-        return result.email, result.status
+        return result.email, await self._smtp_status(domain, result.email, result.status)
+
+    async def _smtp_status(self, domain: str, email: str, status: str) -> str:
+        """Ask the domain's mail server about an address no paid verifier checked.
+
+        Free and keyless, the same check as `harvey leads`: RCPT TO without
+        sending anything. Only a "guess" is asked about. A server that
+        blocks the check leaves it a guess, so nothing gets better than the
+        evidence. Off with HARVEY_SMTP_CHECK=0.
+        """
+        if status != "guess" or not email or os.environ.get(SMTP_CHECK_ENV, "1") == "0":
+            return status
+        from harvey import leads
+        if getattr(self, "_mailbox_checker", None) is None:
+            self._mailbox_checker = leads.MailboxChecker()
+        try:
+            out = await self._mailbox_checker.check(domain or email.rpartition("@")[2], [email])
+        except Exception as e:
+            logger.debug(f"SMTP check failed for {email}: {e}")
+            return status
+        verdict = out.get("results", {}).get(email, "")
+        return SMTP_VERDICT_STATUS.get(verdict, status)
 
     async def _score_contacts(self, contacts: list[Prospect]) -> list[Prospect]:
         """Use Claude to score and add personalization notes to found contacts.
@@ -1416,9 +1449,9 @@ Respond ONLY with the JSON array."""
         info["website"] = base
 
         # Keep the raw HTML so signal detection reuses this fetch.
-        info["_homepage_html"] = resp.text
+        info["_homepage_html"] = page_text(resp)
 
-        soup = self._safe_soup(resp.text)
+        soup = self._safe_soup(page_text(resp))
         if soup is None:
             return info
 
@@ -1498,7 +1531,7 @@ Respond ONLY with the JSON array."""
                     break
                 continue
             final = str(getattr(resp, "url", "") or url)
-            text = getattr(resp, "text", "") or ""
+            text = page_text(resp)
             if self._host(final) != key:
                 continue        # redirected to another business (a franchisor's /team)
             if norm(final) in (norm(home_url), norm(base)) or text == home_text:
@@ -1768,6 +1801,7 @@ Respond ONLY with the JSON array."""
         except Exception as e:
             logger.debug(f"Inbox verification failed for {email}: {e}")
             status = "guess"
+        status = await self._smtp_status(domain, email, status)
         prospect = Prospect(
             email=email,
             email_status=status,
@@ -1807,7 +1841,7 @@ Respond ONLY with the JSON array."""
                 site["tried"].add(people_mod._norm_url(url))
                 resp = await self._site_fetch(site, url)
                 if resp is not None:
-                    pages.append((url, getattr(resp, "text", "") or ""))
+                    pages.append((url, page_text(resp)))
 
         candidates = []
         for _, text in pages:
@@ -1991,7 +2025,7 @@ Respond ONLY with the JSON array."""
             resp = await self._fetch(
                 f"https://{domain}", timeout=SCRAPE_TIMEOUT, retries=1
             )
-            homepage_html = resp.text if resp is not None else ""
+            homepage_html = page_text(resp) if resp is not None else ""
 
         tech = detect_tech(homepage_html)
 
@@ -2039,7 +2073,7 @@ Respond ONLY with the JSON array."""
             )
             if resp is None:
                 continue
-            soup = self._safe_soup(resp.text)
+            soup = self._safe_soup(page_text(resp))
             if soup is None:
                 continue
 

@@ -19,7 +19,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from harvey.public_http import public_http_client
+from harvey.public_http import public_http_client, page_text
 from harvey.startups import funding_text
 
 from harvey.collectors.ats import detect_board, matching_roles, read_board, role_keywords
@@ -163,13 +163,16 @@ zahnärztin zahnaerztin website webseite frau herr firma verein klinik zentrum
 kanzlei studio inhaber inhaberin impressum zahnmedizinisches medizinisches
 physiotherapie steuerberatung fitness gesundheit willkommen herzlich ihr ihre
 unser unsere team praxisgemeinschaft gruppenpraxis hinweis wichtiger
-unternehmen datenschutz haftung
+unternehmen datenschutz haftung offene offen stellen stelle jobs karriere
+bewerbung bilanzierung buchhaltung lohnverrechnung personalverrechnung
+assistenz sekretariat empfang rezeption anmeldung verwaltung
 """.split())
 
 # Tokens that are words, not names, whatever the vertical: abstract nouns
 # ("Scope Alignment", "Board Communication") and shouted acronyms ("HOA").
 _NOUN_SUFFIX = re.compile(r"(tion|tions|sion|sions|ness|praxis|zentrum|institut|klinik|studio|kanzlei|"
-                          r"ordination|gemeinde|heit|keit|schaft|medizin|technik|therapie|beratung)$")
+                          r"ordination|gemeinde|heit|keit|schaft|medizin|technik|therapie|beratung|leitung|"
+                          r"verrechnung|abteilung)$")
 
 
 def _is_name_token(token: str) -> bool:
@@ -857,7 +860,7 @@ class ProfileCollector:
             logger.debug(f"fetch failed {url}: {e}")
             return ""
         if resp.status_code in (200, 202, 403, 429, 503) and looks_like_challenge(
-                resp.text or "", resp.status_code):
+                page_text(resp), resp.status_code):
             self.challenged.add(urlparse(url).netloc.lower().removeprefix("www."))
             return ""
         if resp.status_code != 200:
@@ -865,7 +868,7 @@ class ProfileCollector:
         ctype = resp.headers.get("content-type", "")
         if "html" not in ctype and "xml" not in ctype and "text" not in ctype:
             return ""
-        return resp.text
+        return page_text(resp)
 
     async def _resolve_site(self, domain: str) -> tuple[str, str]:
         """Return (working base url, homepage html), or ("", "") if none work.

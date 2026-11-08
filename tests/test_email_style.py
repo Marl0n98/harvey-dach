@@ -144,3 +144,21 @@ async def test_preview_falls_back_to_named_people_in_the_lead_list(state):
     assert "Physiotherapie in Graz" in p.personalization_notes
     assert "No online booking" in p.personalization_notes and "jobs" in p.personalization_notes
     assert await state.get_prospects_by_status("new") == []   # a preview saves nothing
+
+
+@pytest.mark.asyncio
+async def test_preview_never_greets_one_person_at_another_persons_address(state):
+    import json
+    from harvey.leads import sample_prospects
+    from harvey.models import Company
+    cid = await state.add_company(Company(name="Lindner Physio", domain="g.test"))
+    lead = {"people": [{"name": "Eva Lindner"}],
+            "emails": [{"email": "petra@gmail.com", "source": "Website", "person": "Petra Sommerfeld",
+                        "check": "nicht geprüft"},
+                       {"email": "office@g.test", "source": "Website", "person": "", "check": "nicht geprüft"}]}
+    async with state._connect() as db:
+        await db.execute("INSERT INTO leads (company_id, data, checked_at) VALUES (?, ?, '')",
+                         (cid, json.dumps(lead)))
+        await db.commit()
+    [p] = await sample_prospects(state, 1)
+    assert p.email == "office@g.test" and p.is_company_inbox and not p.first_name

@@ -30,6 +30,7 @@ import aiosmtplib
 import httpx
 
 from harvey.collectors import people as people_mod
+from harvey.public_http import page_text
 from harvey.collectors.profile import BOOKING_HINTS
 from harvey.integrations.email_finder import (
     ROLE_LOCALS, _clean_name_part, build_email, classify_mx, generate_patterns,
@@ -329,7 +330,7 @@ async def build_lead(scout, checker: MailboxChecker, company: dict) -> dict:
                 seen.add(people_mod._norm_url(url))
                 resp = await scout._site_fetch(site, url)
                 if resp is not None and scout._host(str(getattr(resp, "url", "") or url)) == scout._host(domain):
-                    pages.append((url, getattr(resp, "text", "") or ""))
+                    pages.append((url, page_text(resp)))
             lead["description"] = site_description(home)
             lead["booking"] = next((m.group(0) for p in BOOKING_HINTS
                                     for m in [re.search(p, home, re.I)] if m), "")
@@ -565,9 +566,12 @@ def default_out_base(project_root) -> str:
 
 
 async def sample_prospects(state, n: int) -> list:
-    """Up to n people to write a preview for: stored contacts first, else named people
-    from the lead list (with what their site says as research notes). Saves nothing."""
-    from harvey.models.prospect import Prospect
+    """Up to n people to write a preview for: stored contacts first, else people from
+    the lead list (with what their site says as research notes). Saves nothing.
+
+    The address always belongs to whoever is greeted: a named person's own address,
+    or a general inbox written to as a company inbox."""
+    from harvey.models.prospect import COMPANY_INBOX_SOURCE, Prospect
 
     found = [p for p in await state.get_prospects_by_status("new") if p.company][:n]
     if len(found) >= n:
@@ -576,18 +580,24 @@ async def sample_prospects(state, n: int) -> list:
         db.row_factory = __import__("aiosqlite").Row
         async with db.execute(
                 "SELECT c.id, c.name, c.industry, c.location, l.data AS lead FROM companies c "
-                "JOIN leads l ON l.company_id = c.id WHERE l.data LIKE '%\"name\": \"%' "
+                "JOIN leads l ON l.company_id = c.id WHERE l.data LIKE '%@%' "
                 "ORDER BY RANDOM() LIMIT 200") as cur:
             records = [dict(r) for r in await cur.fetchall()]
+    named, inboxes = [], []
     for record in records:
-        if len(found) >= n:
-            break
         lead = json.loads(record.get("lead") or "{}")
-        people = [p for p in lead.get("people") or [] if " " in (p.get("name") or "").strip()]
-        best = best_email(lead.get("emails") or [])
-        if not people or not best:
-            continue
-        first, _, last = people[0]["name"].strip().partition(" ")
+        emails = lead.get("emails") or []
+        person, email = None, None
+        for p in lead.get("people") or []:
+            name = (p.get("name") or "").strip()
+            mine = best_email([e for e in emails if (e.get("person") or "").strip() == name])
+            if people_mod.is_person_name(name) and mine:
+                person, email = p, mine
+                break
+        if not person:
+            email = best_email([e for e in emails if not e.get("person")])
+            if not email:
+                continue
         notes = [lead.get("description") or ""]
         if lead.get("booking"):
             notes.append(f"Online booking on their site: {lead['booking']}")
@@ -595,8 +605,13 @@ async def sample_prospects(state, n: int) -> list:
             notes.append("No online booking found on their site")
         if lead.get("careers"):
             notes.append("Their site has a jobs/careers section")
-        found.append(Prospect(
-            first_name=first, last_name=last, title=people[0].get("title") or "",
-            company=record["name"], company_id=record["id"], industry=record.get("industry") or "",
-            email=best["email"], personalization_notes=". ".join(x for x in notes if x)))
-    return found
+        common = dict(company=record["name"], company_id=record["id"],
+                      industry=record.get("industry") or "", email=email["email"],
+                      personalization_notes=". ".join(x for x in notes if x))
+        if person:
+            first, _, last = person["name"].strip().partition(" ")
+            named.append(Prospect(first_name=first, last_name=last,
+                                  title=person.get("title") or "", **common))
+        else:
+            inboxes.append(Prospect(title="General inbox", source=COMPANY_INBOX_SOURCE, **common))
+    return (found + named + inboxes)[:n]

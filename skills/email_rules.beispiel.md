@@ -18,7 +18,8 @@ nimmt Harvey aus `persona` in `harvey.local.yaml`, nicht aus dieser Datei.
 
 ## So schreibe ich
 
-- Anrede: "Hallo Frau Huber," oder "Hallo Herr Huber,". Ohne Namen: "Hallo zusammen,".
+- Anrede: "Hallo Frau Huber," oder "Hallo Herr Huber,", mit Titel "Hallo Herr Dr. Huber,".
+  Ohne Namen: "Hallo zusammen,".
 - Sie, nicht du.
 - Höchstens vier kurze Sätze. Die Frage kommt spätestens im zweiten Satz.
 - Kein Einstieg über die Branche ("In vielen Praxen ..."), kein Lob, kein
@@ -34,8 +35,8 @@ Beispiel 1
 
     Hallo Frau Huber,
 
-    kurze Frage: Auf Ihrer Seite kann man Termine nur telefonisch ausmachen.
-    Ist das bewusst so, oder kommt das Telefon da manchmal nicht hinterher?
+    auf Ihrer Seite kann man Termine nur telefonisch ausmachen. Ist das
+    bewusst so, oder kommt das Telefon da manchmal nicht hinterher?
 
     Lisa
     Beispiel GmbH

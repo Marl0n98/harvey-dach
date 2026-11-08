@@ -25,9 +25,13 @@ GERMAN_RULES = """
 
 GERMAN OUTPUT — THIS OVERRIDES THE LANGUAGE OF ANYTHING ABOVE:
 - Write every subject line, email and reply in German, for readers in Germany, Austria and Switzerland.
-- Use "Sie" unless the prospect wrote to you with "du". Open with "Guten Tag Frau X" or "Guten Tag Herr X"
-  when the salutation is certain from the first name, else "Guten Tag Vorname Nachname".
-  A general inbox gets "Guten Tag". Never "Hi there", never "Sehr geehrte Damen und Herren".
+- Use "Sie" unless the prospect wrote to you with "du". Address people as "Frau Nachname" or
+  "Herr Nachname" (with "Dr." when they carry it: "Herr Dr. Nachname") whenever the first name
+  makes it clear, which it does for most names (Maximilian, Thomas, Josef: Herr; Anna, Birgit,
+  Corinna: Frau). Only for a truly ambiguous first name write "Vorname Nachname". Never the
+  first name plus "Frau"/"Herr", never first and last name when Frau/Herr is clear.
+  Greeting word: "Guten Tag", unless the operator's email rules give another ("Hallo").
+  A general inbox gets the greeting alone. Never "Hi there", never "Sehr geehrte Damen und Herren".
 - Follow-ups: never "Guten Tag {{first_name}}" with "Sie". Open them with "Guten Tag," and no name.
 - Never offer a concrete day or time: you can't see a calendar. Ask which day suits them, or use the booking link if one is given.
 - Swiss recipients (.ch or a Swiss location): write "ss" instead of "ß". Keep Austrian and Swiss words the prospect uses.
@@ -39,6 +43,11 @@ GERMAN OUTPUT — THIS OVERRIDES THE LANGUAGE OF ANYTHING ABOVE:
 - Sign with the sender's name and company only. Legal details are added when it is sent.
 - Subject lines keep normal German capitalisation, so nouns stay capitalised.
 """
+
+# Merge tags filled per prospect when a sequence is sent, not when the prompt is built.
+MERGE_TAGS = {"first_name", "company", "title"}
+# Skills `harvey train` generates; missing until it has run.
+TRAINED_SKILLS = {"product_knowledge", "competitive_intel"}
 
 PROMPTS_DIR = PROJECT_ROOT / "prompts"
 SKILLS_DIR = PROJECT_ROOT / "skills"
@@ -707,7 +716,8 @@ class Brain:
         if prompt_name in ("writer", "handler") and getattr(self.config, "language", "en") == "de":
             template += GERMAN_RULES
         # Surface templating mistakes early instead of sending {{foo}} to Claude
-        leftover = re.findall(r"\{\{(\w+)\}\}", template)
+        # Merge tags the template lists on purpose for sequences aren't mistakes.
+        leftover = [v for v in re.findall(r"\{\{(\w+)\}\}", template) if v not in MERGE_TAGS]
         if leftover:
             logger.warning(
                 f"Prompt '{prompt_name}' has unfilled variables: {sorted(set(leftover))}"
@@ -720,7 +730,9 @@ class Brain:
         try:
             return read_user_text(skill_file)
         except FileNotFoundError:
-            logger.warning(f"Skill file not found: {skill_file}")
+            # The trainer writes these; a hand-made setup simply doesn't have them.
+            log = logger.debug if skill_name in TRAINED_SKILLS else logger.warning
+            log(f"Skill file not found: {skill_file}")
             return ""
         except OSError as e:
             logger.error(f"Could not read skill file {skill_file}: {e}")

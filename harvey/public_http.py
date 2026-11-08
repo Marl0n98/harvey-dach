@@ -139,3 +139,22 @@ def public_http_client(
         transport=PublicHTTPTransport(), trust_env=False,
         timeout=timeout, headers=headers, follow_redirects=True, max_redirects=10,
     )
+
+
+def page_text(resp) -> str:
+    """A page's text, decoded the way the page was really written.
+
+    Many sites send UTF-8 under a header that says ISO-8859-1 (or none),
+    which turns "für" into "fÃ¼r". Bytes that are valid UTF-8 and not plain
+    ASCII are read as UTF-8 whatever the header says; anything else keeps
+    httpx's decoding. Test stand-ins with only .text work too.
+    """
+    raw = getattr(resp, "content", None)
+    if isinstance(raw, (bytes, bytearray)) and raw and not raw.isascii():
+        encoding = (getattr(resp, "encoding", "") or "").lower().replace("_", "-")
+        if encoding not in ("utf-8", "utf8"):
+            try:
+                return bytes(raw).decode("utf-8")
+            except UnicodeDecodeError:
+                pass
+    return getattr(resp, "text", "") or ""
