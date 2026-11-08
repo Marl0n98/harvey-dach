@@ -206,7 +206,7 @@ def test_spf_without_all_and_duplicate_dmarc(monkeypatch):
 
 def test_a_ramp_that_never_grows_says_so():
     w = WarmupConfig(start_date="2026-10-01", min_days=0, start_sends=5, daily_increase=0)
-    assert "stays at 5/day" in d.check_warmup(w, 30, date(2026, 10, 5)).detail
+    assert "bleibt bei 5/Tag" in d.check_warmup(w, 30, date(2026, 10, 5)).detail
     w = WarmupConfig(start_date="2026-10-01", min_days=0, start_sends=0, daily_increase=0)
     assert d.check_warmup(w, 30, date(2026, 10, 5)).status == d.WARN
 

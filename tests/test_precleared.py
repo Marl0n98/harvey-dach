@@ -774,7 +774,7 @@ async def test_keyless_daily_limit_points_to_a_free_key(state):
     result = await client.clear("person@example.com", state)
 
     assert result.held and not result.allowed
-    assert "add PRECLEARED_API_KEY" in result.reason
+    assert "Trag PRECLEARED_API_KEY ein" in result.reason
     assert "precleared.dev/get-key" in result.reason
 
 
@@ -790,9 +790,9 @@ async def test_key_out_of_checks_points_to_its_checkout_link_not_a_free_key(stat
     result = await client.clear("person@example.com", state)
 
     assert result.held and not result.allowed
-    assert "pack" in result.reason
+    assert "Paket" in result.reason
     assert f"({checkout})" in result.reason
-    assert "add PRECLEARED_API_KEY" not in result.reason
+    assert "Trag PRECLEARED_API_KEY ein" not in result.reason
     # Harvey's own wording, not the API's free text.
     assert "Buy a pack to continue" not in result.reason
     # Nothing cached, so the next cycle asks again.
@@ -825,8 +825,8 @@ async def test_key_out_of_checks_without_a_usable_link_falls_back_to_the_buy_pag
     result = await client.clear("person@example.com", state)
 
     assert result.held and not result.allowed
-    assert "add a pack (https://precleared.dev/buy)" in result.reason
-    assert "add PRECLEARED_API_KEY" not in result.reason
+    assert "Kauf ein Paket (https://precleared.dev/buy)" in result.reason
+    assert "Trag PRECLEARED_API_KEY ein" not in result.reason
     assert await state.get_setting(SETTINGS_PREFIX + "person@example.com") == ""
 
 

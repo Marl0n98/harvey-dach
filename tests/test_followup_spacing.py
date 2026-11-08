@@ -111,7 +111,7 @@ async def test_a_follow_up_to_an_email_that_never_went_out_is_cancelled(state, p
     await make_sender(state, provider)._drain_due()
     assert provider.sent == []
     item = await state.get_outbox_item(two)
-    assert item["status"] == "cancelled" and "wasn't sent" in item["error"]
+    assert item["status"] == "cancelled" and "wurde nicht gesendet" in item["error"]
 
 
 @pytest.mark.asyncio

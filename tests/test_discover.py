@@ -178,7 +178,7 @@ async def test_budget_cap_refuses_before_spending(state, config, register):
     fake = register(FakeProvider([[biz(domain="a.com")]] * 10, per_query_cost=1.0))
     q = [D.DiscoveryQuery(term="roofer", location=c) for c in "abcdefghij"]
     report = await D.run_discovery(state, config, "fake", q, max_spend=2.0)
-    assert report.stopped == "over budget"
+    assert report.stopped == "über dem Budget"
     assert fake.calls == 0, "the cap must be checked before the first call, not after"
     assert report.actual_cost == 0.0
 
@@ -192,7 +192,7 @@ async def test_budget_stops_mid_run_when_actual_exceeds_estimate(state, config, 
     register(fake)
     q = [D.DiscoveryQuery(term="roofer", location=c) for c in "abcdefghij"]
     report = await D.run_discovery(state, config, "fake", q, max_spend=3.0)
-    assert report.stopped == "budget reached"
+    assert report.stopped == "Budget erreicht"
     assert fake.calls < 10
 
 
@@ -202,7 +202,7 @@ async def test_kill_switch_stops_between_batches(state, config, register):
     fake = register(FakeProvider([[biz(domain="a.com")]], per_query_cost=0.0))
     q = [D.DiscoveryQuery(term="roofer", location="Denver")]
     report = await D.run_discovery(state, config, "fake", q)
-    assert report.stopped == "paused"
+    assert report.stopped == "pausiert"
     assert fake.calls == 0
 
 
@@ -213,9 +213,9 @@ async def test_nothing_runs_until_signals_are_confirmed(state, config, register)
     fake = register(FakeProvider([[biz(domain="a.com")]]))
     report = await D.run_discovery(state, config, "fake",
                                    [D.DiscoveryQuery(term="roofer")])
-    assert report.stopped == "no confirmed signals"
+    assert report.stopped == "keine bestätigten Signale"
     assert fake.calls == 0
-    assert "confirm signals" in report.errors[0].lower()
+    assert "bestätige zuerst signale" in report.errors[0].lower()
 
 
 # ── Entity resolution ──
@@ -667,7 +667,7 @@ async def test_scavio_errors_surface_the_message_not_just_the_code(cls):
     """A first-page failure raises: an empty list would make an expired key or
     an empty balance look like a market with nobody in it."""
     payload = {"error": "Insufficient credits"}
-    with pytest.raises(RuntimeError, match="Scavio 402: insufficient credits"):
+    with pytest.raises(RuntimeError, match="Scavio 402: nicht genug Credits"):
         async with _client(lambda r: httpx.Response(402, json=payload)) as client:
             await cls().fetch(client, {"scavio_api_key": "k"},
                               D.DiscoveryQuery(term="roofer", coordinate="39.7,-104.9,40"))
@@ -748,7 +748,7 @@ async def test_tinyfish_error_handling():
 
     # 401 Unauthorized
     async with _client(lambda r: httpx.Response(401, json={"error": "unauthorized"})) as client:
-        with pytest.raises(RuntimeError, match="Invalid or missing API key"):
+        with pytest.raises(RuntimeError, match="ungültig oder fehlt"):
             await provider.fetch(client, {"tinyfish_api_key": "bad"}, D.DiscoveryQuery(term="roofer"))
 
     # 402 Daily allowance used
@@ -758,12 +758,12 @@ async def test_tinyfish_error_handling():
 
     # 429 Repeated failure
     async with _client(lambda r: httpx.Response(429, headers={"Retry-After": "0.01"})) as client:
-        with pytest.raises(RuntimeError, match="rate limited"):
+        with pytest.raises(RuntimeError, match="Limit erreicht"):
             await provider.fetch(client, {"tinyfish_api_key": "tf"}, D.DiscoveryQuery(term="roofer"))
 
     # Missing API key in env
     async with _client(lambda r: httpx.Response(200, json={})) as client:
-        with pytest.raises(RuntimeError, match="needs TINYFISH_API_KEY in .env"):
+        with pytest.raises(RuntimeError, match="braucht TINYFISH_API_KEY in der .env"):
             await provider.fetch(client, {}, D.DiscoveryQuery(term="roofer"))
 
 
@@ -795,9 +795,9 @@ def test_provider_menu_explains_cost_and_configuration():
     assert menu["serper"]["configured"] is True
     assert menu["tinyfish"]["configured"] is True
     assert menu["tinyfish"]["needs_key"] is True
-    assert menu["tinyfish"]["cost_note"] == "free"
-    assert "30 searches a minute" in menu["tinyfish"]["free_tier"]
-    assert "500 an hour" in menu["tinyfish"]["free_tier"]
+    assert menu["tinyfish"]["cost_note"] == "kostenlos"
+    assert "30 Suchen pro Minute" in menu["tinyfish"]["free_tier"]
+    assert "500 pro Stunde" in menu["tinyfish"]["free_tier"]
     assert menu["dataforseo_listings"]["configured"] is False
     assert menu["dataforseo_listings"]["env_keys"] == [
         "DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"]
@@ -818,12 +818,12 @@ async def test_unconfigured_provider_says_which_key_is_missing(state, config, mo
     monkeypatch.setattr("harvey.config.load_env", lambda: EnvConfig())
     report = await D.run_discovery(state, config, "dataforseo_listings",
                                    [D.DiscoveryQuery(term="roofer")])
-    assert report.stopped == "not configured"
+    assert report.stopped == "nicht eingerichtet"
     assert "DATAFORSEO_LOGIN" in report.errors[0]
 
     tf_report = await D.run_discovery(state, config, "tinyfish",
                                       [D.DiscoveryQuery(term="roofer")])
-    assert tf_report.stopped == "not configured"
+    assert tf_report.stopped == "nicht eingerichtet"
     assert "TINYFISH_API_KEY" in tf_report.errors[0]
 
 
@@ -842,7 +842,7 @@ async def test_empty_api_key_runs_nothing_and_says_so(state, config,
 
     report = await D.run_discovery(state, config, "serper",
                                    [D.DiscoveryQuery(term="roofer")])
-    assert report.stopped == "not configured"
+    assert report.stopped == "nicht eingerichtet"
     assert report.queries_ran == 0
     assert "SERPER_API_KEY" in report.errors[0]
 
@@ -861,7 +861,7 @@ async def test_template_placeholder_key_is_treated_as_missing(state, config,
 
     report = await D.run_discovery(state, config, "serper",
                                    [D.DiscoveryQuery(term="roofer")])
-    assert report.stopped == "not configured"
+    assert report.stopped == "nicht eingerichtet"
     assert report.queries_ran == 0
 
 
@@ -900,7 +900,7 @@ async def test_queries_ran_is_zero_when_stopped_before_any_fetch(state, config,
     fake = register(FakeProvider([[biz(domain="a.com")]]))
     report = await D.run_discovery(state, config, "fake",
                                    [D.DiscoveryQuery(term="roofer")])
-    assert report.stopped == "paused"
+    assert report.stopped == "pausiert"
     assert report.queries_ran == 0
     assert report.as_dict()["queries_ran"] == 0
     assert fake.calls == 0
@@ -924,7 +924,7 @@ async def test_overpass_throttling_is_an_error_not_an_empty_market(monkeypatch):
         return httpx.Response(504, text="")
 
     provider = D.OpenStreetMap()
-    with pytest.raises(RuntimeError, match="throttling"):
+    with pytest.raises(RuntimeError, match="bremsen"):
         async with _client(handler) as client:
             await provider.fetch(client, {}, D.DiscoveryQuery(
                 term="roofer", coordinate="39.7,-104.9,40"))
@@ -995,7 +995,7 @@ async def test_every_mirror_failing_is_an_error_that_names_the_cause(monkeypatch
         return httpx.Response(next(statuses), text="")
 
     provider = D.OpenStreetMap()
-    with pytest.raises(RuntimeError, match="unavailable or throttling"):
+    with pytest.raises(RuntimeError, match="nicht erreichbar oder bremsen"):
         async with _client(handler) as client:
             await provider.fetch(client, {}, D.DiscoveryQuery(
                 term="roofer", coordinate="39.7,-104.9,40"))
@@ -1188,7 +1188,7 @@ async def test_osm_refuses_a_term_it_cannot_map_instead_of_guessing():
     with every registered office in Denver. Returning nothing is correct;
     returning plausible junk is not."""
     provider = D.OpenStreetMap()
-    with pytest.raises(RuntimeError, match="no category"):
+    with pytest.raises(RuntimeError, match="keine Kategorie"):
         async with _client(lambda r: httpx.Response(200, json={})) as client:
             await provider.fetch(client, {}, D.DiscoveryQuery(
                 term="storm damage restoration", coordinate="39.7,-104.9,40"))
@@ -1427,7 +1427,7 @@ async def test_tinyfish_rate_limit_names_the_real_limits(monkeypatch):
         with pytest.raises(RuntimeError) as exc:
             await D.TinyFish().fetch(client, {"tinyfish_api_key": "tf"},
                                      D.DiscoveryQuery(term="roofer"))
-    assert "30" in str(exc.value) and "500 an hour" in str(exc.value)
+    assert "30" in str(exc.value) and "500 pro Stunde" in str(exc.value)
 
 
 def test_tinyfish_docs_state_the_published_limits():
@@ -1501,7 +1501,7 @@ async def test_tinyfish_skips_a_malformed_item_and_keeps_the_rest():
 @pytest.mark.asyncio
 async def test_tinyfish_a_non_object_body_is_an_error_not_a_crash():
     async with _client(lambda r: httpx.Response(200, json=["not", "an", "object"])) as client:
-        with pytest.raises(RuntimeError, match="unexpected"):
+        with pytest.raises(RuntimeError, match="unerwartete"):
             await D.TinyFish().fetch(client, {"tinyfish_api_key": "tf"},
                                      D.DiscoveryQuery(term="roofer"))
 
@@ -1698,7 +1698,7 @@ async def test_scavio_partial_search_preserves_prior_ranks_and_cost(state, confi
 async def test_scavio_malformed_paid_responses_are_failures_with_cost(body):
     provider = D.ScavioSearch()
     async with _client(lambda r: httpx.Response(200, json=body)) as client:
-        with pytest.raises(RuntimeError, match="Scavio: invalid"):
+        with pytest.raises(RuntimeError, match="Scavio: ungültig"):
             await provider.fetch(client, {"scavio_api_key": "fixture"}, D.DiscoveryQuery(term="roofer"))
     assert provider.last_cost == pytest.approx(0.01)
 
@@ -1718,7 +1718,7 @@ async def test_scavio_cost_resets_and_budget_stops_before_next_page():
                                         D.DiscoveryQuery(term="roofer", depth=30))
             assert len(rows) == 10
             assert provider.last_cost == pytest.approx(0.01)
-            assert "budget reached" in provider.stop_reason
+            assert "Budget vor der nächsten Seite erreicht" in provider.stop_reason
     assert starts == [0, 0]
 
 

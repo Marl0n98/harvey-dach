@@ -13,6 +13,8 @@ claude
 Dann sag: **"Richte Harvey für mich ein"**. Danach findest du Firmen mit `harvey discover`, baust die Lead-Liste mit `harvey leads` und legst deinen Mail-Stil mit `harvey stil` fest.
 
 ## Was anders ist
+- Alles auf Deutsch: Befehle, Hilfetexte, Dashboard (Tastenkürzel F Freigeben, X Ablehnen, B Bearbeiten) und Hinweise.
+- Saubere Zuordnung: Daten einer Website landen nur bei der Firma, der sie gehört. Leitet eine Website auf eine fremde Domain weiter, wird nichts übernommen. Eine Adresse, die zu mehreren Personen passen könnte (Hans und Heike Müller), bekommt keine Person. Fremde Namen im Impressum (Webdesign, Kammer) zählen nicht als Inhaber. Branchenportale (jameda, Doctolib, Gelbe Seiten, Herold, local.ch) gelten nicht als Website einer Firma.
 - `brain.language: de`: Mails und Antworten auf Deutsch, per Sie, ß wird für die Schweiz zu ss.
 - Suche: deutsche Branchenbegriffe wie Steuerberater, Rechtsanwalt, Dachdecker, Marketingagentur.
 - Namen: Umlaute und Impressum ("Geschäftsführer:", "Inhaber:", "Vertreten durch:").
@@ -40,7 +42,6 @@ icp:
 - Die Einwilligungssperre hält auch .com- und Gmail-Adressen zurück, sobald `icp.geography` einen Ort in DE, AT oder CH nennt oder leer ist und `brain.language: de` gilt. Bei Instantly fliegen solche Kontakte aus dem Upload.
 - Orte als "Berlin, Deutschland" schreiben, "Berlin, DE" gilt weiter als Delaware.
 - Impressumspflichtangaben unter Mails sind nicht eingebaut, nur `postal_address` und `opt_out_line`.
-- Das Dashboard ist weiter englisch.
 - Der Precleared-Check kennt nur GB und US als Absenderland.
 - Echter Versand und echte Postfächer sind nicht getestet, der Gesamtablauf lief mit einem Fake-Postfach.
 - Signale gibt es nur auf einem Teil der Websites, Werbe-Pixel sind hinter Cookie-Bannern meist unsichtbar.

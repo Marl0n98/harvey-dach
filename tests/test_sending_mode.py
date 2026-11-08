@@ -103,7 +103,7 @@ async def test_autopilot_rows_are_marked_as_such(state):
     assert (await state.get_outbox_item(waiting))["approved_by"] == "you"
     assert await state.requeue_autopilot_approved() == 1
     item = await state.get_outbox_item(auto)
-    assert item["status"] == "pending_review" and "autopilot" in item["error"]
+    assert item["status"] == "pending_review" and "Autopilot" in item["error"]
     assert (await state.get_outbox_item(waiting))["status"] == "approved"   # yours stays
 
 
@@ -139,7 +139,7 @@ async def test_with_approval_back_on_autopilot_rows_wait_and_yours_go(state):
     await make_sender(state, provider, require_approval=True)._drain_due()
     assert len(provider.sent) == 2                                  # yours and the pre-upgrade one
     item = await state.get_outbox_item(auto)
-    assert item["status"] == "pending_review" and "autopilot" in item["error"]
+    assert item["status"] == "pending_review" and "Autopilot" in item["error"]
 
 
 # ── the dashboard ──
@@ -237,22 +237,22 @@ MODE = {"mode": "approval", "provider": "gmail", "file": "harvey.local.yaml",
 
 def test_the_outbox_says_which_mode_and_offers_the_way_out():
     approval = _render("sendingModeBanner", MODE)
-    assert "Approval mode" in approval and "waits here until you approve it" in approval
+    assert "Freigabemodus" in approval and "wartet hier, bis du sie freigibst" in approval
     auto = _render("sendingModeBanner", {**MODE, "mode": "autopilot", "held": 2})
-    assert "Autopilot is on" in auto and "(2 now)" in auto and "Turn off autopilot" in auto
+    assert "Autopilot ist an" in auto and "(2 gerade)" in auto and "Autopilot ausschalten" in auto
     instantly = _render("sendingModeBanner", {**MODE, "provider": "instantly"})
-    assert "campaigns aren’t sent to Instantly" in instantly
+    assert "Kampagnen gehen deshalb erst an Instantly" in instantly
 
 
 def test_settings_explains_both_and_asks_for_the_word():
     card = _render("sendingModeCard", MODE)
-    assert "Sending mode: Approval" in card and "<b>Autopilot</b>: Harvey sends on its own" in card
+    assert "Versandmodus: Freigabe" in card and "<b>Autopilot</b>: Harvey sendet selbst" in card
     assert "acme.com, &lt;b&gt;x&lt;/b&gt;" in card and "harvey.local.yaml" in card
-    assert "Turn on autopilot…" in card and 'id="autopilot-go"' not in card
+    assert "Autopilot einschalten…" in card and 'id="autopilot-go"' not in card
     armed = _render("sendingModeCard", MODE, armed=True)
     assert 'id="autopilot-confirm"' in armed and 'id="autopilot-go" disabled' in armed
     auto = _render("sendingModeCard", {**MODE, "mode": "autopilot"})
-    assert "Turn off autopilot" in auto and "works at once" in auto
+    assert "Autopilot ausschalten" in auto and "wirkt sofort" in auto
 
 
 # ── review of the switch: no autopilot email after "off" ──

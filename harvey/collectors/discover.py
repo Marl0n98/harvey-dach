@@ -72,6 +72,11 @@ JUNK_DOMAIN_PATTERNS = tuple(re.compile(p, re.I) for p in (
     r"\.(edu|gov|mil)$",
     r"(^|\.)(ag|ai|ar|be|bl|bs|fr|ge|gl|gr|ju|lu|ne|nw|ow|sg|sh|so|sz|tg|ti|ur|vd|vs|zg|zh)\.ch$",
     r"\.gv\.at$",
+    # DACH directories and booking portals often stand in a business's website tag
+    r"(^|\.)(gelbeseiten|dasoertliche|dastelefonbuch|11880|cylex|cylex-branchenbuch|herold|"
+    r"local|search|jameda|doctolib|docfinder|sanego|treatwell|provenexpert|werkenntdenbesten|"
+    r"meinestadt|branchenbuch|wlw|kununu|stepstone|indeed|firmenabc|northdata|"
+    r"facebook|instagram|linkedin|xing)\.(de|at|ch|com|net)$",
     r"(^|\.)(bund|bayern|berlin|hamburg|nrw|sachsen|hessen)\.de$",
     # Chambers, courts and justice: whole labels or clear prefixes, so a
     # "bayrak-transport.de" or a court interpreter's own site stays in.
@@ -542,14 +547,14 @@ class DataForSEOListings(DiscoveryProvider):
     label = "DataForSEO Business Listings"
     kind = "listings"
     needs_coordinates = True
-    blurb = ("Enumerate every business of a type within a radius, with phone, "
-             "domain, rating and whether the listing is claimed. Best choice "
-             "for local trades, clinics and contractors.")
-    cost_note = "$0.372 per 1,000 businesses ($0.012/query + $0.00036 each)"
-    free_tier = "$1 signup credit; $50 minimum deposit to go live"
+    blurb = ("Listet jede Firma einer Art im Umkreis auf, mit Telefon, Domain, "
+             "Bewertung und ob der Eintrag beansprucht ist. Die beste Wahl für "
+             "Handwerk, Praxen und Dienstleister vor Ort.")
+    cost_note = "$0.372 pro 1.000 Firmen ($0.012 pro Abfrage + $0.00036 pro Firma)"
+    free_tier = "$1 Startguthaben bei Anmeldung, $50 Mindesteinzahlung für den Livebetrieb"
     signup_url = "https://app.dataforseo.com/api-access"
     env_keys = ("dataforseo_login", "dataforseo_password")
-    caveat = "No email addresses — Harvey resolves those in a later stage."
+    caveat = "Keine E-Mail-Adressen. Die findet Harvey in einem späteren Schritt."
 
     TASK_COST = 0.012
     ITEM_COST = 0.00036
@@ -629,20 +634,20 @@ class DataForSEOSerp(DiscoveryProvider):
     """
 
     key = "dataforseo_serp"
-    label = "DataForSEO SERP (organic rank)"
+    label = "DataForSEO SERP (organischer Rang)"
     kind = "serp"
     needs_coordinates = True
-    blurb = ("Search '<service> <city>' from the city centre and record where "
-             "each business ranks, plus who holds the local 3-pack. Discovers "
-             "businesses you didn't have AND scores the ones you did.")
-    cost_note = "$0.002 per 10 results (Live) — depth 30 costs $0.006 a search"
-    free_tier = "$1 signup credit; free sandbox; $50 minimum deposit to go live"
+    blurb = ("Sucht '<Leistung> <Stadt>' aus der Stadtmitte und speichert, wo "
+             "jede Firma steht und wer im lokalen 3er-Block ist. Findet Firmen, die "
+             "du noch nicht hattest, UND bewertet die, die du schon hast.")
+    cost_note = "$0.002 pro 10 Ergebnisse (Live). Tiefe 30 kostet $0.006 pro Suche"
+    free_tier = "$1 Startguthaben, kostenlose Sandbox, $50 Mindesteinzahlung für den Livebetrieb"
     signup_url = "https://app.dataforseo.com/api-access"
     env_keys = ("dataforseo_login", "dataforseo_password")
-    caveat = ("Google removed 100-results-per-page in September 2025, so depth "
-              "100 now costs 10x depth 10. Depth 20-30 is the sweet spot; "
-              "below rank 30 it is mostly directories anyway. Rank depends on "
-              "where the searcher stands — this is the view from the city centre.")
+    caveat = ("Google hat im September 2025 die 100 Ergebnisse pro Seite abgeschafft, "
+              "Tiefe 100 kostet jetzt also das 10-Fache von Tiefe 10. Tiefe 20 bis 30 "
+              "ist der beste Bereich, unter Rang 30 kommen ohnehin meist Verzeichnisse. "
+              "Der Rang hängt davon ab, wo gesucht wird: Das hier ist der Blick aus der Stadtmitte.")
 
     # Live mode. The standard queue is $0.0006 but asynchronous (post a task,
     # poll for it minutes later); the run loop checks the spend cap between
@@ -735,15 +740,15 @@ class DataForSEOMaps(DataForSEOSerp):
     """
 
     key = "dataforseo_maps"
-    label = "DataForSEO Google Maps (map rank)"
+    label = "DataForSEO Google Maps (Kartenrang)"
     kind = "serp"
-    blurb = ("Search Google Maps for '<service> <city>' and record each "
-             "business's map position, rating, category and claimed status — "
-             "including businesses with no website at all.")
-    cost_note = "$0.002 per search of up to 100 results (Live)"
-    caveat = ("Map rank depends heavily on where the searcher stands; Harvey "
-              "searches from the city centre at city zoom. Treat it as 'when we "
-              "searched from downtown', not an absolute position.")
+    blurb = ("Sucht in Google Maps nach '<Leistung> <Stadt>' und speichert für jede "
+             "Firma Kartenposition, Bewertung, Kategorie und ob der Eintrag "
+             "beansprucht ist. Auch Firmen ganz ohne Website.")
+    cost_note = "$0.002 pro Suche mit bis zu 100 Ergebnissen (Live)"
+    caveat = ("Der Kartenrang hängt stark davon ab, wo gesucht wird. Harvey sucht aus "
+              "der Stadtmitte mit Zoom auf die ganze Stadt. Lies es als 'so sah es aus "
+              "der Innenstadt aus', nicht als feste Position.")
 
     SERP_COST = 0.002     # per SERP of up to 100 results
     rank_codes = ("MAPS_RANK",)
@@ -820,13 +825,13 @@ class Serper(DiscoveryProvider):
     label = "Serper"
     kind = "serp"
     rank_codes = ("SERP_RANK",)
-    blurb = ("Fast Google search with rank positions. The easiest one to try: "
-             "2,500 free queries, no credit card, one API key.")
-    cost_note = "~$0.30-$1.00 per 1,000 searches depending on plan"
-    free_tier = "2,500 queries free, no card required"
+    blurb = ("Schnelle Google-Suche mit Rangpositionen. Am leichtesten auszuprobieren: "
+             "2.500 kostenlose Abfragen, keine Kreditkarte, ein API-Schlüssel.")
+    cost_note = "ca. $0.30 bis $1.00 pro 1.000 Suchen, je nach Tarif"
+    free_tier = "2.500 Abfragen kostenlos, keine Karte nötig"
     signup_url = "https://serper.dev"
     env_keys = ("serper_api_key",)
-    caveat = "Returns at most 10 results per query, including when a greater depth is requested."
+    caveat = "Liefert höchstens 10 Ergebnisse pro Abfrage, auch wenn eine größere Tiefe verlangt ist."
 
     def estimate(self, queries):
         # One request per query, capped at ten results for free-account compatibility.
@@ -872,16 +877,16 @@ class TinyFish(DiscoveryProvider):
     label = "TinyFish"
     kind = "serp"
     rank_codes = ()
-    blurb = ("Free web search with a key. Finds businesses by phrase; it "
-             "records no search rank, since its ordering isn't Google's.")
-    cost_note = "free"
-    free_tier = "free with a key, no card: 30 searches a minute, 500 an hour"
+    blurb = ("Kostenlose Websuche mit Schlüssel. Findet Firmen über Suchbegriffe, "
+             "speichert aber keinen Suchrang, weil die Reihenfolge nicht die von Google ist.")
+    cost_note = "kostenlos"
+    free_tier = "kostenlos mit Schlüssel, ohne Karte: 30 Suchen pro Minute, 500 pro Stunde"
     signup_url = "https://agent.tinyfish.ai/api-keys"
     env_keys = ("tinyfish_api_key",)
-    caveat = ("Needs TINYFISH_API_KEY in .env. Harvey paces itself to 30 searches "
-              "a minute; a depth-30 phrase is 3 searches, so about 160 phrases an "
-              "hour fit in the 500. No SERP_RANK: use Serper or DataForSEO SERP "
-              "for rank signals.")
+    caveat = ("Braucht TINYFISH_API_KEY in der .env. Harvey bremst sich auf 30 Suchen "
+              "pro Minute. Ein Suchbegriff mit Tiefe 30 sind 3 Suchen, also passen etwa "
+              "160 Begriffe pro Stunde in die 500. Kein SERP_RANK: Für Rangsignale nimm "
+              "Serper oder DataForSEO SERP.")
 
     ENDPOINT = "https://api.search.tinyfish.ai"
     # 30 a minute, with a little room, and a little under 500 an hour.
@@ -907,8 +912,8 @@ class TinyFish(DiscoveryProvider):
             if len(self._calls) >= self.HOURLY_LIMIT:
                 minutes = int((3600 - (now - self._calls[0])) // 60) + 1
                 raise ProviderExhausted(
-                    f"TinyFish allows 500 searches an hour and this hour's are used up. "
-                    f"Run again in about {minutes} minutes.")
+                    f"TinyFish erlaubt 500 Suchen pro Stunde, und die dieser Stunde sind "
+                    f"aufgebraucht. Starte in etwa {minutes} Minuten neu.")
             wait = self._last_call + self.MIN_INTERVAL - now
             if self._last_call and wait > 0:
                 await asyncio.sleep(wait)
@@ -922,7 +927,7 @@ class TinyFish(DiscoveryProvider):
                     query: DiscoveryQuery) -> list[Business]:
         api_key = env.get("tinyfish_api_key", "").strip()
         if not api_key:
-            raise RuntimeError("TinyFish needs TINYFISH_API_KEY in .env")
+            raise RuntimeError("TinyFish braucht TINYFISH_API_KEY in der .env")
 
         headers = {
             "X-API-Key": api_key,
@@ -950,7 +955,7 @@ class TinyFish(DiscoveryProvider):
                     if attempt == 0:
                         await asyncio.sleep(1.0)
                         continue
-                    raise RuntimeError(f"TinyFish search unreachable: {e}") from e
+                    raise RuntimeError(f"TinyFish-Suche nicht erreichbar: {e}") from e
 
                 if r.status_code == 429:
                     retry_after = 2.0
@@ -962,17 +967,18 @@ class TinyFish(DiscoveryProvider):
                         await asyncio.sleep(min(60.0, max(1.0, retry_after)))
                         continue
                     raise ProviderExhausted(
-                        "TinyFish: rate limited (it allows 30 searches a minute and 500 an "
-                        "hour). Try again later, or with fewer phrases.")
+                        "TinyFish: Limit erreicht (erlaubt sind 30 Suchen pro Minute und 500 pro "
+                        "Stunde). Versuch es später noch einmal oder mit weniger Suchbegriffen.")
                 break
 
             if r is None:
-                raise RuntimeError("TinyFish: Request failed.")
+                raise RuntimeError("TinyFish: Anfrage fehlgeschlagen.")
 
             if r.status_code == 401:
                 raise ProviderExhausted(
-                    "TinyFish: Invalid or missing API key (HTTP 401). "
-                    "Check TINYFISH_API_KEY in .env or get a free key at https://agent.tinyfish.ai/api-keys")
+                    "TinyFish: API-Schlüssel ungültig oder fehlt (HTTP 401). Prüf "
+                    "TINYFISH_API_KEY in der .env oder hol dir einen kostenlosen Schlüssel unter "
+                    "https://agent.tinyfish.ai/api-keys")
             if r.status_code == 402:
                 err_msg = ""
                 try:
@@ -985,15 +991,15 @@ class TinyFish(DiscoveryProvider):
                 except Exception:
                     pass
                 raise ProviderExhausted(
-                    f"TinyFish refused the search (HTTP 402). {err_msg}".strip())
+                    f"TinyFish hat die Suche abgelehnt (HTTP 402). {err_msg}".strip())
             r.raise_for_status()
 
             try:
                 data = r.json()
             except ValueError as e:
-                raise RuntimeError("TinyFish sent an unexpected answer (not JSON)") from e
+                raise RuntimeError("TinyFish hat eine unerwartete Antwort geschickt (kein JSON)") from e
             if not isinstance(data, dict):
-                raise RuntimeError("TinyFish sent an unexpected answer (not an object)")
+                raise RuntimeError("TinyFish hat eine unerwartete Antwort geschickt (kein Objekt)")
             items = data.get("results") or []
             if not isinstance(items, list) or not items:
                 break
@@ -1040,16 +1046,16 @@ class OpenStreetMap(DiscoveryProvider):
     label = "OpenStreetMap (Overpass)"
     kind = "listings"
     needs_coordinates = True
-    blurb = ("Free public map data. No signup, no key, no card. Try the whole "
-             "pipeline for nothing before you pay anyone.")
-    cost_note = "free"
-    free_tier = "unlimited, within community rate etiquette"
+    blurb = ("Kostenlose öffentliche Kartendaten. Keine Anmeldung, kein Schlüssel, keine "
+             "Karte. Probier den ganzen Ablauf gratis aus, bevor du irgendwen bezahlst.")
+    cost_note = "kostenlos"
+    free_tier = "unbegrenzt, im Rahmen der Fairness-Regeln der Community"
     signup_url = "https://www.openstreetmap.org"
     env_keys = ()
-    caveat = ("Coverage is thin for any trade without a storefront — OSM maps "
-              "premises, so it holds under 2,000 roofers for the entire US. "
-              "Great for a free trial run or as a cross-reference; not a "
-              "complete list.")
+    caveat = ("Für Branchen ohne Ladenlokal ist die Abdeckung dünn. OSM kartiert "
+              "Geschäftsräume, für die ganzen USA sind es zum Beispiel unter 2.000 "
+              "Dachdecker. Gut für einen kostenlosen Testlauf oder zum Abgleich, aber "
+              "keine vollständige Liste.")
 
     # Several public Overpass instances run the same API. The main one
     # throttles readily, so try the mirrors before giving up — a free source
@@ -1192,9 +1198,9 @@ class OpenStreetMap(DiscoveryProvider):
         tags = self._tags(query.term)
         if not tags:
             raise RuntimeError(
-                f"OpenStreetMap has no category for {query.term!r}. It can only "
-                f"search mapped trades ({', '.join(sorted(self.TAG_MAP))}). Use a "
-                f"listings or SERP provider for this one.")
+                f"OpenStreetMap hat keine Kategorie für {query.term!r}. Es kann nur "
+                f"kartierte Branchen suchen ({', '.join(sorted(self.TAG_MAP))}). Nimm "
+                f"dafür einen Anbieter für Firmeneinträge oder Suchergebnisse.")
         if area:
             key = "ISO3166-2" if "-" in area else "ISO3166-1"
             scope, prefix = "(area.a)", f'area["{key}"="{area}"]->.a;'
@@ -1241,11 +1247,11 @@ class OpenStreetMap(DiscoveryProvider):
             break
         else:
             raise RuntimeError(
-                "Every public Overpass mirror is unavailable or throttling "
-                "right now. This is free volunteer infrastructure — wait a few "
-                "minutes and re-run, or use a paid provider for bulk work.")
+                "Alle öffentlichen Overpass-Spiegel sind gerade nicht erreichbar oder bremsen. "
+                "Das ist kostenlose, ehrenamtliche Infrastruktur. Warte ein paar Minuten und "
+                "starte neu, oder nimm für große Mengen einen bezahlten Anbieter.")
         if r is None:
-            raise RuntimeError("Could not reach any Overpass mirror.")
+            raise RuntimeError("Kein Overpass-Spiegel war erreichbar.")
         r.raise_for_status()
 
         out = []
@@ -1293,7 +1299,7 @@ class ScavioProvider(DiscoveryProvider):
 
     signup_url = "https://scavio.dev"
     env_keys = ("scavio_api_key",)
-    free_tier = "50 credits on signup, no card"
+    free_tier = "50 Credits bei Anmeldung, keine Karte"
 
     API = "https://api.scavio.dev/api/v2/google"
     # Conservative pay-as-you-go price; subscription credits can cost less.
@@ -1305,7 +1311,7 @@ class ScavioProvider(DiscoveryProvider):
 
     async def _post(self, client, env, path: str, body: dict) -> dict:
         if self.last_cost + self.CREDIT_PRICE > self.remaining_budget + 1e-12:
-            raise ProviderExhausted("Scavio: budget reached before the next page")
+            raise ProviderExhausted("Scavio: Budget vor der nächsten Seite erreicht")
         wait = self._last_call + self.MIN_INTERVAL - time.monotonic()
         if wait > 0:
             await asyncio.sleep(wait)
@@ -1318,22 +1324,22 @@ class ScavioProvider(DiscoveryProvider):
                 json=body,
             )
         except httpx.HTTPError:
-            raise RuntimeError("Scavio: request failed; try again later") from None
+            raise RuntimeError("Scavio: Anfrage fehlgeschlagen. Versuch es später noch einmal") from None
         # Never put response bodies in logs: upstream errors may echo secrets.
         if r.status_code in (401, 402, 403, 429):
-            reasons = {401: "invalid API key", 402: "insufficient credits",
-                       403: "access refused", 429: "rate limit reached"}
+            reasons = {401: "ungültiger API-Schlüssel", 402: "nicht genug Credits",
+                       403: "Zugriff verweigert", 429: "Limit erreicht"}
             raise ProviderExhausted(f"Scavio {r.status_code}: {reasons[r.status_code]}")
         if r.status_code >= 400:
-            raise RuntimeError(f"Scavio {r.status_code}: request failed")
+            raise RuntimeError(f"Scavio {r.status_code}: Anfrage fehlgeschlagen")
         # A successful response is billable even if its body is malformed.
         self.last_cost += self.CREDIT_PRICE
         try:
             data = r.json()
         except ValueError:
-            raise RuntimeError("Scavio: invalid JSON response") from None
+            raise RuntimeError("Scavio: ungültige JSON-Antwort") from None
         if not isinstance(data, dict) or data.get("error"):
-            raise RuntimeError("Scavio: invalid response")
+            raise RuntimeError("Scavio: ungültige Antwort")
         credits = data.get("credits_used", 1)
         if (isinstance(credits, (int, float)) and not isinstance(credits, bool)
                 and math.isfinite(credits) and credits >= 0):
@@ -1354,17 +1360,17 @@ class ScavioProvider(DiscoveryProvider):
                 data = await self._post(client, env, path, dict(body, start=start))
                 items = data.get(results_key)
                 if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
-                    raise RuntimeError("Scavio: invalid results list")
+                    raise RuntimeError("Scavio: ungültige Ergebnisliste")
                 for item in items:
                     for field in ("title", "website", "link", "phone", "address", "type", "place_id"):
                         if item.get(field) is not None and not isinstance(item[field], str):
-                            raise RuntimeError("Scavio: invalid result field")
+                            raise RuntimeError("Scavio: ungültiges Ergebnisfeld")
                     for field in ("rating", "reviews", "position"):
                         value = item.get(field)
                         if value is not None and (isinstance(value, bool)
                                 or not isinstance(value, (int, float))
                                 or not math.isfinite(value) or value < 0):
-                            raise RuntimeError("Scavio: invalid numeric result field")
+                            raise RuntimeError("Scavio: ungültiges Zahlenfeld im Ergebnis")
                 last_page = self._last_page(data, items, page_size)
             except Exception as e:
                 self.complete = False
@@ -1397,13 +1403,13 @@ class ScavioMaps(ScavioProvider):
     needs_coordinates = True
     label = "Scavio Google Maps"
     kind = "listings"
-    blurb = ("Google Maps results around each city: phone, website, category, "
-             "rating and review count for every place. Up to 120 businesses "
-             "per search.")
-    cost_note = "1 credit per page (up to 20 listings); estimates use $0.01/credit"
-    caveat = ("Google Maps does not say whether a listing is claimed, so the "
-              "unclaimed-listing signal stays empty. Same key as Scavio Google "
-              "Search.")
+    blurb = ("Google-Maps-Ergebnisse rund um jede Stadt: Telefon, Website, Kategorie, "
+             "Bewertung und Zahl der Bewertungen für jeden Ort. Bis zu 120 Firmen "
+             "pro Suche.")
+    cost_note = "1 Credit pro Seite (bis zu 20 Einträge), geschätzt mit $0.01 pro Credit"
+    caveat = ("Google Maps verrät nicht, ob ein Eintrag beansprucht ist, das Signal für "
+              "nicht beanspruchte Einträge bleibt also leer. Gleicher Schlüssel wie "
+              "Scavio Google Search.")
 
     PAGE_SIZE = 20
     MAX_PAGES = 6        # the API accepts start up to 100
@@ -1484,11 +1490,11 @@ class ScavioSearch(ScavioProvider):
     rank_codes = ("SERP_RANK",)
     label = "Scavio Google Search"
     kind = "serp"
-    blurb = ("Google organic results with rank positions. One Scavio key "
-             "covers this and Google Maps listings.")
-    cost_note = "1 credit per page (up to 10 results); depth 30 estimated at $0.03"
-    caveat = ("Results come from google.com in English (US) unless the search "
-              "names another place. Depth 20-30 is the sweet spot.")
+    blurb = ("Organische Google-Ergebnisse mit Rangpositionen. Ein Scavio-Schlüssel "
+             "deckt das und die Google-Maps-Einträge ab.")
+    cost_note = "1 Credit pro Seite (bis zu 10 Ergebnisse), Tiefe 30 geschätzt mit $0.03"
+    caveat = ("Die Ergebnisse kommen von google.com auf Englisch (USA), außer die Suche "
+              "nennt einen anderen Ort. Tiefe 20 bis 30 ist der beste Bereich.")
 
     PAGE_SIZE = 10
 
@@ -1502,7 +1508,7 @@ class ScavioSearch(ScavioProvider):
         # The end is when Google offers no next page.
         pagination = data.get("pagination") or {}
         if not isinstance(pagination, dict):
-            raise RuntimeError("Scavio: invalid pagination")
+            raise RuntimeError("Scavio: ungültige Seitenangabe")
         return not items or not pagination.get("next")
 
     async def fetch(self, client, env, query):
@@ -1628,7 +1634,7 @@ PRESETS = {
     # ycombinator.com itself, whose terms forbid scraping and harvesting
     # contacts; its pages and the startup databases are excluded too.
     "yc": {
-        "label": "YC startups",
+        "label": "YC-Startups",
         "kinds": ("serp",),
         "term": ('"backed by Y Combinator" {industry} -site:ycombinator.com '
                  "-site:workatastartup.com -site:startupschool.org "
@@ -1641,7 +1647,7 @@ PRESETS = {
     # Profiling then reads the board their site links to and records the
     # role (HIRING_ROLE); the search hit alone records nothing.
     "hiring": {
-        "label": "Companies hiring for your roles",
+        "label": "Firmen, die für deine Rollen einstellen",
         "kinds": ("serp",),
         "term": ('"{role}" careers {industry} -site:greenhouse.io -site:lever.co '
                  "-site:ashbyhq.com -site:workable.com -site:smartrecruiters.com "
@@ -1654,7 +1660,7 @@ PRESETS = {
     # Startups that say on their own site an accelerator backed them. Two
     # searches per industry, because Google reads only the first 32 words.
     "accelerator": {
-        "label": "Accelerator startups",
+        "label": "Accelerator-Startups",
         "kinds": ("serp",),
         "terms": (
             '{industry} ("backed by Techstars" OR "backed by Antler" OR "backed by Entrepreneur First" '
@@ -1671,7 +1677,7 @@ PRESETS = {
     # Companies announcing their own raise, from the last ~18 months. The
     # news sites and databases are excluded here and filtered as junk.
     "funding": {
-        "label": "Recently funded",
+        "label": "Frisch finanziert",
         "kinds": ("serp",),
         "term": ('{industry} ("we raised" OR "we\'ve raised" OR announces OR raises) '
                  '("seed round" OR "Series A" OR "Series B") after:{since} '
@@ -1710,17 +1716,17 @@ def preset_problem(preset: str, provider_key: str, config=None) -> str | None:
         return None
     spec = PRESETS.get(preset)
     if spec is None:
-        return f"Unknown preset {preset!r}. Presets: {', '.join(PRESETS)}."
+        return f"Unbekannte Vorlage {preset!r}. Vorlagen: {', '.join(PRESETS)}."
     provider = PROVIDERS.get(provider_key)
     if provider is None or provider.kind not in spec["kinds"]:
         names = ", ".join(k for k, p in PROVIDERS.items() if p.kind in spec["kinds"])
-        return (f"The {spec['label']} preset is a web search, so it needs a search "
-                f"provider ({names}), not {provider_key}.")
+        return (f"Die Vorlage {spec['label']} ist eine Websuche und braucht deshalb einen "
+                f"Suchanbieter ({names}), nicht {provider_key}.")
     if any("{role}" in tpl for tpl in preset_templates(spec)) and config is not None:
         from harvey.collectors.ats import role_keywords
         if not role_keywords(getattr(config, "icp", None)):
-            return (f"The {spec['label']} preset searches for roles, and harvey.yaml has "
-                    "none: set icp.hiring_signals (or icp.titles).")
+            return (f"Die Vorlage {spec['label']} sucht nach Rollen, und in der harvey.yaml "
+                    "steht keine. Setz `icp.hiring_signals` (oder `icp.titles`).")
     return None
 
 
@@ -1829,25 +1835,25 @@ async def run_discovery(
     if missing:
         names = ", ".join(k.upper() for k in missing)
         report.errors.append(
-            f"{provider.label} is not ready: {names} is empty or still the "
-            f"template placeholder in .env")
-        report.stopped = "not configured"
+            f"{provider.label} ist nicht bereit: {names} ist in der .env leer oder "
+            f"noch der Platzhalter aus der Vorlage")
+        report.stopped = "nicht eingerichtet"
         return report
 
     if report.estimated_cost > max_spend:
         report.errors.append(
-            f"estimated ${report.estimated_cost:.2f} exceeds the ${max_spend:.2f} "
-            f"cap — raise the cap or run fewer queries")
-        report.stopped = "over budget"
+            f"geschätzt ${report.estimated_cost:.2f}, das liegt über der Grenze von "
+            f"${max_spend:.2f}. Erhöh die Grenze oder starte weniger Suchanfragen")
+        report.stopped = "über dem Budget"
         return report
 
     await seed_signal_catalog(state)
     confirmed = await state.confirmed_signal_codes()
     if not confirmed:
         report.errors.append(
-            "no signals confirmed — confirm signals first (dashboard → Signals, "
-            "or `harvey signals --confirm free`) or discovery has nothing to record")
-        report.stopped = "no confirmed signals"
+            "keine Signale bestätigt. Bestätige zuerst Signale (Dashboard, Bereich Signale, "
+            "oder `harvey signals --confirm free`), sonst hat die Suche nichts zu speichern")
+        report.stopped = "keine bestätigten Signale"
         return report
 
     report.run_id = await state.start_run(
@@ -1872,10 +1878,10 @@ async def run_discovery(
                 # The kill switch is read between batches, not once at the
                 # top: a long run has to be stoppable while it is running.
                 if await state.get_setting("discovery_paused"):
-                    report.stopped = "paused"
+                    report.stopped = "pausiert"
                     break
                 if report.actual_cost > max_spend:
-                    report.stopped = "budget reached"
+                    report.stopped = "Budget erreicht"
                     break
                 if i and provider.key == "osm":
                     await asyncio.sleep(OpenStreetMap.MIN_INTERVAL)
@@ -1929,6 +1935,11 @@ async def run_discovery(
                     if first:
                         seen.add(ident)
                         company_id, is_new = await _upsert(state, biz, query)
+                        if company_id is None:
+                            # Another business already owns this website: its
+                            # facts must not be filed under that one.
+                            report.known_companies += 1
+                            continue
                         if is_new:
                             report.new_companies += 1
                         else:
@@ -2000,8 +2011,22 @@ async def run_discovery(
     return report
 
 
-async def _upsert(state, biz: Business, query: DiscoveryQuery) -> tuple[str, bool]:
-    """Record the business, returning (id, was_new)."""
+def _same_business(a: str, b: str) -> bool:
+    """Two names for one business ("Physio Huber" / "Physiotherapie Huber GmbH")."""
+    import unicodedata
+    def words(name):
+        name = unicodedata.normalize("NFKD", (name or "").lower())
+        name = "".join(c for c in name if not unicodedata.combining(c))
+        return {w for w in re.findall(r"[a-z0-9]{3,}", name)
+                if w not in ("gmbh", "praxis", "physiotherapie", "physio", "und", "der", "die", "das",
+                             "fur", "fuer", "the", "mbh", "inh", "dr", "med")}
+    wa, wb = words(a), words(b)
+    return not wa or not wb or bool(wa & wb)
+
+
+async def _upsert(state, biz: Business, query: DiscoveryQuery) -> tuple[str | None, bool]:
+    """Record the business, returning (id, was_new). (None, False) when the
+    website already belongs to a business with a clearly different name."""
     # Look before inserting, so "already knew this one" is a fact we report
     # rather than something inferred from an insert's return value.
     existing = None
@@ -2011,6 +2036,9 @@ async def _upsert(state, biz: Business, query: DiscoveryQuery) -> tuple[str, boo
         if existing is None and external:
             existing = await state.get_company_by_external_id(external)
     if existing:
+        by_id = any(x and x == existing.external_id for x in (biz.external_id, *biz.alt_ids))
+        if not by_id and not _same_business(existing.name, biz.name):
+            return None, False
         return existing.id, False
 
     company = Company(

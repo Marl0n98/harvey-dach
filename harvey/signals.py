@@ -14,6 +14,11 @@ column. A new signal needs no migration, history comes free, and confidence
 and provenance travel with the fact.
 """
 
+# A cost note starting with one of these means collecting it costs nothing
+# (`harvey signals --confirm free`, the dashboard's cost chip). The English
+# ones are what rows seeded before the German notes still say.
+FREE_COST_PREFIXES = ("kostenlos", "enthalten", "free", "included")
+
 # category: discovery | profile | people | verification
 # value_type: num | text | bool
 # cost_note: what collecting it actually costs, in plain language
@@ -21,367 +26,369 @@ SIGNAL_CATALOG: list[dict] = [
     # ── Discovery: who exists, and how visible are they ──
     {
         "code": "SERP_RANK",
-        "label": "Search rank position",
+        "label": "Position in der Google-Suche",
         "description": (
-            "Where the business ranks organically for a '<service> <city>' "
-            "search (the search phrase is stored with it). The most useful "
-            "prospecting signal there is: positions 11-30 are the sweet spot — "
-            "visible enough to be trying, not winning yet. Top 10 are already "
-            "winning (harder sell); 31+ are cheaper but less motivated. Rank "
-            "depends on where the searcher stands: this is the view from the "
-            "city centre."
+            "Wo die Firma organisch für eine Suche nach '<Leistung> <Stadt>' "
+            "steht (die Suchanfrage wird mitgespeichert). Das nützlichste "
+            "Signal für die Akquise: Platz 11 bis 30 ist der beste Bereich. "
+            "Sichtbar genug, dass sie es versuchen, aber noch nicht vorne. Die "
+            "Top 10 gewinnen schon (schwerer zu verkaufen), ab Platz 31 ist es "
+            "günstiger, aber weniger dringend. Der Rang hängt davon ab, wo "
+            "gesucht wird: Das hier ist der Blick aus der Stadtmitte."
         ),
         "category": "discovery",
         "value_type": "num",
         "collector": "discover",
-        "cost_note": "~$0.006 per search at depth 30 (paid SERP API, Live endpoint)",
+        "cost_note": "ca. $0.006 pro Suche bei Tiefe 30 (kostenpflichtige SERP-API, Live-Endpunkt)",
         "confidence_floor": 0.0,
     },
     {
         "code": "IN_LOCAL_PACK",
-        "label": "In the Google local 3-pack",
+        "label": "Im lokalen 3er-Block von Google",
         "description": (
-            "Holds one of the three map slots above the organic results for a "
-            "'<service> <city>' search (value = slot 1-3; ads excluded). These "
-            "businesses are already winning local search — exclude them to "
-            "find the ones who aren't, or target them with something else."
+            "Hat einen der drei Kartenplätze über den organischen Ergebnissen "
+            "für eine Suche nach '<Leistung> <Stadt>' (Wert = Platz 1 bis 3, "
+            "ohne Anzeigen). Diese Firmen gewinnen die lokale Suche schon. "
+            "Schließ sie aus, um die anderen zu finden, oder biete ihnen etwas "
+            "anderes an."
         ),
         "category": "discovery",
         "value_type": "num",
         "collector": "discover",
-        "cost_note": "included in the organic rank search above",
+        "cost_note": "enthalten in der organischen Suche oben",
         "confidence_floor": 0.0,
     },
     {
         "code": "MAPS_RANK",
-        "label": "Google Maps rank position",
+        "label": "Position in Google Maps",
         "description": (
-            "Where the business appears in Google Maps for a '<service> <city>' "
-            "search from the city centre (the search phrase is stored with it). "
-            "Outside the top 3 on the map means outside the local pack most "
-            "searchers see. Also finds businesses with no website at all."
+            "Wo die Firma in Google Maps bei einer Suche nach '<Leistung> <Stadt>' "
+            "aus der Stadtmitte erscheint (die Suchanfrage wird mitgespeichert). "
+            "Außerhalb der Top 3 auf der Karte heißt: außerhalb des lokalen "
+            "Blocks, den die meisten sehen. Findet auch Firmen ganz ohne Website."
         ),
         "category": "discovery",
         "value_type": "num",
         "collector": "discover",
-        "cost_note": "~$0.002 per Maps search of up to 100 results (paid SERP API)",
+        "cost_note": "ca. $0.002 pro Maps-Suche mit bis zu 100 Ergebnissen (kostenpflichtige SERP-API)",
         "confidence_floor": 0.0,
     },
     {
         "code": "FOUND_IN_SERP",
-        "label": "Discovered via search",
-        "description": "The business appeared in a target-market search — how Harvey found it at all.",
+        "label": "Über die Suche gefunden",
+        "description": "Die Firma ist in einer Suche im Zielmarkt aufgetaucht. So hat Harvey sie überhaupt gefunden.",
         "category": "discovery",
         "value_type": "text",
         "collector": "discover",
-        "cost_note": "included in the search above",
+        "cost_note": "enthalten in der Suche oben",
         "confidence_floor": 0.0,
     },
 
     {
         "code": "NO_WEBSITE",
-        "label": "No website at all",
+        "label": "Gar keine Website",
         "description": (
-            "The business has a listing and a phone number but no site. If you "
-            "sell websites this is the highest-intent signal that exists — and "
-            "it is a filter you can query for directly, not something you infer."
+            "Die Firma hat einen Eintrag und eine Telefonnummer, aber keine Website. "
+            "Wenn du Websites verkaufst, gibt es kein stärkeres Signal. Und du "
+            "kannst direkt danach filtern, statt es zu erraten."
         ),
         "category": "discovery",
         "value_type": "bool",
         "collector": "discover",
-        "cost_note": "included in the business listing lookup",
+        "cost_note": "enthalten in der Abfrage des Firmeneintrags",
         "confidence_floor": 0.0,
     },
     {
         "code": "UNCLAIMED_LISTING",
-        "label": "Unclaimed Google listing",
+        "label": "Google-Eintrag nicht beansprucht",
         "description": (
-            "Nobody has claimed their Google Business Profile, so they are not "
-            "managing how they show up locally. Strong signal for anyone "
-            "selling local marketing."
+            "Niemand hat ihr Google-Unternehmensprofil beansprucht. Sie kümmern "
+            "sich also nicht darum, wie sie lokal auftauchen. Starkes Signal, "
+            "wenn du lokales Marketing verkaufst."
         ),
         "category": "discovery",
         "value_type": "bool",
         "collector": "discover",
-        "cost_note": "included in the business listing lookup",
+        "cost_note": "enthalten in der Abfrage des Firmeneintrags",
         "confidence_floor": 0.0,
     },
     {
         "code": "REVIEW_RATING",
-        "label": "Review rating",
+        "label": "Bewertung",
         "description": (
-            "Their average star rating. Useful in both directions: a low "
-            "rating is a reputation problem to solve, a high one with few "
-            "reviews is proof they are good but invisible."
+            "Ihre durchschnittliche Sternebewertung. Hilft in beide Richtungen: "
+            "Eine schlechte Bewertung ist ein Rufproblem, das du lösen kannst. "
+            "Eine gute mit wenigen Bewertungen zeigt, dass sie gut, aber unsichtbar sind."
         ),
         "category": "discovery",
         "value_type": "num",
         "collector": "discover",
-        "cost_note": "included in the business listing lookup",
+        "cost_note": "enthalten in der Abfrage des Firmeneintrags",
         "confidence_floor": 0.0,
     },
     {
         "code": "REVIEW_COUNT",
-        "label": "Number of reviews",
+        "label": "Anzahl der Bewertungen",
         "description": (
-            "How many reviews they have. A rough proxy for size and for how "
-            "much attention they pay to their online presence."
+            "Wie viele Bewertungen sie haben. Ein grober Hinweis auf ihre Größe "
+            "und darauf, wie sehr sie sich um ihren Auftritt im Netz kümmern."
         ),
         "category": "discovery",
         "value_type": "num",
         "collector": "discover",
-        "cost_note": "included in the business listing lookup",
+        "cost_note": "enthalten in der Abfrage des Firmeneintrags",
         "confidence_floor": 0.0,
     },
 
     # ── Profile: what they are (free — HTML Harvey already fetches) ──
     {
         "code": "INCUMBENT_AGENCY",
-        "label": "Has a marketing/web agency",
+        "label": "Hat eine Marketing- oder Webagentur",
         "description": (
-            "An agency credited in the site footer ('Website by X'). High-value: "
-            "it tells you who you're displacing, and every detection builds a "
-            "roster you can target as a whole book of business. Only recorded "
-            "when the credit wording is explicit — a wrong incumbent is worse "
-            "than none."
+            "Eine Agentur, die im Footer der Website genannt wird ('Website von X'). "
+            "Sehr wertvoll: Du weißt, wen du ablöst, und mit jedem Fund wächst eine "
+            "Liste, die du als ganzen Kundenstamm angehen kannst. Wird nur erfasst, "
+            "wenn die Nennung eindeutig ist. Eine falsche Agentur ist schlimmer als keine."
         ),
         "category": "profile",
         "value_type": "text",
         "collector": "profile",
-        "cost_note": "free (homepage HTML)",
+        "cost_note": "kostenlos (HTML der Startseite)",
         "confidence_floor": 0.75,
     },
     {
         "code": "RUNNING_GOOGLE_ADS",
-        "label": "Running Google Ads",
-        "description": "Google Ads tag on the site — they are spending on acquisition TODAY. Strong budget signal.",
+        "label": "Schaltet Google Ads",
+        "description": "Google-Ads-Tag auf der Website. Sie geben HEUTE Geld für Kundengewinnung aus. Starkes Budgetsignal.",
         "category": "profile",
         "value_type": "bool",
         "collector": "profile",
-        "cost_note": "free (homepage HTML)",
+        "cost_note": "kostenlos (HTML der Startseite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "RUNNING_META_ADS",
-        "label": "Running Meta/Facebook Ads",
-        "description": "Meta Pixel on the site — actively spending on paid social.",
+        "label": "Schaltet Meta- oder Facebook-Anzeigen",
+        "description": "Meta-Pixel auf der Website. Sie geben gerade Geld für bezahlte Social-Media-Werbung aus.",
         "category": "profile",
         "value_type": "bool",
         "collector": "profile",
-        "cost_note": "free (homepage HTML)",
+        "cost_note": "kostenlos (HTML der Startseite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "TECH_STACK",
-        "label": "Website platform / tools",
-        "description": "What the site is built on and which tools it runs (WordPress, Shopify, HubSpot, chat widgets, booking tools).",
+        "label": "Website-Plattform und Tools",
+        "description": "Worauf die Website läuft und welche Tools sie nutzt (WordPress, Shopify, HubSpot, Chat-Widgets, Buchungstools).",
         "category": "profile",
         "value_type": "text",
         "collector": "profile",
-        "cost_note": "free (homepage HTML)",
+        "cost_note": "kostenlos (HTML der Startseite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "NO_SCHEMA_MARKUP",
-        "label": "Missing structured data",
-        "description": "No JSON-LD schema markup — a concrete, checkable SEO gap you can name in an email.",
+        "label": "Keine strukturierten Daten",
+        "description": "Kein JSON-LD-Schema-Markup. Eine konkrete, prüfbare SEO-Lücke, die du in einer E-Mail nennen kannst.",
         "category": "profile",
         "value_type": "bool",
         "collector": "profile",
-        "cost_note": "free (homepage HTML)",
+        "cost_note": "kostenlos (HTML der Startseite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "NO_ONLINE_BOOKING",
-        "label": "No online booking/scheduling",
-        "description": "No booking or scheduling widget detected — leads have to phone in, so after-hours demand is lost.",
+        "label": "Keine Online-Terminbuchung",
+        "description": "Kein Buchungs- oder Termin-Widget gefunden. Interessenten müssen anrufen, Anfragen nach Feierabend gehen verloren.",
         "category": "profile",
         "value_type": "bool",
         "collector": "profile",
-        "cost_note": "free (homepage HTML)",
+        "cost_note": "kostenlos (HTML der Startseite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "SITE_PAGE_COUNT",
-        "label": "Site size",
-        "description": "Page count from sitemap.xml. A very thin site suggests little investment; a large stale one suggests neglect.",
+        "label": "Größe der Website",
+        "description": "Seitenzahl aus der sitemap.xml. Eine sehr dünne Website heißt wenig Investition, eine große veraltete heißt Vernachlässigung.",
         "category": "profile",
         "value_type": "num",
         "collector": "profile",
-        "cost_note": "free (sitemap.xml)",
+        "cost_note": "kostenlos (sitemap.xml)",
         "confidence_floor": 0.0,
     },
     {
         "code": "BLOG_STALE",
-        "label": "Content gone stale",
-        "description": "No new content in a long time — content marketing started and abandoned.",
+        "label": "Inhalte veraltet",
+        "description": "Lange keine neuen Inhalte. Content-Marketing angefangen und liegen gelassen.",
         "category": "profile",
         "value_type": "num",
         "collector": "profile",
-        "cost_note": "free (sitemap.xml)",
+        "cost_note": "kostenlos (sitemap.xml)",
         "confidence_floor": 0.0,
     },
     {
         "code": "BLOCKS_AI_CRAWLERS",
-        "label": "Blocks AI crawlers",
-        "description": "robots.txt blocks AI crawlers — they'll be invisible in AI search answers.",
+        "label": "Sperrt KI-Crawler",
+        "description": "Die robots.txt sperrt KI-Crawler. In Antworten von KI-Suchen tauchen sie dann nicht auf.",
         "category": "profile",
         "value_type": "bool",
         "collector": "profile",
-        "cost_note": "free (robots.txt)",
+        "cost_note": "kostenlos (robots.txt)",
         "confidence_floor": 0.0,
     },
     {
         "code": "YC_BACKED",
-        "label": "Backed by Y Combinator",
-        "description": ("The company says on its own site that it's YC-backed (a batch like "
-                        "W24, a YC badge, or a link to its YC page). Pairs with the YC-startups "
-                        "discovery preset and the startup-founder writing playbook."),
+        "label": "Von Y Combinator finanziert",
+        "description": ("Die Firma sagt auf ihrer eigenen Website, dass YC sie finanziert (ein "
+                        "Batch wie W24, ein YC-Badge oder ein Link auf ihre YC-Seite). Passt zur "
+                        "Suchvorlage YC-Startups und zum Schreibleitfaden für Startup-Gründer."),
         "category": "profile",
         "value_type": "bool",
         "collector": "profile",
-        "cost_note": "free (homepage HTML)",
+        "cost_note": "kostenlos (HTML der Startseite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "ACCELERATOR",
-        "label": "Went through an accelerator",
-        "description": ("The company says on its own site that an accelerator backed it: Techstars, "
-                        "500 Global, Antler, Entrepreneur First, South Park Commons, Neo, AI Grant, "
-                        "a16z speedrun, Pioneer or Plug and Play, with the cohort when stated. YC is "
-                        "YC_BACKED. Pairs with the accelerator discovery preset and the startup-founder "
-                        "writing playbook."),
+        "label": "War in einem Accelerator",
+        "description": ("Die Firma sagt auf ihrer eigenen Website, dass ein Accelerator sie unterstützt "
+                        "hat: Techstars, 500 Global, Antler, Entrepreneur First, South Park Commons, Neo, "
+                        "AI Grant, a16z speedrun, Pioneer oder Plug and Play, mit Jahrgang, wenn genannt. "
+                        "YC läuft über YC_BACKED. Passt zur Suchvorlage Accelerator-Startups und zum "
+                        "Schreibleitfaden für Startup-Gründer."),
         "category": "profile",
         "value_type": "bool",
         "collector": "profile",
-        "cost_note": "free (homepage and About page)",
+        "cost_note": "kostenlos (Startseite und Über-uns-Seite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "FUNDING_ROUND",
-        "label": "Announced a funding round",
-        "description": ("The company announces its own raise on its site (\"we raised\", \"Acme raises "
-                        "$12M Series A\"): round, amount and date when stated. Raises over 18 months old "
-                        "aren't written to as news. Pairs with the recently-funded discovery preset."),
+        "label": "Finanzierungsrunde angekündigt",
+        "description": ("Die Firma meldet auf ihrer Website selbst eine Finanzierung (\"we raised\", "
+                        "\"Acme sammelt 12 Mio. $ in der Series A ein\"): Runde, Betrag und Datum, wenn "
+                        "genannt. Runden, die älter als 18 Monate sind, werden nicht als Neuigkeit "
+                        "angeschrieben. Passt zur Suchvorlage Frisch finanziert."),
         "category": "profile",
         "value_type": "bool",
         "collector": "profile",
-        "cost_note": "free (homepage, About, press page)",
+        "cost_note": "kostenlos (Startseite, Über uns, Presseseite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "HIRING_ROLE",
-        "label": "Hiring for a relevant role",
+        "label": "Sucht für eine passende Stelle",
         "description": (
-            "An open role that implies they're buying in your category right now: one "
-            "of your hiring_signals roles (or ICP titles) on the Greenhouse, Lever, "
-            "Ashby or Workable board their site links to, with department, location "
-            "and posting date, or a role listed on their careers page."
+            "Eine offene Stelle, die zeigt, dass sie gerade in deinem Bereich einkaufen: "
+            "eine deiner hiring_signals-Rollen (oder ICP-Titel) auf dem Greenhouse-, "
+            "Lever-, Ashby- oder Workable-Board, auf das ihre Website verlinkt, mit "
+            "Abteilung, Ort und Datum, oder eine Stelle auf ihrer Karriereseite."
         ),
         "category": "profile",
         "value_type": "text",
         "collector": "profile",
-        "cost_note": "free (careers page or public job-board feed)",
+        "cost_note": "kostenlos (Karriereseite oder öffentlicher Feed der Jobbörse)",
         "confidence_floor": 0.0,
     },
     {
         "code": "OPEN_ROLES",
-        "label": "Open roles on their job board",
+        "label": "Offene Stellen auf ihrer Jobbörse",
         "description": (
-            "How many roles are open on the Greenhouse, Lever, Ashby or Workable board "
-            "their site links to. A growing team is a budget signal; zero is a quiet one."
+            "Wie viele Stellen auf dem Greenhouse-, Lever-, Ashby- oder Workable-Board "
+            "offen sind, auf das ihre Website verlinkt. Ein wachsendes Team ist ein "
+            "Budgetsignal, null Stellen ein leises."
         ),
         "category": "profile",
         "value_type": "num",
         "collector": "profile",
-        "cost_note": "free (public job-board feed, one request)",
+        "cost_note": "kostenlos (öffentlicher Feed der Jobbörse, eine Anfrage)",
         "confidence_floor": 0.0,
     },
 
     # ── People: who decides ──
     {
         "code": "CONTACT_FOUND",
-        "label": "Named contact found",
-        "description": "A named person scraped from the team/about page, with their title.",
+        "label": "Ansprechpartner mit Namen gefunden",
+        "description": "Eine Person mit Namen und Titel, gefunden auf der Team- oder Über-uns-Seite.",
         "category": "people",
         "value_type": "text",
         "collector": "people",
-        "cost_note": "free (team page)",
+        "cost_note": "kostenlos (Teamseite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "DECISION_MAKER_TITLE",
-        "label": "Decision-maker title",
-        "description": "Title matches an owner/decision-maker pattern (Owner, President, Practice Manager, Marketing Director).",
+        "label": "Titel einer entscheidenden Person",
+        "description": "Der Titel passt zu Inhabern oder Entscheidern (Inhaber, Geschäftsführer, Praxismanager, Marketingleiter).",
         "category": "people",
         "value_type": "text",
         "collector": "people",
-        "cost_note": "free (team page)",
+        "cost_note": "kostenlos (Teamseite)",
         "confidence_floor": 0.0,
     },
     {
         "code": "REGISTRY_VERIFIED",
-        "label": "Confirmed in a public registry",
+        "label": "In einem öffentlichen Register bestätigt",
         "description": (
-            "The person was confirmed in an authoritative public registry "
-            "(licensing board, professional registry). Also filters out "
-            "scraping artifacts — a name that matches nothing usually wasn't a person."
+            "Die Person wurde in einem amtlichen öffentlichen Register bestätigt "
+            "(Kammer, Berufsregister). Filtert auch Fehler beim Auslesen heraus. "
+            "Ein Name, der nirgends passt, war meistens keine Person."
         ),
         "category": "people",
         "value_type": "text",
         "collector": "people",
-        "cost_note": "free (public registry API)",
+        "cost_note": "kostenlos (API des öffentlichen Registers)",
         "confidence_floor": 0.0,
     },
     {
         "code": "LIKELY_OWNER",
-        "label": "Likely the owner",
+        "label": "Wahrscheinlich der Inhaber",
         "description": (
-            "The company's own website says this person owns or founded it: an "
-            "Owner/Founder/President title, a sentence like 'owned and operated by' "
-            "or a schema.org founder. Former, retired and late owners don't count. "
-            "The evidence is kept with the fact."
+            "Die eigene Website der Firma sagt, dass diese Person sie besitzt oder "
+            "gegründet hat: ein Titel wie Inhaber, Gründer oder Geschäftsführer, ein "
+            "Satz wie 'inhabergeführt von' oder ein schema.org-Gründer. Frühere, "
+            "pensionierte und verstorbene Inhaber zählen nicht. Der Beleg wird mitgespeichert."
         ),
         "category": "people",
         "value_type": "bool",
         "collector": "people",
-        "cost_note": "free (company website)",
+        "cost_note": "kostenlos (Website der Firma)",
         "confidence_floor": 0.0,
     },
 
     # ── Verification ──
     {
         "code": "EMAIL_PATTERN",
-        "label": "Company email pattern",
-        "description": "The domain's address format (first.last@, flast@). One real address cracks the whole company.",
+        "label": "E-Mail-Schema der Firma",
+        "description": "Das Adressformat der Domain (vorname.nachname@, vnachname@). Eine echte Adresse knackt die ganze Firma.",
         "category": "verification",
         "value_type": "text",
         "collector": "verify",
-        "cost_note": "free, or ~1 lookup credit",
+        "cost_note": "kostenlos oder ca. 1 Abfrage-Credit",
         "confidence_floor": 0.0,
     },
     {
         "code": "EMAIL_STATUS",
-        "label": "Email deliverability",
-        "description": "Whether the address is verified, catch-all/risky, an unverified guess, or invalid.",
+        "label": "Zustellbarkeit der E-Mail",
+        "description": "Ob die Adresse geprüft ist, ein Catch-all und damit riskant, nur geraten oder ungültig.",
         "category": "verification",
         "value_type": "text",
         "collector": "verify",
-        "cost_note": "1 verification credit (free tiers available)",
+        "cost_note": "1 Prüf-Credit (kostenlose Kontingente verfügbar)",
         "confidence_floor": 0.0,
     },
     {
         "code": "CONTACT_FORM_URL",
-        "label": "Contact form available",
+        "label": "Kontaktformular vorhanden",
         "description": (
-            "A contact form on the site. Worth knowing because it reaches the "
-            "business without needing an email address at all — and roughly "
-            "half of domains can't be email-verified."
+            "Ein Kontaktformular auf der Website. Gut zu wissen, weil es die Firma "
+            "ganz ohne E-Mail-Adresse erreicht. Und etwa die Hälfte aller Domains "
+            "lässt sich per E-Mail nicht prüfen."
         ),
         "category": "verification",
         "value_type": "text",
         "collector": "profile",
-        "cost_note": "free (site HTML)",
+        "cost_note": "kostenlos (HTML der Website)",
         "confidence_floor": 0.0,
     },
 ]

@@ -249,7 +249,7 @@ def test_how_long_ago():
 @pytest.mark.parametrize("code", ["ACCELERATOR", "FUNDING_ROUND"])
 def test_the_new_signals_are_free_profile_signals(code):
     [sig] = [s for s in SIGNAL_CATALOG if s["code"] == code]
-    assert sig["collector"] == "profile" and "free" in sig["cost_note"]
+    assert sig["collector"] == "profile" and "kostenlos" in sig["cost_note"]
 
 
 @pytest.mark.asyncio

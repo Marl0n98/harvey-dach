@@ -94,8 +94,9 @@ def consent_hold(config, to_email: str, country: str = "") -> str:
     # ICP names only places that are certainly outside the consent countries.
     if not code and _icp_outside(config, required):
         return ""
-    return ("Consent needed: this country requires prior consent for advertising email, "
-            "also to businesses. Add the address to compliance.consent_list once you have it.")
+    return ("Einwilligung nötig: In diesem Land braucht Werbung per E-Mail eine vorherige "
+            "Einwilligung, auch an Firmen. Trag die Adresse in `compliance.consent_list` ein, "
+            "sobald du sie hast.")
 
 
 def _icp_outside(config, required: set[str]) -> bool:
@@ -356,7 +357,7 @@ class Sender:
                 p.first_name, p.last_name, p.company, p.title, p.personalization_notes))
             held = autopilot_review("", fields, self.config, recipient=p.email)
             if listed := do_not_contact_match(p.email, live_do_not_contact(self.config)):
-                held = [f"'{listed}' is on the do-not-contact list", *held]
+                held = [f"'{listed}' steht auf der Sperrliste", *held]
             # Instantly sends on its own schedule, so the consent hold acts here.
             if reason := consent_hold(self.config, p.email, getattr(p, "country", "") or ""):
                 held = [reason, *held]
@@ -387,7 +388,7 @@ class Sender:
             return
         # Instantly only deploys on autopilot, so nobody has read these
         # templates: what a planted instruction would add holds the campaign.
-        held = [f"step {s.step} {r}" for s in campaign.sequence
+        held = [f"Schritt {s.step}: {r}" for s in campaign.sequence
                 for r in autopilot_review(s.subject, s.body, self.config)]
         if held:
             logger.warning(f"Sender: Instantly campaign '{campaign.name}' held for review: {held}")
@@ -397,7 +398,7 @@ class Sender:
                 await self.state.log_action(
                     action_type="escalation", agent="sender",
                     details={"campaign_name": campaign.name,
-                             "reason": "campaign held: " + "; ".join(held)[:200]},
+                             "reason": "Kampagne zurückgehalten: " + "; ".join(held)[:200]},
                 )
             return
 
@@ -622,7 +623,9 @@ class Sender:
         """Fill merge variables. The pre-send gate rejects any leftovers."""
         replacements = {
             # A company inbox has no name; "there" keeps "Hi {{first_name}}," readable.
-            "first_name": prospect.first_name or ("there" if prospect.is_company_inbox else ""),
+            "first_name": prospect.first_name or (
+                ("zusammen" if getattr(getattr(getattr(self, "config", None), "brain", None), "language", "") == "de" else "there")
+                if prospect.is_company_inbox else ""),
             "last_name": prospect.last_name,
             "company": prospect.company,
             "title": prospect.title,
@@ -721,7 +724,7 @@ class Sender:
         if answered:
             logger.info(
                 f"Sender: left out {answered} prospect(s) from '{campaign.name}': "
-                f"{COLLEAGUE_REPLIED} at their company."
+                f"{COLLEAGUE_REPLIED}."
             )
         if staged:
             mode = "awaiting your approval" if require_approval else "approved"
@@ -768,7 +771,7 @@ class Sender:
         if prev["status"] in ("pending_review", "approved", "sending"):
             return "wait"
         if prev["status"] != "sent":
-            return "cancelled", f"step {prev['step']} wasn't sent ({prev['status']})"
+            return "cancelled", f"Schritt {prev['step']} wurde nicht gesendet ({prev['status']})"
 
         def _at(value):
             try:
@@ -807,18 +810,18 @@ class Sender:
         """Why this email must not go out, as (status, error), or None."""
         await sync_sending_mode(self.config, self.state)   # "Turn off autopilot" counts at once
         if prospect is None:
-            return "failed", "prospect missing"
+            return "failed", "Kontakt fehlt"
         if item["kind"] == "sequence":
             # Stop-on-reply / opt-out: never continue a sequence after contact.
             if prospect.status in STOP_STATUSES:
-                return "cancelled", f"prospect status '{prospect.status}'"
+                return "cancelled", f"Kontaktstatus '{prospect.status}'"
             # The user already emailed them by hand: whatever Harvey staged
             # (before, during or after that) would be a second email.
             if await self.state.get_setting(MANUAL_SEND_KEY + prospect.id):
                 return "cancelled", HAND_SENT_REASON
             # A first email to someone already contacted is always a duplicate.
             if item["step"] == 1 and prospect.status == "contacted":
-                return "cancelled", "already contacted"
+                return "cancelled", "schon kontaktiert"
             # Someone else at their company answered: the rest of the
             # company gets no more cold email.
             colleague = await self.state.colleague_who_replied(prospect.id)
@@ -839,7 +842,7 @@ class Sender:
                 f"Sender: gate blocked email to {item['to_email']}: "
                 f"{gate.reasons}"
             )
-            return "failed", "gate: " + "; ".join(gate.reasons)[:300]
+            return "failed", "Versandprüfung: " + "; ".join(gate.reasons)[:300]
         if (item.get("approved_by") == "autopilot"
                 and getattr(self.config.channels.email, "require_approval", True)):
             # Autopilot approved it, and autopilot has since been turned off.

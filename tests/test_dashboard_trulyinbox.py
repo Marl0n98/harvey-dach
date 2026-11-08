@@ -28,7 +28,7 @@ def test_the_step_starts_open_with_the_link(client):
 def test_another_service_completes_the_step(client):
     assert client.post("/api/trulyinbox/other").json()["success"]
     step = _step(client)
-    assert step["done"] and "your own" in step["label"]
+    assert step["done"] and "eigener" in step["label"]
 
 
 def test_connecting_checks_the_key_then_saves_it(client, monkeypatch):
@@ -42,7 +42,7 @@ def test_connecting_checks_the_key_then_saves_it(client, monkeypatch):
     written = {}
     monkeypatch.setattr(dash, "_write_env_file", lambda u: written.update(u))
     r = client.post("/api/trulyinbox/connect", json={"key": "  ti_ws_abc  "}).json()
-    assert r["success"] and "isn't in your TrulyInbox" in r["message"]
+    assert r["success"] and "noch nicht in deinem TrulyInbox-Konto" in r["message"]
     assert seen["key"] == "ti_ws_abc"
     assert written == {"TRULYINBOX_API_KEY": "ti_ws_abc", "TRULYINBOX_WORKSPACE_ID": "42"}
     assert _step(client)["done"]
@@ -55,7 +55,7 @@ def test_a_rejected_key_is_not_saved(client, monkeypatch):
     written = {}
     monkeypatch.setattr(dash, "_write_env_file", lambda u: written.update(u))
     r = client.post("/api/trulyinbox/connect", json={"key": "ti_ws_bad"})
-    assert r.status_code == 400 and "rejected" in r.json()["message"]
+    assert r.status_code == 400 and "abgelehnt" in r.json()["message"]
     assert not written and not _step(client)["done"]
 
 
@@ -69,7 +69,7 @@ def test_connect_without_a_sending_address_is_refused(client, monkeypatch):
     written = {}
     monkeypatch.setattr(dash, "_write_env_file", lambda u: written.update(u))
     r = client.post("/api/trulyinbox/connect", json={"key": "ti_ws_abc"})
-    assert r.status_code == 400 and "sends from" in r.json()["message"] and not written
+    assert r.status_code == 400 and "von welchem Postfach" in r.json()["message"] and not written
 
 
 def test_the_step_is_optional_on_instantly(client, monkeypatch):

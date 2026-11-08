@@ -199,14 +199,14 @@ async def test_a_stale_or_malformed_hold_is_ignored(state):
 def test_messages_say_how_to_fix_each_hold():
     keyless = hold_message({"kind": "keyless_limit", "waiting": 1,
                             "url": "https://precleared.dev/get-key"})
-    assert keyless["title"] == "Precleared's free checks for today are used up"
-    assert keyless["detail"].startswith("1 cold email is waiting.")
+    assert keyless["title"] == "Die kostenlosen Precleared-Prüfungen für heute sind aufgebraucht"
+    assert keyless["detail"].startswith("1 Kaltakquise-Mail wartet.")
     assert "PRECLEARED_API_KEY" in keyless["detail"]
-    assert keyless["url_label"] == "Get a free key"
+    assert keyless["url_label"] == "Kostenlosen Schlüssel holen"
 
     out = hold_message({"kind": "out_of_checks", "waiting": 12, "url": CHECKOUT})
-    assert out["detail"].startswith("12 cold emails are waiting.")
-    assert f"Buy checks to send them now: {CHECKOUT}." in out["detail"]
+    assert out["detail"].startswith("12 Kaltakquise-Mails warten.")
+    assert f"Kauf Prüfungen, um sie jetzt zu senden: {CHECKOUT}." in out["detail"]
     assert out["url"] == CHECKOUT
 
     rejected = hold_message({"kind": "key_rejected", "waiting": 2})
@@ -215,10 +215,10 @@ def test_messages_say_how_to_fix_each_hold():
 
     down = hold_message({"kind": "unavailable", "waiting": "x", "reason": "Precleared HTTP 503"})
     assert down["url"] == ""
-    assert "1 cold email is waiting until it answers (Precleared HTTP 503)" in down["detail"]
+    assert "1 Kaltakquise-Mail wartet, bis Precleared antwortet (Precleared HTTP 503)" in down["detail"]
 
     for message in (keyless, out, rejected, down):
-        assert "Replies are not held." in message["detail"]
+        assert "Antworten werden nicht zurückgehalten." in message["detail"]
 
 
 # ── where the user sees it ──
@@ -257,8 +257,8 @@ def test_today_shows_the_hold_with_its_link(client, monkeypatch):  # noqa: F811
     items = client.get("/api/today").json()["items"]
 
     item = next(i for i in items if i["key"] == "precleared-hold")
-    assert item["title"] == "Your Precleared key is out of checks for today"
-    assert item["detail"].startswith("3 cold emails are waiting.")
+    assert item["title"] == "Dein Precleared-Schlüssel hat für heute keine Prüfungen mehr"
+    assert item["detail"].startswith("3 Kaltakquise-Mails warten.")
     assert item["url"] == CHECKOUT
     assert item["tab"] == "controls"
 
@@ -284,7 +284,7 @@ def test_cli_status_shows_the_hold(monkeypatch, tmp_path, capsys):
 
     out = capsys.readouterr().out
     assert f"Precleared:           HOLDING COLD EMAIL since {since}" in out
-    assert "2 cold emails are waiting" in out
+    assert "2 Kaltakquise-Mails warten" in out
     assert "PRECLEARED_API_KEY" in out
 
 

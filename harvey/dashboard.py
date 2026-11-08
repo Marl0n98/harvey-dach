@@ -190,22 +190,22 @@ async def get_setup_status():
 
     # 1. Venv
     checks.append({
-        "id": "venv", "label": "Python virtual environment",
+        "id": "venv", "label": "Virtuelle Python-Umgebung",
         "done": (PROJECT_ROOT / ".venv").is_dir(),
         "required": True,
-        "help": "Run: python3 -m venv .venv && source .venv/bin/activate && pip install -e .",
+        "help": "Ausführen: python3 -m venv .venv && source .venv/bin/activate && pip install -e .",
     })
 
     # 2. Env file
     env_vars = _read_env_file()
     env_exists = ENV_FILE.exists() and bool(env_vars)
     checks.append({
-        "id": "env_file", "label": "Environment file (.env)",
+        "id": "env_file", "label": "Umgebungsdatei (.env)",
         "done": env_exists,
         # Finding companies, the lead list and drafts work without one; the
         # mailbox check below says when sending needs keys from it.
         "required": False,
-        "help": "Only needed to send or for API keys: enter them in the Settings tab.",
+        "help": "Nur nötig zum Senden oder für API-Schlüssel: trag sie im Tab Einstellungen ein.",
     })
 
     # 3. Email provider configured (matches channels.email.provider)
@@ -217,22 +217,22 @@ async def get_setup_status():
     if provider == "gmail":
         provider_done = _has("GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET") and \
             (PROJECT_ROOT / "data" / "gmail_token.json").is_file()
-        provider_help = ("Set GMAIL_CLIENT_ID/SECRET in Settings, then run "
-                         "'harvey gmail auth' in your terminal.")
+        provider_help = ("Setze GMAIL_CLIENT_ID/SECRET in den Einstellungen und führe dann "
+                         "„harvey gmail auth“ im Terminal aus.")
     elif provider == "microsoft":
         provider_done = _has("M365_CLIENT_ID") and \
             (PROJECT_ROOT / "data" / "m365_token.json").is_file()
-        provider_help = ("Set the Microsoft 365 client and tenant IDs in Settings, then run "
-                         "'harvey microsoft auth' in your terminal.")
+        provider_help = ("Setze Client-ID und Mandanten-ID von Microsoft 365 in den Einstellungen "
+                         "und führe dann „harvey microsoft auth“ im Terminal aus.")
     elif provider == "smtp":
         provider_done = _has("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD")
-        provider_help = "Enter your SMTP host, username, and password in Settings."
+        provider_help = "Trag SMTP-Host, Benutzername und Passwort in den Einstellungen ein."
     else:
         instantly_key = env_vars.get("INSTANTLY_API_KEY", "") or os.getenv("INSTANTLY_API_KEY", "")
         provider_done = bool(instantly_key) and instantly_key != "your_instantly_api_key_here"
-        provider_help = "Enter your Instantly API key in Settings."
+        provider_help = "Trag deinen Instantly-API-Schlüssel in den Einstellungen ein."
     checks.append({
-        "id": "email_provider", "label": f"Email provider configured ({provider})",
+        "id": "email_provider", "label": f"E-Mail-Anbieter eingerichtet ({provider})",
         "done": provider_done,
         "required": True,
         "help": provider_help,
@@ -241,11 +241,12 @@ async def get_setup_status():
     # 4. Email verification (needed for addresses to be sendable, not 'guess')
     verifier_set = _has("REOON_API_KEY") or _has("ZEROBOUNCE_API_KEY") or _has("HUNTER_API_KEY")
     checks.append({
-        "id": "verifier", "label": "Email verification key",
+        "id": "verifier", "label": "Schlüssel für die E-Mail-Prüfung",
         "done": verifier_set,
         "required": True,
-        "help": "Add a Reoon (free 600/mo), ZeroBounce, or Hunter key in Settings — "
-                "without one, found emails stay 'guess' and are never sent.",
+        "help": "Füge in den Einstellungen einen Schlüssel von Reoon (600 gratis pro Monat), "
+                "ZeroBounce oder Hunter hinzu. Ohne Schlüssel bleiben gefundene E-Mails "
+                "„nicht geprüft“ und werden nie gesendet.",
     })
 
     # 5. Config valid
@@ -260,39 +261,39 @@ async def get_setup_status():
         except Exception:
             pass
     checks.append({
-        "id": "config", "label": f"Harvey configured ({config_path.name})",
+        "id": "config", "label": f"Harvey eingerichtet ({config_path.name})",
         "done": config_valid,
         "required": True,
-        "help": "Train Harvey on your product. Use the trainer or set up manually through Claude.",
+        "help": "Trainiere Harvey auf dein Produkt. Nutze den Trainer oder richte ihn von Hand über Claude ein.",
     })
 
     # 6. Product trained
     product_trained = (PROJECT_ROOT / "skills" / "product_knowledge.md").exists()
     checks.append({
-        "id": "product_trained", "label": "Product knowledge trained",
+        "id": "product_trained", "label": "Produktwissen trainiert",
         "done": product_trained,
         "required": True,
-        "help": "Run: harvey train https://yourwebsite.com (or set up through Claude).",
+        "help": "Ausführen: harvey train https://deinewebsite.de (oder über Claude einrichten).",
     })
 
     # 7. LinkedIn (optional)
     linkedin_email = env_vars.get("LINKEDIN_EMAIL", "") or os.getenv("LINKEDIN_EMAIL", "")
     linkedin_pass = env_vars.get("LINKEDIN_PASSWORD", "") or os.getenv("LINKEDIN_PASSWORD", "")
     checks.append({
-        "id": "linkedin", "label": "LinkedIn credentials",
+        "id": "linkedin", "label": "LinkedIn-Zugangsdaten",
         "done": bool(linkedin_email) and bool(linkedin_pass),
         "required": False,
-        "help": "Optional. Enter your LinkedIn credentials in Settings to enable LinkedIn prospecting.",
+        "help": "Optional. Trag deine LinkedIn-Zugangsdaten in den Einstellungen ein, um auf LinkedIn Kontakte zu suchen.",
     })
 
     # 8. Cloudflare (optional)
     cf_id = env_vars.get("CLOUDFLARE_ACCOUNT_ID", "") or os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
     cf_token = env_vars.get("CLOUDFLARE_API_TOKEN", "") or os.getenv("CLOUDFLARE_API_TOKEN", "")
     checks.append({
-        "id": "cloudflare", "label": "Cloudflare deep crawling",
+        "id": "cloudflare", "label": "Tiefes Crawlen mit Cloudflare",
         "done": bool(cf_id) and bool(cf_token),
         "required": False,
-        "help": "Optional. For JavaScript-rendered website crawling during training.",
+        "help": "Optional. Zum Crawlen von Websites mit JavaScript beim Training.",
     })
 
     # 9. Warmup service: TrulyInbox connected, or another service the user named
@@ -307,14 +308,14 @@ async def get_setup_status():
         choice = "connected"
     checks.append({
         "id": "warmup_service",
-        "label": {"connected": "Warmup: TrulyInbox connected",
-                  "other": "Warmup: your own warmup service"}.get(choice, "Warm up your mailbox"),
+        "label": {"connected": "Warmup: TrulyInbox verbunden",
+                  "other": "Warmup: dein eigener Warmup-Dienst"}.get(choice, "Wärm dein Postfach auf"),
         "done": bool(choice),
         # Instantly warms its own accounts, so there it's a suggestion, not a step.
         "required": provider != "instantly",
-        "help": ("A new mailbox needs 2-4 weeks of warmup before cold email, and warmup "
-                 "keeps it out of spam after that. We recommend TrulyInbox: connect it and "
-                 "Harvey shows whether your mailbox is warmed."),
+        "help": ("Ein neues Postfach braucht 2 bis 4 Wochen Warmup vor Cold E-Mails, und "
+                 "Warmup hält es danach aus dem Spam. Wir empfehlen TrulyInbox: Verbinde es, "
+                 "dann zeigt Harvey, ob dein Postfach aufgewärmt ist."),
         "link": ti.AFFILIATE_URL,
     })
 
@@ -401,9 +402,9 @@ async def save_env_settings(request: Request):
     try:
         data = await request.json()
     except Exception:
-        return JSONResponse({"success": False, "message": "Invalid request body."}, status_code=400)
+        return JSONResponse({"success": False, "message": "Ungültige Anfrage."}, status_code=400)
     if not isinstance(data, dict):
-        return JSONResponse({"success": False, "message": "Invalid request body."}, status_code=400)
+        return JSONResponse({"success": False, "message": "Ungültige Anfrage."}, status_code=400)
     async with _env_lock:
         updates = {}
         for key in ["INSTANTLY_API_KEY", "LINKEDIN_EMAIL", "LINKEDIN_PASSWORD",
@@ -416,15 +417,15 @@ async def save_env_settings(request: Request):
             if key in data and data[key] is not None:
                 value = data[key]
                 if isinstance(value, bool) or not isinstance(value, (str, int, float)):
-                    return JSONResponse({"success": False, "message": f"{key} must be text."},
+                    return JSONResponse({"success": False, "message": f"{key} muss Text sein."},
                                         status_code=400)
                 value = str(value)
                 # A port Harvey can't parse would stop it starting at all.
                 if key.endswith("_PORT") and value.strip() and not value.strip().isdigit():
-                    return JSONResponse({"success": False, "message": f"{key} must be a number."},
+                    return JSONResponse({"success": False, "message": f"{key} muss eine Zahl sein."},
                                         status_code=400)
                 if len(value) > 4096 or "\x00" in value:
-                    return JSONResponse({"success": False, "message": f"{key} is invalid."},
+                    return JSONResponse({"success": False, "message": f"{key} ist ungültig."},
                                         status_code=400)
                 # Strip newlines so a crafted value can't inject extra .env entries
                 updates[key] = value.replace("\n", " ").replace("\r", " ").strip()
@@ -433,7 +434,7 @@ async def save_env_settings(request: Request):
                 _write_env_file(updates)
             except Exception as e:
                 logger.warning("Failed to write .env: %s", e)
-                return {"success": False, "message": "Could not write .env file."}
+                return {"success": False, "message": "Die .env-Datei konnte nicht geschrieben werden."}
     return {"success": True}
 
 
@@ -448,7 +449,7 @@ async def trulyinbox_connect(request: Request):
         data = None
     key = data.get("key") if isinstance(data, dict) else None
     if not isinstance(key, str) or not key.strip() or len(key) > 512:
-        return JSONResponse({"success": False, "message": "Paste your TrulyInbox API key."},
+        return JSONResponse({"success": False, "message": "Füge deinen TrulyInbox-API-Schlüssel ein."},
                             status_code=400)
     key = key.strip()
     try:
@@ -475,7 +476,7 @@ async def trulyinbox_connect(request: Request):
             _write_env_file(updates)
         except Exception as e:
             logger.warning("Failed to write .env: %s", e)
-            return {"success": False, "message": "Could not write .env file."}
+            return {"success": False, "message": "Die .env-Datei konnte nicht geschrieben werden."}
     state = _state()
     await state.init_db()
     await ti.set_choice(state, "connected")
@@ -501,7 +502,7 @@ async def test_instantly(request: Request):
         data = {}
     api_key = str(data.get("api_key", "") or "")
     if not api_key:
-        return {"success": False, "message": "No API key provided."}
+        return {"success": False, "message": "Kein API-Schlüssel angegeben."}
     try:
         import httpx
         async with httpx.AsyncClient(timeout=10) as client:
@@ -510,11 +511,11 @@ async def test_instantly(request: Request):
                 headers={"Authorization": f"Bearer {api_key}"},
             )
             if resp.status_code == 200:
-                return {"success": True, "message": "Connected to Instantly."}
+                return {"success": True, "message": "Mit Instantly verbunden."}
             else:
-                return {"success": False, "message": f"API returned {resp.status_code}. Check your key."}
+                return {"success": False, "message": f"Die API antwortete mit {resp.status_code}. Prüf deinen Schlüssel."}
     except Exception as e:
-        return {"success": False, "message": f"Connection failed: {str(e)}"}
+        return {"success": False, "message": f"Verbindung fehlgeschlagen: {str(e)}"}
 
 
 # ── Companies ──
@@ -615,7 +616,7 @@ async def add_feedback(request: Request):
     entity_id = str(data.get("entity_id", "") or "")[:100]
     comment = str(data.get("comment", "") or "").strip()[:4000]
     if not comment:
-        return {"success": False, "message": "Comment is required."}
+        return {"success": False, "message": "Bitte gib einen Kommentar ein."}
     feedback_id = uuid.uuid4().hex[:12]
     try:
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -637,7 +638,7 @@ async def add_feedback(request: Request):
             await db.commit()
     except Exception as e:
         logger.warning("Failed to save feedback: %s", e)
-        return {"success": False, "message": "Could not save feedback."}
+        return {"success": False, "message": "Feedback konnte nicht gespeichert werden."}
     return {"success": True, "id": feedback_id}
 
 
@@ -668,11 +669,11 @@ async def start_harvey():
     global _harvey_process, _harvey_started_at
 
     if _check_harvey_pid():
-        return {"success": False, "message": "Harvey is already running."}
+        return {"success": False, "message": "Harvey läuft schon."}
     from harvey.main import _needs_setup
     if _needs_setup():
         return {"success": False,
-                "message": "Harvey isn't set up yet. Run `harvey setup` in a terminal first."}
+                "message": "Harvey ist noch nicht eingerichtet. Führe zuerst `harvey setup` im Terminal aus."}
 
     # Ensure data dir exists
     (PROJECT_ROOT / "data").mkdir(parents=True, exist_ok=True)
@@ -701,7 +702,7 @@ async def start_harvey():
             log_handle.close()
     except Exception as e:
         logger.warning("Failed to start Harvey: %s", e)
-        return {"success": False, "message": f"Failed to start Harvey: {e}"}
+        return {"success": False, "message": f"Harvey konnte nicht gestartet werden: {e}"}
     _harvey_started_at = datetime.now()
     # The loop writes its own PID file once it holds the loop lock. Writing
     # the child's PID here would overwrite a running loop's record if this
@@ -716,7 +717,7 @@ async def stop_harvey():
 
     pid = _check_harvey_pid()
     if not pid:
-        return {"success": False, "message": "Harvey is not running."}
+        return {"success": False, "message": "Harvey läuft nicht."}
 
     own = _harvey_process if _harvey_process and _harvey_process.pid == pid else None
 
@@ -748,7 +749,7 @@ async def stop_harvey():
     if alive():
         # Started by another user, or from an elevated terminal on Windows.
         return {"success": False,
-                "message": f"Couldn't stop Harvey (pid {pid}). Stop it where it was started."}
+                "message": f"Harvey (PID {pid}) konnte nicht gestoppt werden. Stoppe ihn dort, wo er gestartet wurde."}
 
     _harvey_process = None
     _harvey_started_at = None
@@ -1037,7 +1038,7 @@ async def _with_context(items: list[dict]) -> list[dict]:
             elif r["value_num"] is None:
                 value = ""
             else:
-                value = "yes" if r["value_num"] else "no"
+                value = "ja" if r["value_num"] else "nein"
             key = (r["company_id"], r["label"])
             seen = (r["run_id"] or r["observed_at"])
             prev_seen, values = latest.get(key, (None, []))
@@ -1105,7 +1106,7 @@ async def get_sending_mode():
     try:
         config = load_config(str(path))
     except Exception as e:
-        return JSONResponse({"error": f"Couldn't read {path.name}: {e}"}, status_code=500)
+        return JSONResponse({"error": f"{path.name} konnte nicht gelesen werden: {e}"}, status_code=500)
     state = _state()
     await state.init_db()
     return {
@@ -1130,9 +1131,9 @@ async def set_sending_mode(request: Request):
         body = None
     mode = body.get("mode") if isinstance(body, dict) else None
     if mode not in ("approval", "autopilot"):
-        return _refuse('expected {"mode": "approval"} or {"mode": "autopilot", "confirm": "autopilot"}', 400)
+        return _refuse('Erwartet {"mode": "approval"} oder {"mode": "autopilot", "confirm": "autopilot"}', 400)
     if mode == "autopilot" and body.get("confirm") != "autopilot":
-        return _refuse('Type "autopilot" to confirm: Harvey will send email without asking you.', 400)
+        return _refuse('Tippe „autopilot“ zum Bestätigen: Harvey sendet dann E-Mails, ohne dich zu fragen.', 400)
     path = _resolve_config_file()
     try:
         set_require_approval(mode == "approval", path)
@@ -1189,7 +1190,7 @@ async def outbox_edit(item_id: str, request: Request):
         item = await state.get_outbox_item(item_id)
         if not item or item.get("status") != "pending_review":
             return JSONResponse({"success": False,
-                                 "message": "Only drafts awaiting review can be edited."},
+                                 "message": "Nur Entwürfe, die auf Prüfung warten, lassen sich bearbeiten."},
                                 status_code=409)
         if item.get("kind") == "reply":
             # Gmail threads a reply by its subject: a new one would land as a
@@ -1198,7 +1199,7 @@ async def outbox_edit(item_id: str, request: Request):
             subject = item.get("subject") or ""
         if not subject.strip() or not text:
             return JSONResponse({"success": False,
-                                 "message": "Subject and body are both required."},
+                                 "message": "Betreff und Text sind beide nötig."},
                                 status_code=400)
         # The sender re-checks every email before it goes out; an edit it
         # would block is refused now, while the reviewer can still fix it,
@@ -1212,12 +1213,12 @@ async def outbox_edit(item_id: str, request: Request):
         gate = pre_send_check("reviewer@example.com", subject, checked)
         if not gate:
             return JSONResponse({"success": False,
-                                 "message": "The sender would have blocked this: "
+                                 "message": "Der Versand hätte das blockiert: "
                                             + "; ".join(gate.reasons)},
                                 status_code=400)
         if not await state.edit_outbox_draft(item_id, subject, text):
             return JSONResponse({"success": False,
-                                 "message": "Only drafts awaiting review can be edited."},
+                                 "message": "Nur Entwürfe, die auf Prüfung warten, lassen sich bearbeiten."},
                                 status_code=409)
         await state.log_action("outbox_edited", "dashboard", {
             "outbox_id": item_id, "to_email": item.get("to_email", ""),
@@ -1345,11 +1346,11 @@ async def mark_prospect_sent(prospect_id: str, request: Request):
         if body is None:
             body = {}
         if not isinstance(body, dict) or not isinstance(body.get("sent", True), bool):
-            return _refuse('expected {"sent": true|false}', 400)
+            return _refuse('Erwartet {"sent": true|false}', 400)
         sent = body.get("sent", True)
         rows = await query_db("SELECT status FROM prospects WHERE id = ?", (prospect_id,))
         if not rows:
-            return _refuse("unknown prospect", 404)
+            return _refuse("Unbekannter Kontakt", 404)
         current = rows[0].get("status") or "new"
         state = _state()
         await state.init_db()
@@ -1372,8 +1373,8 @@ async def mark_prospect_sent(prospect_id: str, request: Request):
             await state.set_setting(key, current)
             if prospect_id in await _harvey_committed_ids():
                 await state.delete_setting(key)
-                return _refuse("Harvey has already approved or sent an email to this person. "
-                               "Check the Outbox.")
+                return _refuse("Harvey hat dieser Person schon eine E-Mail freigegeben oder gesendet. "
+                               "Sieh im Postausgang nach.")
             await state.update_prospect_status(prospect_id, "contacted")
             # Anything Harvey had queued for them must not go out as well.
             changed = await state.cancel_pending_outbox_for_prospect(
@@ -1384,7 +1385,7 @@ async def mark_prospect_sent(prospect_id: str, request: Request):
                     return {"success": True, "sent": False}
                 if current == "contacted":
                     # Setting them back would make Harvey write and send again.
-                    return _refuse("This wasn't marked as sent by hand here, so it stays sent.")
+                    return _refuse("Das wurde hier nicht als von Hand gesendet markiert und bleibt deshalb gesendet.")
                 return {"success": True, "sent": True, "status": current}
             if current != "contacted":
                 # They replied, opted out or bounced since: that stands.
@@ -1416,7 +1417,7 @@ async def outbox_reject(item_id: str):
         state = _state()
         await state.init_db()
         if not await state.reject_outbox_item(item_id):
-            return _refuse("That email is already sending or sent, so it can't be rejected.")
+            return _refuse("Diese E-Mail wird gerade gesendet oder ist schon raus und lässt sich nicht mehr ablehnen.")
         return {"success": True}
     except Exception as e:
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
@@ -1425,12 +1426,12 @@ async def outbox_reject(item_id: str):
 @app.post("/api/sending/{action}")
 async def sending_toggle(action: str):
     if action not in ("pause", "resume"):
-        return JSONResponse({"success": False, "message": "unknown action"}, status_code=400)
+        return JSONResponse({"success": False, "message": "Unbekannte Aktion"}, status_code=400)
     try:
         state = _state()
         await state.init_db()
         if action == "pause":
-            await state.set_setting("sending_paused", "paused from dashboard")
+            await state.set_setting("sending_paused", "Im Dashboard pausiert")
         else:
             await state.set_setting("sending_paused", "")
             await state.set_setting("bounce_count", "0")
@@ -1510,7 +1511,7 @@ async def get_opt_out(prospect_id: str):
     """Why this person is opted out: the rule, the words and their message."""
     rows = await query_db("SELECT status FROM prospects WHERE id = ?", (prospect_id,))
     if not rows:
-        return _refuse("unknown prospect", 404)
+        return _refuse("Unbekannter Kontakt", 404)
     status = rows[0].get("status") or "new"
     state = _state()
     await state.init_db()
@@ -1551,10 +1552,10 @@ async def undo_opt_out(prospect_id: str, request: Request):
     except ValueError:
         body = None
     if not isinstance(body, dict) or body.get("confirm") is not True:
-        return _refuse('expected {"confirm": true}', 400)
+        return _refuse('Erwartet {"confirm": true}', 400)
     rows = await query_db("SELECT email FROM prospects WHERE id = ?", (prospect_id,))
     if not rows:
-        return _refuse("unknown prospect", 404)
+        return _refuse("Unbekannter Kontakt", 404)
     state = _state()
     await state.init_db()
     history = await state.opt_out_history(prospect_id)
@@ -1562,7 +1563,7 @@ async def undo_opt_out(prospect_id: str, request: Request):
     if not await state.undo_opt_out(prospect_id, details={
             "prospect_email": rows[0].get("email") or "",
             "previous_why": last.get("why", ""), "previous_at": last.get("at", "")}):
-        return _refuse("This person isn't opted out.")
+        return _refuse("Diese Person ist nicht abgemeldet.")
     return {"success": True, "status": "replied"}
 
 
@@ -1656,11 +1657,11 @@ async def set_conversation_status(convo_id: str, request: Request):
         data = {}
     status = data.get("status") if isinstance(data, dict) else None
     if status not in ("open", "closed"):
-        return JSONResponse({"success": False, "message": "status must be open or closed"},
+        return JSONResponse({"success": False, "message": "status muss open oder closed sein"},
                             status_code=400)
     rows = await query_db("SELECT status FROM conversations WHERE id = ?", (convo_id,))
     if not rows:
-        return JSONResponse({"success": False, "message": "No such conversation."},
+        return JSONResponse({"success": False, "message": "Dieses Gespräch gibt es nicht."},
                             status_code=404)
     state = _state()
     await state.update_conversation(convo_id, status=status)
@@ -1770,7 +1771,7 @@ async def estimate_discovery(request: Request):
         body = await request.json()
         provider = body.get("provider") or ""
         if provider not in PROVIDERS:
-            return JSONResponse({"error": f"unknown provider {provider!r}"},
+            return JSONResponse({"error": f"Unbekannte Quelle {provider!r}"},
                                 status_code=400)
 
         try:
@@ -1798,7 +1799,7 @@ async def start_discovery(request: Request):
     global _discovery_task, _discovery_report
 
     if _discovery_task and not _discovery_task.done():
-        return JSONResponse({"success": False, "message": "a run is already going"},
+        return JSONResponse({"success": False, "message": "Es läuft bereits ein Lauf."},
                             status_code=409)
     try:
         from harvey.collectors.discover import PROVIDERS
@@ -1809,7 +1810,7 @@ async def start_discovery(request: Request):
         provider = body.get("provider") or ""
         if provider not in PROVIDERS:
             return JSONResponse({"success": False,
-                                 "message": f"unknown provider {provider!r}"},
+                                 "message": f"Unbekannte Quelle {provider!r}"},
                                 status_code=400)
 
         config = load_config()
@@ -1860,7 +1861,7 @@ async def start_profile():
     global _discovery_task, _discovery_report
 
     if _discovery_task and not _discovery_task.done():
-        return JSONResponse({"success": False, "message": "a run is already going"},
+        return JSONResponse({"success": False, "message": "Es läuft bereits ein Lauf."},
                             status_code=409)
     try:
         from harvey.pipeline import run_profile_stage
@@ -1904,7 +1905,7 @@ async def stop_discovery():
     try:
         state = _state()
         await state.init_db()
-        await state.set_setting("discovery_paused", "stopped from dashboard")
+        await state.set_setting("discovery_paused", "im Dashboard gestoppt")
         return {"success": True}
     except Exception as e:
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
@@ -1944,7 +1945,7 @@ REPLY_STATUSES = ("replied", "meeting", "closed")
 def _eta_text(minutes) -> str:
     if minutes is None:
         return ""
-    return "less than a minute left" if minutes < 1 else f"about {round(minutes)} min left"
+    return "weniger als eine Minute übrig" if minutes < 1 else f"noch etwa {round(minutes)} Min."
 
 
 @app.get("/api/live-status")
@@ -2048,49 +2049,56 @@ async def get_live_status():
                 "state": state_, "detail": detail}
 
     profile_eta = next((r["eta_min"] for r in running if r["stage"] == "profile"), None)
-    read_detail = f"{profiled} of {with_site} read"
+    def n(count, one, many):
+        return f"{count} {one if count == 1 else many}"
+
+    read_detail = f"{profiled} von {with_site} gelesen"
     if reading and profile_eta is not None:
         read_detail += " · " + _eta_text(profile_eta)
     if no_site:
-        read_detail += f" · {no_site} have no website (skipped)"
+        read_detail += f" · {no_site} ohne Website (übersprungen)"
 
     steps = [
-        step("Find businesses", companies, 0, finding,
-             f"{companies} businesses found", info=True),
-        step("Read their websites", profiled, with_site, reading, read_detail),
-        step("Find emails", checked, profiled, finding_emails,
-             f"{checked} of {profiled} checked · {len(with_email)} emails found"),
-        step("Check emails are real", len(with_email) - unconfirmed, len(with_email), False,
-             f"{by_status.get('verified', 0)} verified · {by_status.get('risky', 0)} risky · "
-             f"{unconfirmed} not confirmed"
-             + (f" · {by_status['invalid']} bad" if by_status.get("invalid") else "")),
-        step("Write first emails", len(drafted), len(deliverable | drafted), False,
-             f"{len(drafted)} written · see Campaigns"),
-        step("Sent", len(sent & drafted), len(drafted), False,
-             f"{len(sent & drafted)} of {len(drafted)} sent"),
-        step("Replies", replies, 0, False,
-             f"{replies} replies" if replies else "No replies yet", info=True),
+        step("Firmen finden", companies, 0, finding,
+             f"{n(companies, 'Firma', 'Firmen')} gefunden", info=True),
+        step("Websites lesen", profiled, with_site, reading, read_detail),
+        step("E-Mails finden", checked, profiled, finding_emails,
+             f"{checked} von {profiled} geprüft · {n(len(with_email), 'E-Mail', 'E-Mails')} gefunden"),
+        step("E-Mails auf Echtheit prüfen", len(with_email) - unconfirmed, len(with_email), False,
+             f"{by_status.get('verified', 0)} verifiziert · {by_status.get('risky', 0)} riskant · "
+             f"{unconfirmed} nicht bestätigt"
+             + (f" · {by_status['invalid']} ungültig" if by_status.get("invalid") else "")),
+        step("Erste E-Mails schreiben", len(drafted), len(deliverable | drafted), False,
+             f"{len(drafted)} geschrieben · siehe Kampagnen"),
+        step("Gesendet", len(sent & drafted), len(drafted), False,
+             f"{len(sent & drafted)} von {len(drafted)} gesendet"),
+        step("Antworten", replies, 0, False,
+             n(replies, "Antwort", "Antworten") if replies else "Noch keine Antworten", info=True),
     ]
 
     next_tab = ""   # where the next step is done, when it's done in the dashboard
     if reading or finding:
-        next_up = "Wait — Harvey is working. This page updates by itself."
+        next_up = "Warten: Harvey arbeitet. Diese Seite aktualisiert sich selbst."
     elif finding_emails:
-        next_up = "Wait — emails are being found."
+        next_up = "Warten: E-Mails werden gesucht."
     elif stopped:
-        next_up, next_tab = "A job stopped before finishing. Run it again.", "discover"
+        next_up, next_tab = "Ein Auftrag wurde vor dem Ende gestoppt. Starte ihn neu.", "discover"
     elif harvey_sends and awaiting_review:
-        next_up, next_tab = f"Review the {awaiting_review} draft(s) waiting in the Outbox.", "outbox"
+        next_up, next_tab = (f"Prüfe {n(awaiting_review, 'wartenden Entwurf', 'wartende Entwürfe')} "
+                             "im Postausgang."), "outbox"
     elif by_hand:
-        next_up, next_tab = f"Open Campaigns and send the {len(by_hand)} unsent email(s).", "campaigns"
+        next_up, next_tab = (f"Öffne Kampagnen und sende "
+                             f"{n(len(by_hand), 'ungesendete E-Mail', 'ungesendete E-Mails')}."), "campaigns"
     elif profiled > checked:
-        next_up, next_tab = f"Find emails for the {profiled - checked} businesses not checked yet.", "controls"
+        next_up, next_tab = (f"Suche E-Mails für "
+                             f"{n(profiled - checked, 'noch nicht geprüfte Firma', 'noch nicht geprüfte Firmen')}."), "controls"
     elif deliverable - drafted:
-        next_up, next_tab = f"Write first emails for {len(deliverable - drafted)} more contact(s).", "controls"
+        next_up, next_tab = (f"Schreib erste E-Mails für "
+                             f"{n(len(deliverable - drafted), 'weiteren Kontakt', 'weitere Kontakte')}."), "controls"
     elif not companies:
-        next_up, next_tab = "Search for businesses to get started.", "discover"
+        next_up, next_tab = "Suche nach Firmen, um loszulegen.", "discover"
     else:
-        next_up, next_tab = "Search more cities or industries to get more leads.", "discover"
+        next_up, next_tab = "Suche in weiteren Städten oder Branchen, um mehr Leads zu bekommen.", "discover"
 
     return {
         "steps": steps,
@@ -2164,14 +2172,14 @@ async def get_today():
         # Ordered by how much it blocks Harvey from doing anything at all.
         brain = await _brain_status()
         if brain.get("status") == "paused":
-            who = "Codex" if brain.get("provider") == "codex" else "Harvey's model"
+            who = "Codex" if brain.get("provider") == "codex" else "Harveys Modell"
             items.append({
                 "key": "brain-paused", "tone": "bad",
-                "title": f"{who} is paused, so Harvey is waiting",
-                "detail": (str(brain.get("reason") or "It can't be used right now.")[:300] +
-                           " Replies and queued emails are untouched; Harvey resumes "
-                           "once it's fixed. harvey status --check says what's wrong."),
-                "action": "Open the log", "tab": "controls",
+                "title": f"{who} ist pausiert, deshalb wartet Harvey",
+                "detail": (str(brain.get("reason") or "Es lässt sich gerade nicht nutzen.")[:300] +
+                           " Antworten und eingereihte E-Mails bleiben unberührt; Harvey macht "
+                           "weiter, sobald es behoben ist. harvey status --check zeigt, was fehlt."),
+                "action": "Log öffnen", "tab": "controls",
             })
 
         from harvey.agents.writer import EMAIL_RULES_PROBLEM_KEY
@@ -2179,10 +2187,10 @@ async def get_today():
         if rules_problem:
             items.append({
                 "key": "email-rules", "tone": "bad",
-                "title": "Harvey isn't writing emails: your email rules can't be used",
-                "detail": (f"{rules_problem}. Fix the file, or clear writer.email_rules "
-                           "to use Harvey's built-in rules."),
-                "action": "Open the log", "tab": "controls",
+                "title": "Harvey schreibt keine E-Mails: deine E-Mail-Regeln sind nicht nutzbar",
+                "detail": (f"{rules_problem}. Korrigiere die Datei oder leere writer.email_rules, "
+                           "um Harveys eingebaute Regeln zu nutzen."),
+                "action": "Log öffnen", "tab": "controls",
             })
 
         hold = await state.current_sends_held()
@@ -2191,15 +2199,15 @@ async def get_today():
             title, detail = held_message(hold, waiting=len(approved))
             items.append({
                 "key": "sends-held", "tone": "bad", "title": title, "detail": detail,
-                "action": "Open the log", "tab": "controls",
+                "action": "Log öffnen", "tab": "controls",
             })
 
         if paused:
             items.append({
                 "key": "paused", "tone": "bad",
-                "title": "Sending is paused",
-                "detail": str(paused) + ". Nothing will go out until you resume it.",
-                "action": "Review and resume", "tab": "outbox",
+                "title": "Versand pausiert",
+                "detail": str(paused) + ". Nichts geht raus, bis du den Versand fortsetzt.",
+                "action": "Prüfen und fortsetzen", "tab": "outbox",
             })
 
         # Cold email waiting on the optional Precleared check: its free
@@ -2216,7 +2224,7 @@ async def get_today():
             items.append({
                 "key": "precleared-hold", "tone": message["tone"],
                 "title": message["title"], "detail": message["detail"],
-                "action": "Open the log", "tab": "controls",
+                "action": "Log öffnen", "tab": "controls",
                 "url": message["url"], "url_label": message["url_label"],
             })
 
@@ -2226,79 +2234,80 @@ async def get_today():
                        if c.get("required") and not c.get("done")]
             items.append({
                 "key": "setup", "tone": "warn",
-                "title": "Finish setting Harvey up",
-                "detail": ", ".join(missing[:3]) or "Some required steps are incomplete.",
-                "action": "Open setup", "tab": "settings",
+                "title": "Harvey fertig einrichten",
+                "detail": ", ".join(missing[:3]) or "Einige nötige Schritte fehlen noch.",
+                "action": "Einrichtung öffnen", "tab": "settings",
             })
 
         if proposed:
             items.append({
                 "key": "signals", "tone": "warn",
-                "title": (f"{len(proposed)} signal waiting for your confirmation"
+                "title": (f"{len(proposed)} Signal wartet auf deine Bestätigung"
                           if len(proposed) == 1
-                          else f"{len(proposed)} signals waiting for your confirmation"),
-                "detail": ("Harvey won't collect anything you haven't approved. "
-                           "Confirm which signals define a good prospect for you."),
-                "action": "Review signals", "tab": "signals",
+                          else f"{len(proposed)} Signale warten auf deine Bestätigung"),
+                "detail": ("Harvey erfasst nichts, was du nicht freigegeben hast. "
+                           "Bestätige, welche Signale für dich einen guten Kontakt ausmachen."),
+                "action": "Signale prüfen", "tab": "signals",
             })
         elif not confirmed:
             items.append({
                 "key": "signals-none", "tone": "warn",
-                "title": "No signals confirmed",
-                "detail": "Every signal is rejected, so prospecting has nothing to collect.",
-                "action": "Review signals", "tab": "signals",
+                "title": "Keine Signale bestätigt",
+                "detail": "Jedes Signal ist abgelehnt, die Kontaktsuche hat also nichts zu erfassen.",
+                "action": "Signale prüfen", "tab": "signals",
             })
 
         if not n_companies and confirmed:
             items.append({
                 "key": "discover", "tone": "good",
-                "title": "No companies yet",
-                "detail": ("Signals are confirmed but nothing has been collected. "
-                           "Discovery is free to try — no account needed."),
-                "action": "Find businesses", "tab": "discover",
+                "title": "Noch keine Firmen",
+                "detail": ("Signale sind bestätigt, aber noch wurde nichts gesammelt. "
+                           "Die Suche kannst du gratis ausprobieren, ohne Konto."),
+                "action": "Firmen finden", "tab": "discover",
             })
 
         unprofiled = unprofiled_count
         if unprofiled:
             items.append({
                 "key": "profile", "tone": "good",
-                "title": f"{unprofiled} companies not looked at yet",
-                "detail": ("Reading their websites is free and it is what makes "
-                           "an email specific — who their agency is, what they "
-                           "are missing, whether they are spending on ads."),
-                "action": "Read their sites", "tab": "discover",
+                "title": (f"{unprofiled} Firma noch nicht angesehen" if unprofiled == 1
+                          else f"{unprofiled} Firmen noch nicht angesehen"),
+                "detail": ("Ihre Websites zu lesen ist gratis und macht eine E-Mail erst "
+                           "konkret: welche Agentur sie betreut, was ihnen fehlt, ob sie "
+                           "Geld für Werbung ausgeben."),
+                "action": "Websites lesen", "tab": "discover",
             })
 
         if needs_human:
             items.append({
                 "key": "needs-human", "tone": "bad",
-                "title": (f"{needs_human} conversation needs you" if needs_human == 1
-                          else f"{needs_human} conversations need you"),
-                "detail": ("Harvey stopped and handed these over: an escalation, or a "
-                           "reply it had no safe answer for. Reply yourself, then close "
-                           "it or hand it back."),
-                "action": "Read them", "tab": "conversations",
+                "title": (f"{needs_human} Gespräch braucht dich" if needs_human == 1
+                          else f"{needs_human} Gespräche brauchen dich"),
+                "detail": ("Harvey hat angehalten und an dich übergeben: eine Eskalation oder "
+                           "eine Nachricht, auf die er keine sichere Antwort hatte. Antworte "
+                           "selbst, dann schließ das Gespräch oder gib es zurück."),
+                "action": "Lesen", "tab": "conversations",
             })
 
         if pending:
             items.append({
                 "key": "outbox", "tone": "warn",
-                "title": (f"{len(pending)} email waiting for approval" if len(pending) == 1
-                          else f"{len(pending)} emails waiting for approval"),
-                "detail": ("Nothing sends until you approve it. Read them one at a time."
+                "title": (f"{len(pending)} E-Mail wartet auf Freigabe" if len(pending) == 1
+                          else f"{len(pending)} E-Mails warten auf Freigabe"),
+                "detail": ("Nichts geht raus, bevor du es freigibst. Lies sie einzeln."
                            if _require_approval_now() else
-                           "Autopilot sends the rest on its own; these wait for you. "
-                           "Read them one at a time."),
-                "action": "Open the decisions desk", "tab": "outbox",
+                           "Den Rest sendet der Autopilot selbst; diese warten auf dich. "
+                           "Lies sie einzeln."),
+                "action": "Postausgang öffnen", "tab": "outbox",
             })
 
         if open_convos:
             items.append({
                 "key": "replies", "tone": "good",
-                "title": (f"{open_convos} live conversation" if open_convos == 1
-                          else f"{open_convos} live conversations"),
-                "detail": "People replied. Check how Harvey is handling them.",
-                "action": "Read conversations", "tab": "conversations",
+                "title": (f"{open_convos} laufendes Gespräch" if open_convos == 1
+                          else f"{open_convos} laufende Gespräche"),
+                "detail": "Leute haben geantwortet. Sieh nach, wie Harvey damit umgeht.",
+                "action": "Gespräche lesen", "tab": "conversations",
             })
 
         return {"items": items, "stats": stats}
@@ -2315,24 +2324,23 @@ async def get_today():
 
 CATEGORY_META = {
     "discovery": {
-        "label": "Discovery — who exists",
-        "blurb": "How Harvey finds businesses at all, and how visible they are. "
-                 "This is the only stage that costs money.",
+        "label": "Suche: wer es gibt",
+        "blurb": "Wie Harvey überhaupt Firmen findet und wie sichtbar sie sind. "
+                 "Nur diese Stufe kostet Geld.",
     },
     "profile": {
-        "label": "Profile — what they are",
-        "blurb": "Read from the pages a business already publishes. Free, no AI "
-                 "tokens, three HTTP requests per company. These are the signals "
-                 "that make an email specific.",
+        "label": "Profil: was sie ausmacht",
+        "blurb": "Gelesen aus den Seiten, die eine Firma ohnehin veröffentlicht. Gratis, "
+                 "keine KI-Tokens, drei HTTP-Anfragen pro Firma. Diese Signale machen "
+                 "eine E-Mail konkret.",
     },
     "people": {
-        "label": "People — who decides",
-        "blurb": "Named humans and whether they're the one who can say yes.",
+        "label": "Personen: wer entscheidet",
+        "blurb": "Namentlich bekannte Menschen und ob sie diejenigen sind, die Ja sagen können.",
     },
     "verification": {
-        "label": "Contactability — can you reach them",
-        "blurb": "Whether the address will actually deliver, and what to do when "
-                 "it won't.",
+        "label": "Erreichbarkeit: kommst du an sie ran",
+        "blurb": "Ob die Adresse wirklich zustellt und was zu tun ist, wenn nicht.",
     },
 }
 CATEGORY_ORDER = ["discovery", "profile", "people", "verification"]
@@ -2394,12 +2402,12 @@ async def set_signals_status(request: Request):
         codes = body.get("codes") or ([body["code"]] if body.get("code") else [])
         if status not in ("proposed", "confirmed", "rejected"):
             return JSONResponse(
-                {"success": False, "message": f"invalid status: {status!r}"},
+                {"success": False, "message": f"Ungültiger Status: {status!r}"},
                 status_code=400,
             )
         if not codes:
             return JSONResponse(
-                {"success": False, "message": "no signal codes given"}, status_code=400
+                {"success": False, "message": "Keine Signal-Codes angegeben"}, status_code=400
             )
 
         from harvey.signals import seed_signal_catalog
@@ -2444,10 +2452,10 @@ def _codes(raw) -> list[str]:
     if isinstance(raw, str):
         raw = raw.split(",")
     if not isinstance(raw, list) or any(not isinstance(c, str) for c in raw):
-        raise ValueError("signals must be a list of strings or comma-separated string")
+        raise ValueError("Signale müssen eine Liste von Texten oder ein kommagetrennter Text sein")
     codes = list(dict.fromkeys(c.strip() for c in raw if c.strip()))
     if len(codes) > 200 or any(len(c) > 128 for c in codes):
-        raise ValueError("too many or oversized signal codes")
+        raise ValueError("Zu viele oder zu lange Signal-Codes")
     return codes
 
 
@@ -2458,10 +2466,10 @@ def _range_bound(raw):
     if raw is None or raw == "":
         return None
     if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
-        raise ValueError("range bounds must be numbers")
+        raise ValueError("Bereichsgrenzen müssen Zahlen sein")
     value = float(raw)
     if value != value or abs(value) > 1e12:
-        raise ValueError("range bound is out of bounds")
+        raise ValueError("Bereichsgrenze liegt außerhalb des erlaubten Werts")
     return value
 
 
@@ -2477,23 +2485,23 @@ def _ranges(raw) -> list[dict]:
                 continue
             pieces = part.split(":")
             if len(pieces) != 3:
-                raise ValueError("ranges look like CODE:min:max")
+                raise ValueError("Bereiche haben die Form CODE:min:max")
             items.append({"code": pieces[0], "min": pieces[1], "max": pieces[2]})
         raw = items
     if not isinstance(raw, list) or any(not isinstance(r, dict) for r in raw):
-        raise ValueError("ranges must be a list of {code, min, max}")
+        raise ValueError("Bereiche müssen eine Liste von {code, min, max} sein")
     if len(raw) > COHORT_MAX_RANGES:
-        raise ValueError("too many ranges")
+        raise ValueError("Zu viele Bereiche")
     out = []
     for r in raw:
         code = r.get("code")
         if not isinstance(code, str) or not code.strip() or len(code) > 128:
-            raise ValueError("each range needs a signal code")
+            raise ValueError("Jeder Bereich braucht einen Signal-Code")
         low, high = _range_bound(r.get("min")), _range_bound(r.get("max"))
         if low is None and high is None:
-            raise ValueError(f"range on {code} needs a min or a max")
+            raise ValueError(f"Bereich für {code} braucht ein Minimum oder ein Maximum")
         if low is not None and high is not None and low > high:
-            raise ValueError(f"range on {code}: min is above max")
+            raise ValueError(f"Bereich für {code}: Minimum liegt über dem Maximum")
         out.append({"code": code.strip(), "min": low, "max": high})
     return out
 
@@ -2502,10 +2510,10 @@ def _cohort_integer(raw, default):
     if raw is None:
         return default
     if isinstance(raw, bool) or not isinstance(raw, (int, str)):
-        raise ValueError("offset and limit must be integers")
+        raise ValueError("offset und limit müssen ganze Zahlen sein")
     value = int(raw)
     if abs(value) > 9223372036854775807:
-        raise ValueError("offset or limit is too large")
+        raise ValueError("offset oder limit ist zu groß")
     return value
 
 
@@ -2522,7 +2530,7 @@ async def preview_cohort(request: Request):
     try:
         body = await request.json()
         if not isinstance(body, dict):
-            raise ValueError("request body must be an object")
+            raise ValueError("Der Request-Body muss ein Objekt sein")
         require = _codes(body.get("require"))
         exclude = _codes(body.get("exclude"))
         ranges = _ranges(body.get("ranges"))
@@ -2572,7 +2580,7 @@ async def export_cohort(require: str = "", exclude: str = "", ranges: str = ""):
         return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:
         logger.warning("Cohort export failed: %s", e)
-        return JSONResponse({"error": "Cohort export failed"}, status_code=500)
+        return JSONResponse({"error": "Export der Kohorte fehlgeschlagen"}, status_code=500)
     return PlainTextResponse(
         buf.getvalue(),
         media_type="text/csv",

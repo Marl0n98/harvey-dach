@@ -148,7 +148,7 @@ class Brain:
         if self.unavailable:
             return self.unavailable
         if time.monotonic() < self._usage_limited_until:
-            return f"{self.provider_label} usage limit reached for this plan"
+            return f"{self.provider_label}: Nutzungslimit für diesen Tarif erreicht"
         return ""
 
     async def preflight(self) -> str:
@@ -183,7 +183,7 @@ class Brain:
                 return self.unavailable
             return str(e)  # transient: skip this cycle, check again next time
         except Exception as e:
-            return f"Codex preflight failed unexpectedly ({type(e).__name__})."
+            return f"Die Vorabprüfung von Codex ist unerwartet fehlgeschlagen ({type(e).__name__})."
         if self.unavailable:
             await self._mark_available()
         elif not self._status_synced:
@@ -233,8 +233,8 @@ class Brain:
         resume = time.strftime("%H:%M UTC", time.gmtime(until))
         await self._record_status(
             "paused",
-            f"{self.provider_label} usage limit reached for this plan; calls resume "
-            f"after {resume}.",
+            f"{self.provider_label}: Nutzungslimit für diesen Tarif erreicht. Ab {resume} "
+            f"laufen die Aufrufe wieder.",
             kind="usage_limit", until=until)
         self._usage_pause_recorded = True
 

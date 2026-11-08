@@ -19,7 +19,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from harvey.public_http import public_http_client, page_text
+from harvey.public_http import is_ats_host, public_http_client, page_text, same_site
 from harvey.startups import funding_text
 
 from harvey.collectors.ats import detect_board, matching_roles, read_board, role_keywords
@@ -865,6 +865,10 @@ class ProfileCollector:
             return ""
         if resp.status_code != 200:
             return ""
+        asked = urlparse(url).netloc.lower().removeprefix("www.")
+        landed = urlparse(str(getattr(resp, "url", "") or url)).netloc.lower().removeprefix("www.")
+        if not same_site(landed, asked) and not is_ats_host(landed):
+            return ""       # redirected to another business: its signals aren't this one's
         ctype = resp.headers.get("content-type", "")
         if "html" not in ctype and "xml" not in ctype and "text" not in ctype:
             return ""

@@ -216,10 +216,10 @@ def _render_actions(convo):
 def test_an_escalation_from_someone_who_opted_out_cant_be_handed_back():
     html = _render_actions({"id": "c1", "status": "needs_human", "prospect_status": "opted_out",
                             "prospect_id": "p1", "prospect_email": "i@x.test"})
-    assert "Opted out, and Harvey handed this to you" in html
-    assert "Hand back to Harvey" not in html
-    assert "Close</button>" in html and "Why opted out?" in html
+    assert "Abgemeldet, und Harvey hat das an dich übergeben" in html
+    assert "An Harvey zurückgeben" not in html
+    assert "Schließen</button>" in html and "Warum abgemeldet?" in html
     # Anyone else's escalation can still go back to Harvey.
     html = _render_actions({"id": "c2", "status": "needs_human", "prospect_status": "replied",
                             "prospect_id": "p2", "prospect_email": "b@x.test"})
-    assert "Hand back to Harvey" in html and "Why opted out?" not in html
+    assert "An Harvey zurückgeben" in html and "Warum abgemeldet?" not in html

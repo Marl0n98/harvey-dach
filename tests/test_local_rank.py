@@ -184,7 +184,7 @@ def test_rank_cost_notes_match_live_pricing():
     assert "0.006" in serp["cost_note"] and "0.0006" not in serp["cost_note"]
     assert "0.006" in D.PROVIDERS["dataforseo_serp"].cost_note
     maps = next(s for s in SIGNAL_CATALOG if s["code"] == "MAPS_RANK")
-    assert not maps["cost_note"].lower().startswith(("free", "included"))
+    assert not maps["cost_note"].lower().startswith(("kostenlos", "enthalten", "free", "included"))
 
 
 # ── Local pack ──

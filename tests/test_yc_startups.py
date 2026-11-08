@@ -66,7 +66,7 @@ def test_mentioning_yc_isnt_being_backed_by_it(html):
 def test_the_signal_is_in_the_catalog_and_starts_proposed():
     [sig] = [s for s in SIGNAL_CATALOG if s["code"] == "YC_BACKED"]
     assert sig["collector"] == "profile" and sig["value_type"] == "bool"
-    assert "free" in sig["cost_note"]
+    assert "kostenlos" in sig["cost_note"]
 
 
 @pytest.mark.asyncio

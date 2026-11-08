@@ -239,7 +239,7 @@ def send_hold_reason(unread: list, paused: str, read_problem: str) -> str | None
     if paused:
         return None
     if unread:
-        return read_problem or "replies couldn't all be read and handled."
+        return read_problem or "Antworten konnten nicht alle gelesen und bearbeitet werden."
     return ""
 
 
@@ -436,7 +436,7 @@ async def heartbeat(stop_event: asyncio.Event | None = None):
                           if n in REPLY_READERS and outcomes.get(n) is not True]
                 paused = brain.paused_reason
                 if paused or unread:
-                    reason = paused or "replies couldn't all be read and handled."
+                    reason = paused or "Antworten konnten nicht alle gelesen und bearbeitet werden."
                     logger.error(
                         f"Not sending this cycle: {reason} Queued emails wait "
                         "until replies can be read again."

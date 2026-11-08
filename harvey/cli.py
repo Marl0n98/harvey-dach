@@ -187,7 +187,7 @@ def cmd_dashboard(args):
             return
         start_dashboard(host=args.host, port=args.port)
     except (DashboardSetupError, TokenError) as e:
-        print(f"\n  Dashboard not started: {e}\n")
+        print(f"\n  Dashboard nicht gestartet: {e}\n")
         sys.exit(2)
 
 
@@ -200,23 +200,23 @@ def cmd_status(args):
         await state.init_db()
         summary = await state.get_state_summary()
 
-        print("\n  Harvey Pipeline Status")
+        print("\n  Harvey Status")
         print("  " + "=" * 40)
         by_status = summary.get("prospects") or {}
-        listed = ", ".join(f"{k} {v}" for k, v in sorted(by_status.items())) if isinstance(by_status, dict) else by_status
-        print(f"  Prospects:            {listed or 0}")
-        print(f"  Ready to write for:   {summary.get('writable_prospects', 0)} "
-              "(new, with a confirmed email)")
+        listed = ", ".join(f"{STATUS_DE.get(k, k)} {v}" for k, v in sorted(by_status.items())) if isinstance(by_status, dict) else by_status
+        print(f"  Kontakte:             {listed or 0}")
+        print(f"  Bereit zum Schreiben: {summary.get('writable_prospects', 0)} "
+              "(neu, mit bestätigter Adresse)")
         write_failed = (summary.get("prospects") or {}).get("write_failed", 0)
         if write_failed:
-            print(f"  Couldn't write for:   {write_failed} (the model's drafts kept coming back "
-                  "unusable; `harvey retry-writes` tries again)")
-        print(f"  Draft campaigns:      {summary['draft_campaigns']}")
-        print(f"  Active campaigns:     {summary['active_campaigns']}")
-        print(f"  Open conversations:   {summary['open_conversations']}")
+            print(f"  Nicht geschrieben:    {write_failed} (die Entwürfe waren mehrfach unbrauchbar; "
+                  "`harvey retry-writes` versucht es erneut)")
+        print(f"  Kampagnen (Entwurf):  {summary['draft_campaigns']}")
+        print(f"  Kampagnen (aktiv):    {summary['active_campaigns']}")
+        print(f"  Offene Gespräche:     {summary['open_conversations']}")
         by_provider = summary.get("usage_today_by_provider", {})
-        print(f"  Claude calls today:   {by_provider.get('claude', summary['usage_today'])}")
-        print(f"  Codex calls today:    {by_provider.get('codex', 0)}")
+        print(f"  Claude-Aufrufe heute: {by_provider.get('claude', summary['usage_today'])}")
+        print(f"  Codex-Aufrufe heute:  {by_provider.get('codex', 0)}")
         from harvey.config import compliance_notice, load_config, sending_notice
         loaded = None
         try:
@@ -230,23 +230,23 @@ def cmd_status(args):
         from harvey.main import unusable_backlog_notice
         backlog = unusable_backlog_notice(summary)
         if backlog:
-            print("  Prospecting:          PAUSED")
+            print("  Kontaktsuche:         PAUSIERT")
             print(textwrap.fill(backlog, width=72, initial_indent="                        ",
                                 subsequent_indent="                        "))
         if notice:
-            print("  Sending:              HELD")
+            print("  Versand:              ZURÜCKGEHALTEN")
             print(textwrap.fill(notice, width=72, initial_indent="                        ",
                                 subsequent_indent="                        "))
         from harvey.agents.writer import EMAIL_RULES_PROBLEM_KEY
         rules_problem = await state.get_setting(EMAIL_RULES_PROBLEM_KEY)
         if rules_problem:
-            print(f"  Writing:              STOPPED (writer.email_rules: {rules_problem})")
+            print(f"  Schreiben:            GESTOPPT (writer.email_rules: {rules_problem})")
         hold = await state.current_sends_held()
         if hold:
             from harvey.sending_mode import held_message
             waiting = len(await state.get_outbox(status="approved", limit=500))
             title, detail = held_message(hold, waiting=waiting)
-            print(f"  Sending:              NOT SENDING ({title.split(': ', 1)[-1]})")
+            print(f"  Versand:              KEIN VERSAND ({title.split(': ', 1)[-1]})")
             print(textwrap.fill(detail, width=72, initial_indent="                        ",
                                 subsequent_indent="                        "))
         from harvey.integrations.precleared import current_hold, hold_message
@@ -413,7 +413,7 @@ def cmd_companies(args):
     out.parent.mkdir(parents=True, exist_ok=True)
     # utf-8-sig so spreadsheet apps open non-ASCII company names correctly.
     out.write_text(to_csv(rows), encoding="utf-8-sig")
-    print(f"\n  Company register: {len(rows)} companies → {out}")
+    print(f"\n  Firmenliste: {len(rows)} Firmen → {out}")
     for status, n in Counter(r["status"] for r in rows).most_common():
         print(f"    {status:<18} {n}")
     print()
@@ -511,48 +511,48 @@ def cmd_outbox(args):
 
         if args.approve_all:
             n = await state.approve_outbox()
-            print(f"\n  Approved {n} email(s). They'll send on schedule.")
+            print(f"\n  {n} Mail(s) freigegeben. Sie gehen zum geplanten Zeitpunkt raus.")
             held = await state.count_held_for_review()
             if held:
-                print(f"  {held} email(s) Harvey held for review were left out: read each one,")
-                print("  then approve it with --approve <id>.")
+                print(f"  {held} Mail(s), die Harvey zur Prüfung zurückhält, sind nicht dabei: lies jede")
+                print("  und gib sie mit --approve <id> frei.")
             print()
             return
         if args.approve:
             n = await state.approve_outbox(args.approve)
-            print(f"\n  {'Approved.' if n else 'No pending item with that id.'}\n")
+            print(f"\n  {'Freigegeben.' if n else 'Kein wartender Eintrag mit dieser ID.'}\n")
             return
         if args.reject:
             n = await state.reject_outbox_item(args.reject)
-            print(f"\n  {'Rejected.' if n else 'Nothing waiting to send with that id (already sending or sent?).'}\n")
+            print(f"\n  {'Abgelehnt.' if n else 'Mit dieser ID wartet nichts (schon im Versand oder gesendet?).'}\n")
             return
 
         paused = await state.get_setting("sending_paused")
         if paused:
-            print(f"\n  ⚠ SENDING PAUSED: {paused}")
-            print("  Resume with: harvey sending resume")
+            print(f"\n  ⚠ VERSAND PAUSIERT: {paused}")
+            print("  Fortsetzen mit: harvey sending resume")
 
         pending = await state.get_outbox(status="pending_review", limit=50)
         approved = await state.get_outbox(status="approved", limit=10)
-        print(f"\n  Outbox — {len(pending)} awaiting approval, "
-              f"{len(approved)}+ approved/scheduled")
+        print(f"\n  Postausgang: {len(pending)} warten auf Freigabe, "
+              f"{len(approved)}+ freigegeben oder geplant")
         print("  " + "=" * 60)
         question = getattr(getattr(getattr(load_config_quiet(), "channels", None), "email", None),
                            "first_touch", "") == "question"
         for item in pending:
-            what = ("first email (question)" if question and item["step"] == 1 and item["kind"] == "sequence"
-                    else f"step {item['step']} ({item['kind']})")
+            what = ("erste Mail (Frage)" if question and item["step"] == 1 and item["kind"] == "sequence"
+                    else ("Antwort" if item["kind"] == "reply" else f"Mail {item['step']}"))
             print(f"\n  [{item['id']}] {what} "
-                  f"→ {item['to_email']}  (send {_local_time(item['send_at'])})")
-            print(f"  Subject: {item['subject']}")
+                  f"→ {item['to_email']}  (geplant {_local_time(item['send_at'])})")
+            print(f"  Betreff: {item['subject']}")
             body_preview = (item["body"][:200] + "...") if len(item["body"]) > 200 else item["body"]
             for line in body_preview.splitlines():
                 print(f"    {line}")
         if pending:
-            print("\n  Approve: harvey outbox --approve <id>   |   all: harvey outbox --approve-all")
-            print("  Reject:  harvey outbox --reject <id>\n")
+            print("\n  Freigeben: harvey outbox --approve <id>   |   alle: harvey outbox --approve-all")
+            print("  Ablehnen:  harvey outbox --reject <id>\n")
         else:
-            print("  Nothing awaiting review.\n")
+            print("  Nichts wartet auf Freigabe.\n")
 
     asyncio.run(_outbox())
 
@@ -602,13 +602,13 @@ def cmd_stil(args):
     configured = str(getattr(config.writer, "email_rules", "") or "").strip()
     if not args.probe:
         if target.exists():
-            print(f"\n  {STYLE_FILE} exists. Edit it, then preview with: harvey stil --probe 3")
+            print(f"\n  {STYLE_FILE} gibt es schon. Bearbeite sie, dann Vorschau mit: harvey stil --probe 3")
         else:
             shutil.copyfile(PROJECT_ROOT / STYLE_TEMPLATE, target)
-            print(f"\n  Created {STYLE_FILE} from the example. Replace the example emails"
-                  "\n  with emails you would send yourself.")
+            print(f"\n  {STYLE_FILE} aus der Vorlage angelegt. Ersetz die Beispielmails"
+                  "\n  durch Mails, die du selbst so schicken würdest.")
         if not configured:
-            print('\n  Harvey doesn\'t use it yet. Add to harvey.local.yaml:\n'
+            print('\n  Harvey nutzt sie noch nicht. Trag in harvey.local.yaml ein:\n'
                   '    writer:\n      email_rules: "skills/email_rules.md"')
         print()
         return
@@ -642,6 +642,12 @@ def cmd_stil(args):
             print("\n".join("  " + line for line in draft["body"].splitlines()) + "\n")
 
     asyncio.run(_probe())
+
+
+# Prospect statuses as `harvey status` shows them.
+STATUS_DE = {"new": "neu", "queued": "eingeplant", "contacted": "angeschrieben", "replied": "geantwortet",
+             "opted_out": "abgemeldet", "lost": "verloren", "meeting": "Termin", "closed": "abgeschlossen",
+             "write_failed": "nicht geschrieben", "invalid": "ungültig"}
 
 
 def load_config_quiet():
@@ -715,22 +721,22 @@ def cmd_leads(args):
         await state.init_db()
         if not args.export_only:
             scout = Scout(Brain(state, config.brain), state, config, EnvConfig())
-            print("\n  Reading sites" + (" and asking mail servers" if args.verify else "") +
-                  ". Nothing is sent.\n")
+            print("\n  Lese Websites" + (" und frage Mailserver" if args.verify else "") +
+                  ". Es wird nichts gesendet.\n")
             done = await collect_leads(
                 state, scout, limit=args.limit, concurrency=args.concurrency,
                 verify=args.verify, refresh=args.refresh,
-                progress=lambda d, t: print(f"    {d} of {t} companies", flush=True))
-            print(f"\n  {done} companies read.")
+                progress=lambda d, t: print(f"    {d} von {t} Firmen", flush=True))
+            print(f"\n  {done} Firmen gelesen.")
         out = args.out or default_out_base(PROJECT_ROOT)
         c = await export_leads(state, out)
-        print(f"\n  LEADS — {c['companies']} companies → {out}.xlsx and {out}.csv")
-        print(f"    with website {c['with_website']}, with phone {c['with_phone']}, "
-              f"with a named person {c['with_person']}")
-        print(f"    with an email {c['with_email']}: confirmed {c['confirmed']}, "
-              f"catch-all {c['catch_all']}, Microsoft (unsure) {c['microsoft']}, "
-              f"not checkable {c['unknown']}")
-        print(f"    best address published by the business itself: {c['published']}\n")
+        print(f"\n  LEADS: {c['companies']} Firmen → {out}.xlsx und {out}.csv")
+        print(f"    mit Website {c['with_website']}, mit Telefon {c['with_phone']}, "
+              f"mit Ansprechperson {c['with_person']}")
+        print(f"    mit E-Mail {c['with_email']}: bestätigt {c['confirmed']}, "
+              f"Catch-all {c['catch_all']}, Microsoft (unsicher) {c['microsoft']}, "
+              f"nicht prüfbar {c['unknown']}")
+        print(f"    beste Adresse von der Firma selbst veröffentlicht: {c['published']}\n")
 
     asyncio.run(_leads())
 
@@ -748,7 +754,7 @@ def cmd_contacts(args):
         await state.init_db()
         scout = Scout(Brain(state, config.brain), state, config, EnvConfig())
         visited, found = await scout.harvest_contacts(args.limit, args.concurrency)
-        print(f"\n  CONTACTS — {visited} companies visited, {found} new contacts. Nothing was sent.\n")
+        print(f"\n  KONTAKTE: {visited} Firmen besucht, {found} neue Kontakte. Es wurde nichts gesendet.\n")
 
     asyncio.run(_contacts())
 
@@ -818,20 +824,20 @@ def cmd_discover(args):
 
         report = await run_discovery(state, config, args.provider, queries,
                                      max_spend=args.max_spend, dry_run=True)
-        print(f"\n  {len(queries)} queries via {PROVIDERS[args.provider].label}")
+        print(f"\n  {len(queries)} Suchanfragen über {PROVIDERS[args.provider].label}")
         for q in queries[:8]:
             print(f"    - {q.keyword()}" + ("" if q.coordinate or q.location.strip().lower() in OSM_AREAS else
-                  "   (no coordinates — add icp.geo_coordinates for radius search)"))
+                  "   (keine Koordinaten: für eine Umkreissuche icp.geo_coordinates eintragen)"))
         if len(queries) > 8:
-            print(f"    ... and {len(queries) - 8} more")
-        print(f"\n  Estimated cost: ${report.estimated_cost:.4f}"
-              f"   (cap: ${args.max_spend:.2f})")
+            print(f"    ... und {len(queries) - 8} weitere")
+        print(f"\n  Geschätzte Kosten: ${report.estimated_cost:.4f}"
+              f"   (Obergrenze: ${args.max_spend:.2f})")
 
         if args.estimate:
-            print("\n  Estimate only. Re-run without --estimate to collect.\n")
+            print("\n  Nur Schätzung. Ohne --estimate starten, um zu sammeln.\n")
             return
 
-        print("\n  Running...\n")
+        print("\n  Läuft...\n")
         from harvey.pipeline import run_prospecting
 
         result = await run_prospecting(
@@ -840,25 +846,25 @@ def cmd_discover(args):
         )
         r = result.discover or {}
         ran = r.get("queries_ran", 0)
-        print(f"  DISCOVER — {r.get('found', 0)} results across "
-              f"{ran} of {r.get('queries', 0)} queries")
-        print(f"    {r.get('new_companies', 0)} new companies, "
-              f"{r.get('known_companies', 0)} already known")
-        print(f"    {r.get('junk', 0)} filtered out as directories/aggregators")
+        print(f"  SUCHE: {r.get('found', 0)} Treffer aus "
+              f"{ran} von {r.get('queries', 0)} Suchanfragen")
+        print(f"    {r.get('new_companies', 0)} neue Firmen, "
+              f"{r.get('known_companies', 0)} schon bekannt")
+        print(f"    {r.get('junk', 0)} aussortiert (Verzeichnisse, Portale, Behörden)")
         # Only when it happened: a "0 skipped" line every run teaches people to
         # stop reading the block, and this is the line worth noticing.
         if r.get("excluded"):
-            print(f"    {r['excluded']} skipped — on your do-not-contact list")
-        print(f"    {r.get('observations', 0)} observations recorded")
-        print(f"    actual cost: ${r.get('actual_cost', 0):.4f}")
+            print(f"    {r['excluded']} übersprungen: auf deiner Sperrliste")
+        print(f"    {r.get('observations', 0)} Beobachtungen gespeichert")
+        print(f"    tatsächliche Kosten: ${r.get('actual_cost', 0):.4f}")
         if r.get("stopped"):
-            print(f"    stopped early: {r['stopped']}")
+            print(f"    vorzeitig beendet: {r['stopped']}")
 
         if args.no_profile:
-            print("\n  PROFILE — skipped (--no-profile)")
+            print("\n  WEBSITES: übersprungen (--no-profile)")
         else:
-            print(f"\n  PROFILE — {result.profiled_companies} sites read, "
-                  f"{result.profile_observations} observations  (free)")
+            print(f"\n  WEBSITES: {result.profiled_companies} gelesen, "
+                  f"{result.profile_observations} Beobachtungen  (kostenlos)")
 
         for err in result.errors[:5]:
             print(f"    ! {err}")
@@ -867,14 +873,13 @@ def cmd_discover(args):
         # Partial success remains usable and exits zero.
         if r.get("queries_succeeded", 0) == 0:
             print("\n  " + "=" * 68)
-            print(f"  DISCOVERY COMPLETED NO QUERIES ({r.get('stopped') or 'no queries succeeded'})"
-                  " — exiting non-zero")
+            print(f"  SUCHE OHNE ERGEBNIS: keine Suchanfrage hat geklappt ({r.get('stopped') or 'keine erfolgreich'})")
             for err in (r.get("errors") or [])[:3]:
                 print(f"    - {err}")
             print("  " + "=" * 68 + "\n")
             raise SystemExit(1)
 
-        print("\n  Next: harvey dashboard → Signals → cohort builder\n")
+        print("\n  Weiter: harvey leads (Excel-Liste) oder harvey dashboard\n")
 
     asyncio.run(_discover())
 
@@ -886,7 +891,7 @@ def cmd_signals(args):
     prospects against nothing until someone makes these decisions.
     """
     from harvey.state import StateManager
-    from harvey.signals import seed_signal_catalog
+    from harvey.signals import FREE_COST_PREFIXES, seed_signal_catalog
 
     async def _signals():
         state = StateManager()
@@ -900,11 +905,12 @@ def cmd_signals(args):
             if codes == ["ALL"]:
                 codes = [c["code"] for c in await state.get_signal_codes()]
             elif codes == ["FREE"]:
-                # Only signals whose cost note STARTS with free/included. A
-                # substring match would sweep in "1 credit (free tiers
-                # available)", which is not free.
+                # Only signals whose cost note STARTS with kostenlos/enthalten
+                # (free/included on rows from before the German notes). A
+                # substring match would sweep in "1 Prüf-Credit (kostenlose
+                # Kontingente verfügbar)", which is not free.
                 codes = [c["code"] for c in await state.get_signal_codes()
-                         if (c["cost_note"] or "").lower().startswith(("free", "included"))]
+                         if (c["cost_note"] or "").lower().startswith(FREE_COST_PREFIXES)]
             changed = sum(
                 [1 for c in codes if await state.set_signal_status(c, status)]
             )
@@ -1131,7 +1137,7 @@ def cmd_sending(args):
         state = StateManager()
         await state.init_db()
         if args.sending_action == "pause":
-            await state.set_setting("sending_paused", "paused manually")
+            await state.set_setting("sending_paused", "von Hand pausiert")
             print("\n  Sending paused. Nothing will leave the outbox.\n")
         elif args.sending_action == "resume":
             await state.set_setting("sending_paused", "")
@@ -1152,24 +1158,24 @@ def main():
 
     parser = argparse.ArgumentParser(
         prog="harvey",
-        description="Harvey — Autonomous AI Sales Agent. Always Be Closing.",
+        description="Harvey DACH: findet Firmen, baut Lead-Listen und schreibt Mails in deinem Stil.",
     )
     subparsers = parser.add_subparsers(dest="command")
 
     # harvey install
-    sub = subparsers.add_parser("install", help="Install dependencies")
+    sub = subparsers.add_parser("install", help="Abhängigkeiten installieren")
     sub.set_defaults(func=cmd_install)
 
     # harvey setup
-    sub = subparsers.add_parser("setup", help="Run the interactive setup wizard")
+    sub = subparsers.add_parser("setup", help="Einrichtungs-Assistent starten")
     sub.set_defaults(func=cmd_setup)
 
     # harvey run
-    sub = subparsers.add_parser("run", help="Start Harvey's heartbeat loop")
+    sub = subparsers.add_parser("run", help="Harvey dauerhaft laufen lassen (sucht, schreibt, sendet nach Freigabe)")
     sub.set_defaults(func=cmd_run)
 
     # harvey train <url>
-    sub = subparsers.add_parser("train", help="Train Harvey on a website")
+    sub = subparsers.add_parser("train", help="Harvey mit deiner Website trainieren")
     sub.add_argument("url", help="Website URL to crawl and learn from")
     sub.add_argument(
         "max_pages",
@@ -1190,7 +1196,7 @@ def main():
     sub.set_defaults(func=cmd_train)
 
     # harvey dashboard
-    sub = subparsers.add_parser("dashboard", help="Open the web dashboard")
+    sub = subparsers.add_parser("dashboard", help="Dashboard im Browser öffnen")
     sub.add_argument("--host", default="127.0.0.1",
                      help="Loopback address to listen on (default: 127.0.0.1; "
                           "other addresses are refused)")
@@ -1200,7 +1206,7 @@ def main():
     sub.set_defaults(func=cmd_dashboard)
 
     # harvey status
-    sub = subparsers.add_parser("status", help="Show pipeline status")
+    sub = subparsers.add_parser("status", help="Stand anzeigen")
     sub.add_argument(
         "--check", action="store_true",
         help="Also check the configured brain now (Codex: CLI version, isolation "
@@ -1210,7 +1216,7 @@ def main():
 
     # harvey export
     sub = subparsers.add_parser(
-        "export", help="Export prospects as a sequencer-ready CSV"
+        "export", help="Kontakte als CSV für andere Versand-Tools exportieren"
     )
     sub.add_argument("--out", default="prospects.csv", help="Output file (default: prospects.csv)")
     sub.add_argument(
@@ -1224,47 +1230,47 @@ def main():
 
     # harvey companies
     sub = subparsers.add_parser(
-        "companies", help="Export the company register: every company, why it fits, and why it wasn't contacted"
+        "companies", help="Firmenliste exportieren: jede Firma, warum sie passt und warum sie nicht angeschrieben wurde"
     )
     sub.add_argument("--out", default="", help="Output file (default: data/exports/company-register-<date>.csv)")
     sub.set_defaults(func=cmd_companies)
 
     # harvey gmail auth|test
-    sub = subparsers.add_parser("gmail", help="Gmail provider setup")
+    sub = subparsers.add_parser("gmail", help="Gmail als Postfach einrichten")
     sub.add_argument("gmail_action", choices=["auth", "test"],
                      help="auth: one-time OAuth; test: verify connection")
     sub.set_defaults(func=cmd_gmail)
 
     # harvey microsoft auth|test
-    sub = subparsers.add_parser("microsoft", help="Microsoft 365 provider setup")
+    sub = subparsers.add_parser("microsoft", help="Microsoft 365 als Postfach einrichten")
     sub.add_argument("microsoft_action", choices=["auth", "test"],
                      help="auth: one-time sign-in; test: verify connection")
     sub.set_defaults(func=cmd_microsoft)
 
     # harvey outbox
-    sub = subparsers.add_parser("outbox", help="Review/approve queued emails")
+    sub = subparsers.add_parser("outbox", help="Postausgang ansehen, Mails freigeben oder ablehnen")
     sub.add_argument("--approve", metavar="ID", default="", help="Approve one item")
     sub.add_argument("--approve-all", action="store_true", help="Approve all pending")
     sub.add_argument("--reject", metavar="ID", default="", help="Reject one item")
     sub.set_defaults(func=cmd_outbox)
 
     # harvey sending pause|resume|status
-    sub = subparsers.add_parser("discover", help="Find businesses matching your ICP")
+    sub = subparsers.add_parser("discover", help="Firmen finden, die zu deiner Zielgruppe passen")
     sub.add_argument("--provider", default="osm",
-                     help="Discovery provider (default: osm — free, no account)")
+                     help="Quelle für die Suche (Standard: osm, kostenlos, ohne Konto)")
     sub.add_argument("--providers", action="store_true",
-                     help="List every provider with cost and setup, then exit")
+                     help="Alle Quellen mit Kosten und Einrichtung zeigen")
     sub.add_argument("--estimate", action="store_true",
-                     help="Print projected spend and exit without calling anything")
+                     help="Nur die Kosten schätzen, nichts abrufen")
     sub.add_argument("--city", default="",
                      help='Semicolon-separated cities, e.g. "Denver, CO;Dallas, TX" '
                           '(default: icp.geography)')
     sub.add_argument("--depth", type=int, default=30,
                      help="SERP depth (default: 30 — depth 100 costs 10x since Sept 2025)")
     sub.add_argument("--limit", type=int, default=None,
-                     help="Max records per query (default: all for osm, 100 for paid providers)")
+                     help="Höchstzahl Treffer pro Suchanfrage (Standard: alle bei osm, 100 bei bezahlten Quellen)")
     sub.add_argument("--max-spend", type=float, default=1.0,
-                     help="Hard cap in dollars (default: 1.00)")
+                     help="Kostenobergrenze in Dollar (Standard: 1.00)")
     sub.add_argument("--preset", default="", choices=["", "yc", "hiring", "accelerator", "funding"],
                      help="A built-in search instead of your ICP's industries "
                           "(each needs a search provider like tinyfish, serper or dataforseo_serp). "
@@ -1275,41 +1281,41 @@ def main():
                           "Neo, AI Grant, a16z speedrun or Plug and Play; "
                           "funding: companies announcing a raise on their own site in the last 18 months")
     sub.add_argument("--no-profile", action="store_true",
-                     help="Don't profile what was found (profiling is free)")
+                     help="Websites der Treffer nicht lesen (schneller)")
     sub.set_defaults(func=cmd_discover)
 
     sub = subparsers.add_parser(
-        "leads", help="Write every discovered company to Excel and CSV, with phones, people and checked emails (sends nothing)")
-    sub.add_argument("--limit", type=int, default=0, help="Max companies to read this run (default: all)")
-    sub.add_argument("--concurrency", type=int, default=8, help="Companies read at once (default: 8)")
+        "leads", help="Alle gefundenen Firmen als Excel und CSV, mit Telefon, Personen und geprüften Mails (sendet nichts)")
+    sub.add_argument("--limit", type=int, default=0, help="Höchstzahl Firmen in diesem Lauf (Standard: alle)")
+    sub.add_argument("--concurrency", type=int, default=8, help="Firmen gleichzeitig (Standard: 8)")
     sub.add_argument("--no-verify", dest="verify", action="store_false",
-                     help="Don't ask mail servers whether addresses exist")
-    sub.add_argument("--refresh", action="store_true", help="Read companies again that already have an entry")
-    sub.add_argument("--export-only", action="store_true", help="Only write the file from what is stored")
-    sub.add_argument("--out", default="", help="File name without extension (default: data/exports/leads-<date>)")
+                     help="Mailserver nicht fragen, ob Adressen existieren")
+    sub.add_argument("--refresh", action="store_true", help="Firmen mit Eintrag neu lesen")
+    sub.add_argument("--export-only", action="store_true", help="Nur die Datei aus dem Gespeicherten schreiben")
+    sub.add_argument("--out", default="", help="Dateiname ohne Endung (Standard: data/exports/leads-<Datum>)")
     sub.set_defaults(func=cmd_leads)
 
     sub = subparsers.add_parser(
-        "entwuerfe", help="Write first-email drafts for a few contacts and stop (sends nothing)")
-    sub.add_argument("--limit", type=int, default=2, help="Max contacts to write for (default: 2, 0 = all)")
+        "entwuerfe", help="Erste Mails für wenige Kontakte als Entwurf schreiben (sendet nichts)")
+    sub.add_argument("--limit", type=int, default=2, help="Höchstzahl Kontakte (Standard: 2, 0 = alle)")
     sub.set_defaults(func=cmd_entwuerfe)
 
     sub = subparsers.add_parser(
-        "stil", help="Your own email style: create skills/email_rules.md, or preview emails in it")
+        "stil", help="Eigener Mail-Stil: skills/email_rules.md anlegen oder Probemails zeigen")
     sub.add_argument("--probe", type=int, default=0, metavar="N",
-                     help="Write N first emails for stored contacts and print them (sends nothing)")
+                     help="N Probemails schreiben und zeigen (speichert und sendet nichts)")
     sub.set_defaults(func=cmd_stil)
 
     sub = subparsers.add_parser(
-        "contacts", help="Find contacts at every discovered company (free, no Claude, sends nothing)")
+        "contacts", help="Kontakte bei den gefundenen Firmen suchen (kostenlos, sendet nichts)")
     sub.add_argument("--limit", type=int, default=500,
-                     help="Max companies to visit (default: 500)")
+                     help="Höchstzahl Firmen (Standard: 500)")
     sub.add_argument("--concurrency", type=int, default=6,
-                     help="Sites read at once (default: 6)")
+                     help="Websites gleichzeitig (Standard: 6)")
     sub.set_defaults(func=cmd_contacts)
 
     sub = subparsers.add_parser(
-        "profile", help="Read discovered companies' websites (free, no Claude)")
+        "profile", help="Websites der gefundenen Firmen lesen (kostenlos, ohne Claude)")
     sub.add_argument("--limit", type=int, default=200,
                      help="Max sites to read (default: 200)")
     sub.add_argument("--stale-days", type=int, default=90,
@@ -1317,7 +1323,7 @@ def main():
     sub.set_defaults(func=cmd_profile)
 
     sub = subparsers.add_parser(
-        "signals", help="Review/confirm which signals Harvey prospects against")
+        "signals", help="Signale prüfen und bestätigen, nach denen Harvey sucht")
     sub.add_argument("--confirm", metavar="CODES", default="",
                      help="Comma-separated codes to confirm ('all' or 'free' accepted)")
     sub.add_argument("--reject", metavar="CODES", default="",
@@ -1325,22 +1331,22 @@ def main():
     sub.set_defaults(func=cmd_signals)
 
     sub = subparsers.add_parser(
-        "retry-writes", help="Retry prospects the Writer couldn't write an email for")
+        "retry-writes", help="Kontakte erneut versuchen, für die keine Mail geschrieben werden konnte")
     sub.set_defaults(func=cmd_retry_writes)
 
-    sub = subparsers.add_parser("sending", help="Kill switch: pause/resume sending")
+    sub = subparsers.add_parser("sending", help="Not-Aus: Versand pausieren oder fortsetzen")
     sub.add_argument("sending_action", nargs="?", default="status",
                      choices=["pause", "resume", "status"])
     sub.set_defaults(func=cmd_sending)
 
     sub = subparsers.add_parser(
-        "warmup", help="Check if your sending domain is set up and warmed up for cold email")
+        "warmup", help="Prüfen, ob deine Absender-Domain eingerichtet und aufgewärmt ist")
     sub.add_argument("domain", nargs="?", default="",
                      help="Domain to check (default: your sending mailbox's domain)")
     sub.set_defaults(func=cmd_warmup)
 
     sub = subparsers.add_parser(
-        "trulyinbox", help="Warmup service: connect TrulyInbox so Harvey can read the inbox rate")
+        "trulyinbox", help="Aufwärmdienst TrulyInbox verbinden, damit Harvey die Zustellrate liest")
     sub.add_argument("trulyinbox_action", nargs="?", default="status",
                      choices=["status", "connect", "other"],
                      help="connect a key, 'other' if you use another warmup service, "
@@ -1348,7 +1354,7 @@ def main():
     sub.set_defaults(func=cmd_trulyinbox)
 
     # harvey usage
-    sub = subparsers.add_parser("usage", help="Show brain usage and quota (Claude or Codex)")
+    sub = subparsers.add_parser("usage", help="Verbrauch und Kontingent zeigen (Claude oder Codex)")
     sub.add_argument("--days", type=int, default=30, help="Breakdown window (default: 30)")
     sub.set_defaults(func=cmd_usage)
 

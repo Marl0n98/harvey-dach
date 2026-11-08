@@ -11,13 +11,14 @@ let _desk = { items: [], i: 0 };
 // it. Stored per-browser; nothing is sent anywhere.
 
 const THEMES = ['auto', 'light', 'dark'];
+const THEME_LABELS = {auto: 'Auto', light: 'Hell', dark: 'Dunkel'};
 
 function applyTheme(mode) {
   const root = document.documentElement;
   if (mode === 'auto') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', mode);
   const btn = document.getElementById('theme-btn');
-  if (btn) btn.textContent = mode;
+  if (btn) btn.textContent = THEME_LABELS[mode] || mode;
 }
 
 function cycleTheme() {
@@ -76,62 +77,62 @@ function safeHref(u) {
 // tone: waiting (needs a human) | active (in flight) | good | bad | idle
 const STATUS = {
   // prospects
-  new:            ['New', 'active'],
-  contacted:      ['Contacted', 'active'],
-  replied:        ['Replied', 'good'],
-  interested:     ['Interested', 'good'],
-  meeting:        ['Meeting booked', 'note'],
-  not_interested: ['Not interested', 'bad'],
-  bounced:        ['Bounced', 'bad'],
-  write_failed:   ["Couldn't write", 'bad'],
-  queued:         ['Queued', 'active'],
-  opted_out:      ['Opted out', 'bad'],
+  new:            ['Neu', 'active'],
+  contacted:      ['Kontaktiert', 'active'],
+  replied:        ['Geantwortet', 'good'],
+  interested:     ['Interessiert', 'good'],
+  meeting:        ['Termin gebucht', 'note'],
+  not_interested: ['Kein Interesse', 'bad'],
+  bounced:        ['Unzustellbar', 'bad'],
+  write_failed:   ['Schreiben fehlgeschlagen', 'bad'],
+  queued:         ['In Warteschlange', 'active'],
+  opted_out:      ['Abgemeldet', 'bad'],
   // campaigns
-  draft:          ['Draft', 'waiting'],
-  active:         ['Active', 'good'],
-  completed:      ['Completed', 'idle'],
-  paused:         ['Paused', 'bad'],
+  draft:          ['Entwurf', 'waiting'],
+  active:         ['Aktiv', 'good'],
+  completed:      ['Abgeschlossen', 'idle'],
+  paused:         ['Pausiert', 'bad'],
   // conversations
-  open:           ['Open', 'active'],
-  closed:         ['Closed', 'idle'],
-  closed_won:     ['Won', 'good'],
-  closed_lost:    ['Lost', 'bad'],
-  objection:      ['Objection', 'waiting'],
-  question:       ['Question', 'active'],
-  ooo:            ['Out of office', 'idle'],
-  wrong_person:   ['Wrong person', 'waiting'],
-  unsubscribe:    ['Unsubscribed', 'bad'],
-  escalate:       ['Needs a human', 'bad'],
-  needs_human:    ['Needs you', 'waiting'],
+  open:           ['Offen', 'active'],
+  closed:         ['Geschlossen', 'idle'],
+  closed_won:     ['Gewonnen', 'good'],
+  closed_lost:    ['Verloren', 'bad'],
+  objection:      ['Einwand', 'waiting'],
+  question:       ['Frage', 'active'],
+  ooo:            ['Abwesend', 'idle'],
+  wrong_person:   ['Falsche Person', 'waiting'],
+  unsubscribe:    ['Abgemeldet', 'bad'],
+  escalate:       ['Braucht einen Menschen', 'bad'],
+  needs_human:    ['Braucht dich', 'waiting'],
   // outbox
-  pending_review: ['Waiting on you', 'waiting'],
-  approved:       ['Approved', 'good'],
-  sending:        ['Sending now', 'active'],
-  scheduled:      ['Scheduled', 'active'],
-  sent:           ['Sent', 'good'],
-  awaiting_reply: ['Awaiting reply', 'active'],
-  failed:         ['Failed', 'bad'],
-  rejected:       ['Rejected', 'idle'],
-  cancelled:      ['Cancelled', 'idle'],
+  pending_review: ['Wartet auf dich', 'waiting'],
+  approved:       ['Freigegeben', 'good'],
+  sending:        ['Wird gesendet', 'active'],
+  scheduled:      ['Geplant', 'active'],
+  sent:           ['Gesendet', 'good'],
+  awaiting_reply: ['Wartet auf Antwort', 'active'],
+  failed:         ['Fehlgeschlagen', 'bad'],
+  rejected:       ['Abgelehnt', 'idle'],
+  cancelled:      ['Abgebrochen', 'idle'],
   // signals
-  proposed:       ['Waiting on you', 'waiting'],
-  confirmed:      ['Confirmed', 'good'],
+  proposed:       ['Wartet auf dich', 'waiting'],
+  confirmed:      ['Bestätigt', 'good'],
   // email deliverability
-  verified:       ['Verified', 'good'],
+  verified:       ['Verifiziert', 'good'],
   risky:          ['Catch-all', 'waiting'],
-  guess:          ['Unverified', 'idle'],
-  invalid:        ['Invalid', 'bad'],
+  guess:          ['Nicht geprüft', 'idle'],
+  invalid:        ['Ungültig', 'bad'],
   // runs
-  running:        ['Running', 'active'],
-  stale:          ['Stale', 'bad'],
-  stalled:        ['Stopped', 'bad'],
+  running:        ['Läuft', 'active'],
+  stale:          ['Veraltet', 'bad'],
+  stalled:        ['Gestoppt', 'bad'],
 };
 
 function statusMeta(status) {
   const key = String(status || '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
   const hit = own(STATUS, key);
   if (hit) return { label: hit[0], tone: hit[1] };
-  const label = String(status || 'unknown').replace(/_/g, ' ');
+  const label = String(status || 'unbekannt').replace(/_/g, ' ');
   return { label: label.charAt(0).toUpperCase() + label.slice(1), tone: 'idle' };
 }
 
@@ -147,7 +148,8 @@ function formatDate(d) {
     if (/^\d{4}-\d\d-\d\dT/.test(t) && !/[zZ]$|[+-]\d\d:?\d\d$/.test(t)) t += 'Z';  // stored UTC
     const dt = new Date(t);
     if (isNaN(dt)) return escHtml(d);
-    return dt.toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    // German style: "8. Nov., 15:42"
+    return dt.toLocaleString('de-DE', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
   } catch { return escHtml(d); }
 }
 
@@ -172,21 +174,21 @@ function parseTs(d) {
   return new Date(t);
 }
 
-// "3m ago", "5h ago", "Yesterday", then a date: recent things read faster.
+// "vor 3 Min.", "vor 5 Std.", "Gestern", then a date: recent things read faster.
 function relTime(d) {
   if (!d) return '';
   const dt = parseTs(d);
   if (isNaN(dt)) return escHtml(d);
   const mins = Math.round((Date.now() - dt) / 60000);
-  if (mins < -1 && mins > -60) return 'in ' + -mins + 'm';
-  if (mins < -1 && mins > -60 * 24) return 'in ' + Math.round(-mins / 60) + 'h';
-  if (mins >= -1 && mins < 1) return 'just now';
-  if (mins >= 1 && mins < 60) return mins + 'm ago';
-  if (mins >= 60 && mins < 60 * 24) return Math.round(mins / 60) + 'h ago';
-  if (mins >= 60 * 24 && mins < 60 * 48) return 'Yesterday';
-  const opts = {month: 'short', day: 'numeric'};
+  if (mins < -1 && mins > -60) return 'in ' + -mins + ' Min.';
+  if (mins < -1 && mins > -60 * 24) return 'in ' + Math.round(-mins / 60) + ' Std.';
+  if (mins >= -1 && mins < 1) return 'gerade eben';
+  if (mins >= 1 && mins < 60) return 'vor ' + mins + ' Min.';
+  if (mins >= 60 && mins < 60 * 24) return 'vor ' + Math.round(mins / 60) + ' Std.';
+  if (mins >= 60 * 24 && mins < 60 * 48) return 'Gestern';
+  const opts = {day: 'numeric', month: 'short'};
   if (dt.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
-  return dt.toLocaleDateString('en-US', opts);
+  return dt.toLocaleDateString('de-DE', opts);
 }
 
 function dayLabel(d) {
@@ -195,14 +197,14 @@ function dayLabel(d) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const that = new Date(dt); that.setHours(0, 0, 0, 0);
   const diff = Math.round((today - that) / 86400000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  return dt.toLocaleDateString('en-US', {weekday: 'long', month: 'short', day: 'numeric'});
+  if (diff === 0) return 'Heute';
+  if (diff === 1) return 'Gestern';
+  return dt.toLocaleDateString('de-DE', {weekday: 'long', day: 'numeric', month: 'short'});
 }
 
 function timeOfDay(d) {
   const dt = parseTs(d);
-  return isNaN(dt) ? '' : dt.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'});
+  return isNaN(dt) ? '' : dt.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
 }
 
 // Columns of a tiny bar chart; the last day is "today".
@@ -210,7 +212,7 @@ function sparkBars(values, title) {
   const vals = (values || []).map(v => Number(v) || 0);
   if (!vals.length) return '';
   const max = Math.max(...vals, 1);
-  return '<span class="spark" role="img" aria-label="' + escHtml(title || 'trend') + '">' +
+  return '<span class="spark" role="img" aria-label="' + escHtml(title || 'Verlauf') + '">' +
     vals.map((v, i) => '<i class="' + (v ? 'on' : '') + '" style="height:' +
       Math.max(2, Math.round(v / max * 28)) + 'px" title="' + v + '"></i>').join('') + '</span>';
 }
@@ -227,9 +229,9 @@ function meterHtml(pct, segments) {
 }
 
 const SOURCE_LABELS = {
-  company_website: 'Team page', known_company_backfill: 'Team page',
-  scraped_mailto: 'Published address', hunter_domain_search: 'Hunter', linkedin_search: 'LinkedIn',
-  job_board: 'Job board', web_search: 'Web search', company_inbox: 'Company inbox',
+  company_website: 'Teamseite', known_company_backfill: 'Teamseite',
+  scraped_mailto: 'Veröffentlichte Adresse', hunter_domain_search: 'Hunter', linkedin_search: 'LinkedIn',
+  job_board: 'Jobbörse', web_search: 'Websuche', company_inbox: 'Firmenpostfach',
   osm: 'OpenStreetMap', dataforseo_listings: 'DataForSEO', dataforseo_serp: 'DataForSEO SERP', dataforseo_maps: 'DataForSEO Maps',
   serper: 'Serper', tinyfish: 'TinyFish', scavio_maps: 'Scavio Maps', scavio_search: 'Scavio Search',
 };
@@ -246,33 +248,33 @@ function actionText(a) {
   const d = a.details || {};
   const who = escHtml(d.prospect_email || d.prospect || d.to || '');
   const camp = escHtml(d.campaign_name || d.campaign || '');
-  const intent = d.intent ? ' · ' + escHtml(String(d.intent).replace(/_/g, ' ')) : '';
+  const intent = d.intent ? ' · ' + escHtml(statusMeta(d.intent).label) : '';
   const n = (v, one, many) => (Number(v) || 0) + ' ' + ((Number(v) || 0) === 1 ? one : many);
   switch (a.action_type) {
-    case 'prospect': return 'Found ' + n(d.prospects_found, 'new contact', 'new contacts');
-    case 'write_campaign': return 'Wrote “' + camp + '” for ' + n(d.prospect_count, 'contact', 'contacts');
-    case 'write_failed': return 'Couldn’t write for some contacts' + (camp ? ' in “' + camp + '”' : '');
-    case 'stage_campaign': return 'Queued ' + n(d.staged, 'email', 'emails') + ' from “' + camp + '”' +
+    case 'prospect': return n(d.prospects_found, 'neuer Kontakt', 'neue Kontakte') + ' gefunden';
+    case 'write_campaign': return '„' + camp + '“ für ' + n(d.prospect_count, 'Kontakt', 'Kontakte') + ' geschrieben';
+    case 'write_failed': return 'Konnte für einige Kontakte nicht schreiben' + (camp ? ' in „' + camp + '“' : '');
+    case 'stage_campaign': return n(d.staged, 'E-Mail', 'E-Mails') + ' aus „' + camp + '“ eingereiht' +
       (d.mode ? ' · ' + escHtml(d.mode) : '');
-    case 'send_campaign': return 'Sent “' + camp + '” to Instantly · ' + n(d.leads_added, 'lead', 'leads');
-    case 'email_sent': return d.kind === 'reply' ? 'Sent a reply to ' + who
-      : 'Sent email ' + escHtml(String(d.step || 1)) + ' to ' + who;
-    case 'reply': return 'Answered ' + who + intent;
-    case 'reply_queued': return 'Drafted a reply to ' + who + intent;
-    case 'opt_out': return who + ' opted out' + (d.why ? ' · ' + escHtml(d.why) : '');
-    case 'opt_out_undone': return 'You undid ' + (who || 'a contact') + '’s opt-out';
-    case 'reply_after_opt_out': return who + ' wrote again after opting out · no reply sent';
-    case 'escalation': return 'Flagged ' + who + ' for you' + (d.reason ? ' · ' + escHtml(d.reason) : '');
-    case 'bounce': return 'Email to ' + who + ' bounced';
-    case 'manual_send': return 'You marked a contact as emailed by hand';
-    case 'manual_send_undone': return 'You undid a hand-sent mark';
-    case 'outbox_edited': return 'You edited a draft';
+    case 'send_campaign': return '„' + camp + '“ an Instantly gesendet · ' + n(d.leads_added, 'Lead', 'Leads');
+    case 'email_sent': return d.kind === 'reply' ? 'Antwort an ' + who + ' gesendet'
+      : 'E-Mail ' + escHtml(String(d.step || 1)) + ' an ' + who + ' gesendet';
+    case 'reply': return who + ' geantwortet' + intent;
+    case 'reply_queued': return 'Antwort an ' + who + ' entworfen' + intent;
+    case 'opt_out': return who + ' hat sich abgemeldet' + (d.why ? ' · ' + escHtml(d.why) : '');
+    case 'opt_out_undone': return 'Du hast die Abmeldung von ' + (who || 'einem Kontakt') + ' zurückgenommen';
+    case 'reply_after_opt_out': return who + ' hat nach der Abmeldung erneut geschrieben · keine Antwort gesendet';
+    case 'escalation': return who + ' für dich markiert' + (d.reason ? ' · ' + escHtml(d.reason) : '');
+    case 'bounce': return 'E-Mail an ' + who + ' unzustellbar';
+    case 'manual_send': return 'Du hast einen Kontakt als von Hand angeschrieben markiert';
+    case 'manual_send_undone': return 'Du hast eine Markierung „von Hand gesendet“ zurückgenommen';
+    case 'outbox_edited': return 'Du hast einen Entwurf bearbeitet';
     case 'conversation_status':
-      return d.to === 'closed' ? 'You closed a conversation'
-        : d.from === 'needs_human' ? 'You handed a conversation back to Harvey' : 'You reopened a conversation';
+      return d.to === 'closed' ? 'Du hast ein Gespräch geschlossen'
+        : d.from === 'needs_human' ? 'Du hast ein Gespräch an Harvey zurückgegeben' : 'Du hast ein Gespräch wieder geöffnet';
   }
   const text = escHtml(String(a.action_type || '').replace(/_/g, ' '));
-  return a.agent === 'main' ? 'Heartbeat: ' + text : text;
+  return a.agent === 'main' ? 'Herzschlag: ' + text : text;
 }
 
 function emptyState(glyph, title, copy) {
@@ -282,8 +284,8 @@ function emptyState(glyph, title, copy) {
 }
 
 function offlineState() {
-  return emptyState('&#9888;', 'Dashboard can\'t reach the server',
-    'The dashboard process may have stopped. Restart it with <b>harvey dashboard</b> and refresh this page.');
+  return emptyState('&#9888;', 'Das Dashboard erreicht den Server nicht',
+    'Der Dashboard-Prozess wurde vielleicht beendet. Starte ihn mit <b>harvey dashboard</b> neu und lade diese Seite neu.');
 }
 
 async function api(path, opts) {
@@ -317,10 +319,10 @@ async function lockIfRefused(r) {
     try { why = ((await r.json()) || {}).message || ''; } catch { /* ignore */ }
   }
   showLock(r.status === 503
-    ? 'The dashboard server can\'t use its token file, so it is refusing every request. ' + why
+    ? 'Der Dashboard-Server kann seine Token-Datei nicht nutzen und lehnt deshalb jede Anfrage ab. ' + why
     : authToken()
-      ? 'The saved token was not accepted (the dashboard may have a new one).'
-      : 'This tab doesn\'t have the dashboard token yet.');
+      ? 'Das gespeicherte Token wurde nicht akzeptiert (das Dashboard hat vielleicht ein neues).'
+      : 'Dieser Tab hat das Dashboard-Token noch nicht.');
   return true;
 }
 
@@ -333,7 +335,7 @@ function showLock(reason) {
   const dot = document.getElementById('header-dot');
   const text = document.getElementById('header-status-text');
   if (dot) dot.className = 'status-dot offline';
-  if (text) text.textContent = 'Locked';
+  if (text) text.textContent = 'Gesperrt';
 }
 
 function hideLock() {
@@ -349,7 +351,7 @@ function unlockWithToken(event) {
   input.value = '';
   if (!setAuthToken(value)) {
     document.getElementById('lock-reason').textContent =
-      'That doesn\'t look like a dashboard token. Copy it again from the link or data/dashboard-token.';
+      'Das sieht nicht nach einem Dashboard-Token aus. Kopiere es noch einmal aus dem Link oder aus data/dashboard-token.';
     return;
   }
   hideLock();
@@ -364,7 +366,7 @@ async function downloadCsv(path, filename, btn) {
   try {
     const r = await authFetch(path);
     if (await lockIfRefused(r)) return;
-    if (!r.ok) { showToast('Export failed.', 'error'); return; }
+    if (!r.ok) { showToast('Export fehlgeschlagen.', 'error'); return; }
     const href = URL.createObjectURL(await r.blob());
     const a = document.createElement('a');
     a.href = href;
@@ -374,7 +376,7 @@ async function downloadCsv(path, filename, btn) {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(href), 10000);
   } catch {
-    showToast('Export failed — is the dashboard still running?', 'error');
+    showToast('Export fehlgeschlagen. Läuft das Dashboard noch?', 'error');
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -430,8 +432,8 @@ async function loadToday() {
   if (!data) { el.innerHTML = offlineState(); return; }
   if (data.error) {
     // A failed check must never read as "Nothing needs you".
-    el.innerHTML = emptyState(icon('alert'), 'Couldn\'t check what needs you',
-      'The dashboard hit an error reading Harvey\'s data: ' + escHtml(data.error));
+    el.innerHTML = emptyState(icon('alert'), 'Konnte nicht prüfen, was dich braucht',
+      'Beim Lesen von Harveys Daten ist ein Fehler aufgetreten: ' + escHtml(data.error));
     return;
   }
 
@@ -446,9 +448,9 @@ async function loadToday() {
   if (!items.length) {
     el.innerHTML = '<div class="queue-clear">' +
       '<div class="queue-icon">' + icon('check') + '</div><div>' +
-      '<div class="qtitle">Nothing needs you</div>' +
-      '<div class="qdetail">Harvey has everything it needs. Anything that requires a ' +
-      'decision — an email to approve, a signal to confirm — shows up here.</div>' +
+      '<div class="qtitle">Nichts braucht dich</div>' +
+      '<div class="qdetail">Harvey hat alles, was er braucht. Alles, was eine Entscheidung ' +
+      'braucht, etwa eine E-Mail zum Freigeben oder ein Signal zum Bestätigen, erscheint hier.</div>' +
       '</div></div>';
     return;
   }
@@ -477,9 +479,9 @@ async function loadLiveStatus() {
   if (!d || !Array.isArray(d.steps)) {
     // Keep the last good numbers on screen, but never let them pass for live.
     const flag = el.querySelector('.live-flag');
-    if (flag) flag.textContent = "Can't reach Harvey right now — numbers below may be old.";
-    else el.innerHTML = '<p class="muted live-flag">Can\'t reach Harvey right now. ' +
-      'Is the dashboard window still open?</p>';
+    if (flag) flag.textContent = 'Harvey ist gerade nicht erreichbar. Die Zahlen unten sind vielleicht veraltet.';
+    else el.innerHTML = '<p class="muted live-flag">Harvey ist gerade nicht erreichbar. ' +
+      'Ist das Dashboard-Fenster noch offen?</p>';
     return;
   }
   const glyph = {done: icon('check'), running: '<span class="pulse"></span>', partial: '', waiting: ''};
@@ -496,27 +498,27 @@ async function loadLiveStatus() {
       '<span class="step-detail">' + escHtml(s.detail) + '</span>' + bar +
     '</div>';
   }).join('');
-  const jobName = r => r.stage === 'profile' ? 'Reading websites'
-    : r.stage === 'discover' ? 'Searching for businesses (' + (r.provider || '') + ')'
-    : String(r.stage || 'Job');
+  const jobName = r => r.stage === 'profile' ? 'Websites lesen'
+    : r.stage === 'discover' ? 'Firmen suchen (' + (r.provider || '') + ')'
+    : String(r.stage || 'Auftrag');
   const running = d.running || [];
   const runningHtml = running.length
     ? running.map(r => '<span class="live-now"><span class="pulse"></span>' + escHtml(jobName(r)) +
-        ' · ' + r.elapsed_min + ' min' + (r.eta_text ? ' · ' + escHtml(r.eta_text) : '') + '</span>').join('')
-    : '<span class="live-now">Nothing running right now</span>';
+        ' · ' + r.elapsed_min + ' Min.' + (r.eta_text ? ' · ' + escHtml(r.eta_text) : '') + '</span>').join('')
+    : '<span class="live-now">Gerade läuft nichts</span>';
   const stoppedHtml = (d.stopped || []).length
-    ? '<div class="banner bad" style="margin:8px 0 0">' + icon('alert') + '<p style="color:inherit">' +
-      (d.stopped || []).map(r => escHtml(jobName(r))).join(', ') + ' stopped before finishing.</p></div>'
+    ? '<div class="banner bad" style="margin:8px 0 0">' + icon('alert') + '<p style="color:inherit">Vor dem Ende gestoppt: ' +
+      (d.stopped || []).map(r => escHtml(jobName(r))).join(', ') + '.</p></div>'
     : '';
   el.innerHTML =
     '<div class="live-head">' + runningHtml +
-      '<span class="setup-pct">Cost so far $' + Number(d.cost_usd || 0).toFixed(2) + '</span></div>' +
+      '<span class="setup-pct">Bisherige Kosten $' + Number(d.cost_usd || 0).toFixed(2) + '</span></div>' +
     stoppedHtml +
     '<div class="steps">' + rows + '</div>' +
-    (d.next ? '<div class="live-next">' + icon('arrow') + '<span><b>Next</b> · ' + escHtml(d.next) + '</span>' +
-      (d.next_tab ? '<button class="btn btn-secondary btn-sm" onclick="goTab(' + jsq(d.next_tab) + ')">Go</button>' : '') +
+    (d.next ? '<div class="live-next">' + icon('arrow') + '<span><b>Als Nächstes</b> · ' + escHtml(d.next) + '</span>' +
+      (d.next_tab ? '<button class="btn btn-secondary btn-sm" onclick="goTab(' + jsq(d.next_tab) + ')">Los</button>' : '') +
       '</div>' : '') +
-    '<div class="live-flag">Updated ' + new Date().toLocaleTimeString() + ' · refreshes every 10 seconds</div>';
+    '<div class="live-flag">Aktualisiert ' + new Date().toLocaleTimeString('de-DE') + ' · lädt alle 10 Sekunden neu</div>';
 }
 
 // KPI cards. Totals come from /api/today; the 14-day bars from /api/trend.
@@ -533,27 +535,27 @@ function renderFigures(stats) {
 
   // Instantly sends from its own servers, so the Outbox never sees them.
   const sent = stats.email_provider === 'instantly'
-    ? card('Emails sent', '&mdash;', '', 'Instantly tracks sends')
-    : card('Emails sent', sum(t.sent), sparkBars(t.sent, 'Emails sent per day, last 14 days'),
-           'last 14 days · <b>' + (stats.outbox_approved || 0) + '</b> scheduled');
+    ? card('Gesendete E-Mails', '&mdash;', '', 'Instantly zählt die Sendungen')
+    : card('Gesendete E-Mails', sum(t.sent), sparkBars(t.sent, 'Gesendete E-Mails pro Tag, letzte 14 Tage'),
+           'letzte 14 Tage · <b>' + (stats.outbox_approved || 0) + '</b> geplant');
   const waiting = (stats.outbox_pending || 0) + (stats.needs_human || 0);
   const waitNote = [
-    stats.outbox_pending ? stats.outbox_pending + ' to approve' : '',
-    stats.needs_human ? stats.needs_human + ' handed to you' : '',
-  ].filter(Boolean).join(' · ') || 'nothing to approve';
+    stats.outbox_pending ? stats.outbox_pending + ' zum Freigeben' : '',
+    stats.needs_human ? stats.needs_human + ' an dich übergeben' : '',
+  ].filter(Boolean).join(' · ') || 'nichts freizugeben';
   const facts = document.getElementById('today-facts');
   if (facts) facts.innerHTML =
-    '<span><b>' + (stats.companies || 0) + '</b> companies</span>' +
-    '<span><b>' + (stats.unprofiled || 0) + '</b> sites not read yet</span>' +
-    '<span><b>' + (stats.signals_confirmed || 0) + '</b> signals on</span>';
+    '<span><b>' + (stats.companies || 0) + '</b> Firmen</span>' +
+    '<span><b>' + (stats.unprofiled || 0) + '</b> Websites noch nicht gelesen</span>' +
+    '<span><b>' + (stats.signals_confirmed || 0) + '</b> Signale aktiv</span>';
 
   el.innerHTML = '<div class="kpis">' +
-    card('Contacts found', stats.prospects || 0, sparkBars(t.found, 'Contacts found per day, last 14 days'),
-         '<b>+' + last7(t.found) + '</b> this week') +
+    card('Gefundene Kontakte', stats.prospects || 0, sparkBars(t.found, 'Gefundene Kontakte pro Tag, letzte 14 Tage'),
+         '<b>+' + last7(t.found) + '</b> diese Woche') +
     sent +
-    card('Conversations', stats.open_conversations || 0, sparkBars(t.replies, 'New replies per day, last 14 days'),
-         '<b>' + sum(t.replies) + '</b> new in 14 days') +
-    card('Waiting on you', waiting, '', waitNote) +
+    card('Gespräche', stats.open_conversations || 0, sparkBars(t.replies, 'Neue Antworten pro Tag, letzte 14 Tage'),
+         '<b>' + sum(t.replies) + '</b> neu in 14 Tagen') +
+    card('Wartet auf dich', waiting, '', waitNote) +
   '</div>';
 }
 
@@ -571,23 +573,23 @@ async function loadFunnel() {
   if (!el) return;
   const data = await api('/api/stats');
   if (!data) return;  // offline: keep the last numbers; Today's queue says so
-  if (data.error) { el.innerHTML = '<p class="muted" style="font-size:13px">Couldn\'t read the pipeline.</p>'; return; }
+  if (data.error) { el.innerHTML = '<p class="muted" style="font-size:13px">Konnte die Pipeline nicht lesen.</p>'; return; }
   const total = (data.prospects || {}).total || 0;
   const pipe = data.pipeline || {};
   const stages = [
-    ['To write', pipe.to_write || 0, 'c-accent-soft'],
-    ['Contacted', pipe.contacted || 0, 'c-accent'],
-    ['Replied', pipe.replied || 0, 'c-active'],
-    ['Interested', pipe.interested || 0, 'c-good'],
-    ['Ready to meet', pipe.ready_to_meet || 0, 'c-note'],
-    ['Closed out', pipe.closed_out || 0, 'c-idle'],
+    ['Zu schreiben', pipe.to_write || 0, 'c-accent-soft'],
+    ['Kontaktiert', pipe.contacted || 0, 'c-accent'],
+    ['Geantwortet', pipe.replied || 0, 'c-active'],
+    ['Interessiert', pipe.interested || 0, 'c-good'],
+    ['Bereit für Termin', pipe.ready_to_meet || 0, 'c-note'],
+    ['Abgeschlossen', pipe.closed_out || 0, 'c-idle'],
   ];
   if (!total) {
-    el.innerHTML = '<p class="muted" style="font-size:13px">No contacts yet. Scout adds them as it finds people.</p>';
+    el.innerHTML = '<p class="muted" style="font-size:13px">Noch keine Kontakte. Scout fügt sie hinzu, sobald er Leute findet.</p>';
     return;
   }
   el.innerHTML =
-    '<div class="funnel-bar" role="img" aria-label="Contacts by stage">' +
+    '<div class="funnel-bar" role="img" aria-label="Kontakte nach Phase">' +
       stages.filter(s => s[1] > 0).map(s =>
         '<span class="seg ' + s[2] + '" style="flex:' + s[1] + '" title="' + s[0] + ': ' + s[1] + '"></span>').join('') +
     '</div>' +
@@ -607,7 +609,7 @@ async function loadTodayActivity() {
   const shown = data.filter(a => a.agent !== 'main').slice(0, 8);
   if (!shown.length) {
     el.innerHTML = '<p class="muted" style="font-size:13px">' +
-      'Nothing yet. Every action Harvey takes shows up here.</p>';
+      'Noch nichts. Jede Aktion von Harvey erscheint hier.</p>';
     return;
   }
   el.innerHTML = '<div class="timeline">' + shown.map(a =>
@@ -648,8 +650,8 @@ async function loadRuns() {
     '<div class="run">' +
       '<span class="name">' + escHtml(r.stage) + '</span>' + badge(r.status) +
       '<span class="when">' + relTime(r.started_at) + '</span>' +
-      '<span class="stats">' + (r.records || 0) + ' records · ' +
-        (r.cost_usd ? '$' + Number(r.cost_usd).toFixed(4) : 'free') + '</span>' +
+      '<span class="stats">' + (r.records || 0) + ' Datensätze · ' +
+        (r.cost_usd ? '$' + Number(r.cost_usd).toFixed(4) : 'kostenlos') + '</span>' +
     '</div>').join('') + '</div>';
 }
 
@@ -684,9 +686,9 @@ async function loadSetupStatus() {
 
   el.innerHTML =
     '<div class="card setup-card">' +
-      '<div class="setup-head"><div><h3>Finish setting up Harvey</h3>' +
-        '<p class="muted">Harvey starts finding prospects and sending once these are done.</p></div>' +
-        '<span class="setup-pct">' + done + ' of ' + required.length + ' done</span></div>' +
+      '<div class="setup-head"><div><h3>Harvey fertig einrichten</h3>' +
+        '<p class="muted">Sobald das erledigt ist, sucht Harvey Kontakte und versendet E-Mails.</p></div>' +
+        '<span class="setup-pct">' + done + ' von ' + required.length + ' erledigt</span></div>' +
       '<div class="bar thick" style="margin-bottom:8px"><span style="width:' + pct + '%;background:var(--accent)"></span></div>' +
       required.map(c => renderCheck(c, false)).join('') +
       (optional.length
@@ -702,12 +704,12 @@ async function loadSetupStatus() {
 function warmupServiceActions(c) {
   return '<div class="btn-group warmup-actions">' +
       '<a class="btn btn-primary btn-sm" href="' + safeHref(c.link) + '" target="_blank" ' +
-        'rel="noopener sponsored">Get TrulyInbox</a>' +
+        'rel="noopener sponsored">TrulyInbox holen</a>' +
       '<input class="form-input" id="trulyinbox-key" type="password" autocomplete="off" ' +
-        'placeholder="Paste your TrulyInbox API key" aria-label="TrulyInbox API key" ' +
+        'placeholder="Deinen TrulyInbox-API-Schlüssel einfügen" aria-label="TrulyInbox-API-Schlüssel" ' +
         'onkeydown="if (event.key === \'Enter\') connectTrulyInbox()">' +
-      '<button class="btn btn-secondary btn-sm" id="trulyinbox-go" onclick="connectTrulyInbox()">Connect</button>' +
-      '<button class="btn btn-ghost btn-sm" onclick="useOtherWarmup()">I use another service</button>' +
+      '<button class="btn btn-secondary btn-sm" id="trulyinbox-go" onclick="connectTrulyInbox()">Verbinden</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="useOtherWarmup()">Ich nutze einen anderen Dienst</button>' +
     '</div>';
 }
 
@@ -723,10 +725,10 @@ async function connectTrulyInbox() {
   if (go) go.disabled = false;
   if (data && data.success) {
     input.value = '';
-    showToast(data.message || 'TrulyInbox connected', 'success');
+    showToast(data.message || 'TrulyInbox verbunden', 'success');
     loadSetupStatus();
   } else {
-    showToast((data && data.message) || 'Could not connect TrulyInbox', 'error');
+    showToast((data && data.message) || 'TrulyInbox konnte nicht verbunden werden', 'error');
   }
 }
 
@@ -746,8 +748,8 @@ async function loadSignals() {
 
   const s = data.summary || {};
   navCount('nav-signals', s.proposed || 0);
-  const parts = [['Confirmed', s.confirmed || 0, 'c-good'], ['Waiting on you', s.proposed || 0, 'c-wait'],
-                 ['Turned off', s.rejected || 0, 'c-idle']];
+  const parts = [['Bestätigt', s.confirmed || 0, 'c-good'], ['Wartet auf dich', s.proposed || 0, 'c-wait'],
+                 ['Ausgeschaltet', s.rejected || 0, 'c-idle']];
   const all = parts.reduce((x, p) => x + p[1], 0) || 1;
   sumEl.innerHTML = '<div class="card sig-summary"><div class="funnel-bar">' +
     parts.filter(p => p[1]).map(p => '<span class="seg ' + p[2] + '" style="flex:' + p[1] + '"></span>').join('') +
@@ -768,9 +770,9 @@ async function loadSignals() {
       (undecided
         ? '<div style="display:flex;gap:6px;flex-shrink:0">' +
             '<button class="btn btn-primary btn-sm" onclick="setSignals(' + pending +
-              ', \'confirmed\')">Confirm all ' + undecided + '</button>' +
+              ', \'confirmed\')">Alle ' + undecided + ' bestätigen</button>' +
             '<button class="btn btn-secondary btn-sm" onclick="setSignals(' + pending +
-              ', \'rejected\')">Skip all ' + undecided + '</button>' +
+              ', \'rejected\')">Alle ' + undecided + ' überspringen</button>' +
           '</div>'
         : '') +
       '</div>' +
@@ -782,25 +784,25 @@ async function loadSignals() {
 }
 
 function sigRow(sig) {
-  const free = /free|included/i.test(sig.cost_note || '');
+  const free = /free|included|kostenlos|enthalten/i.test(sig.cost_note || '');   // signals.FREE_COST_PREFIXES
   const costCls = free ? 'free' : (/\$/.test(sig.cost_note || '') ? 'paid' : '');
   const seen = sig.companies
-    ? '<span class="cost-chip">seen on ' + sig.companies +
-      (sig.companies === 1 ? ' company' : ' companies') + ' so far</span>' : '';
+    ? '<span class="cost-chip">bisher bei ' + sig.companies +
+      (sig.companies === 1 ? ' Firma' : ' Firmen') + ' gesehen</span>' : '';
   const floor = sig.confidence_floor > 0
-    ? '<span class="cost-chip">only recorded above ' +
-      Math.round(sig.confidence_floor * 100) + '% confidence</span>' : '';
+    ? '<span class="cost-chip">nur ab ' +
+      Math.round(sig.confidence_floor * 100) + ' % Sicherheit erfasst</span>' : '';
 
   const decide = sig.status === 'confirmed'
     ? '<button class="btn btn-secondary btn-sm" onclick="setSignals([' + jsq(sig.code) +
-        '],\'rejected\')">Turn off</button>'
+        '],\'rejected\')">Ausschalten</button>'
     : sig.status === 'rejected'
       ? '<button class="btn btn-secondary btn-sm" onclick="setSignals([' + jsq(sig.code) +
-          '],\'confirmed\')">Turn on</button>'
+          '],\'confirmed\')">Einschalten</button>'
       : '<button class="btn btn-primary btn-sm" onclick="setSignals([' + jsq(sig.code) +
-          '],\'confirmed\')">Confirm</button>' +
+          '],\'confirmed\')">Bestätigen</button>' +
         '<button class="btn btn-secondary btn-sm" onclick="setSignals([' + jsq(sig.code) +
-          '],\'rejected\')">Skip</button>';
+          '],\'rejected\')">Überspringen</button>';
 
   return '<div class="sig-row ' + (sig.status === 'rejected' ? 'rejected' : '') + '">' +
     '<div class="sig-main">' +
@@ -808,7 +810,7 @@ function sigRow(sig) {
         '<span class="sig-code">' + escHtml(sig.code) + '</span></div>' +
       '<div class="sig-desc">' + escHtml(sig.description) + '</div>' +
       '<div class="sig-meta">' +
-        '<span class="cost-chip ' + costCls + '">' + escHtml(sig.cost_note || 'cost unknown') + '</span>' +
+        '<span class="cost-chip ' + costCls + '">' + escHtml(sig.cost_note || 'Kosten unbekannt') + '</span>' +
         floor + seen + badge(sig.status) +
       '</div>' +
     '</div>' +
@@ -825,12 +827,12 @@ async function setSignals(codes, status) {
   if (data && data.success) {
     showToast(
       status === 'confirmed'
-        ? 'Confirmed ' + data.changed + ' signal' + (data.changed === 1 ? '' : 's') +
-          ' — Harvey will collect ' + (data.changed === 1 ? 'it' : 'them') + ' from now on.'
-        : data.changed + ' signal' + (data.changed === 1 ? '' : 's') + ' turned off.',
+        ? (data.changed === 1 ? '1 Signal bestätigt. Harvey erfasst es ab jetzt.'
+          : data.changed + ' Signale bestätigt. Harvey erfasst sie ab jetzt.')
+        : data.changed + (data.changed === 1 ? ' Signal ausgeschaltet.' : ' Signale ausgeschaltet.'),
       'success');
   } else {
-    showToast(failMsg(data, 'Could not update that signal.'), 'error');
+    showToast(failMsg(data, 'Das Signal konnte nicht geändert werden.'), 'error');
   }
   loadSignals();
 }
@@ -848,20 +850,20 @@ async function loadDiscoverProviders() {
   _provider = _provider || data.selected || data.default;
   el.innerHTML = '<div class="prov-grid">' + data.providers.map(p => {
     const ready = p.configured
-      ? '<span class="badge t-good">ready</span>'
-      : '<span class="badge t-waiting">needs a key</span>';
+      ? '<span class="badge t-good">bereit</span>'
+      : '<span class="badge t-waiting">braucht einen Schlüssel</span>';
     return '<div class="prov-card ' + (p.key === _provider ? 'selected' : '') +
       '" onclick="pickProvider(' + jsq(p.key) + ')">' +
       '<div class="prov-head"><h3>' + escHtml(p.label) + '</h3>' + ready + '</div>' +
       '<div class="blurb">' + escHtml(p.blurb) + '</div>' +
-      '<div class="row"><span class="k">Cost</span><span class="v">' +
+      '<div class="row"><span class="k">Kosten</span><span class="v">' +
         escHtml(p.cost_note) + '</span></div>' +
-      '<div class="row"><span class="k">Free</span><span class="v">' +
+      '<div class="row"><span class="k">Gratis</span><span class="v">' +
         escHtml(p.free_tier) + '</span></div>' +
       (p.needs_key
-        ? '<div class="row"><span class="k">Setup</span><span class="v">' +
+        ? '<div class="row"><span class="k">Einrichtung</span><span class="v">' +
           escHtml(p.env_keys.join(', ')) + ' in .env &middot; ' +
-          '<a href="' + safeHref(p.signup_url) + '" target="_blank" rel="noopener noreferrer">get a key</a>' +
+          '<a href="' + safeHref(p.signup_url) + '" target="_blank" rel="noopener noreferrer">Schlüssel holen</a>' +
           '</span></div>'
         : '') +
       (p.caveat ? '<div class="caveat">' + escHtml(p.caveat) + '</div>' : '') +
@@ -877,11 +879,11 @@ async function loadDiscoverProviders() {
   } else if (!running && _discoverPoll) {
     clearInterval(_discoverPoll);
     _discoverPoll = null;
-    // A finished run leaves the button stuck on "Running…" otherwise.
+    // A finished run leaves the button stuck on "Läuft…" otherwise.
     const btn = document.getElementById('disc-run');
     btn.disabled = true;
-    btn.textContent = 'Estimate first';
-    showToast(data.running_kind === 'profile' ? 'Finished reading websites.' : 'Discovery finished.', 'success');
+    btn.textContent = 'Erst Kosten schätzen';
+    showToast(data.running_kind === 'profile' ? 'Websites fertig gelesen.' : 'Suche abgeschlossen.', 'success');
   }
   renderDiscoverResult(data.last_report, running);
 }
@@ -889,7 +891,7 @@ async function loadDiscoverProviders() {
 function pickProvider(key) {
   _provider = key;
   document.getElementById('disc-run').disabled = true;
-  document.getElementById('disc-run').textContent = 'Estimate first';
+  document.getElementById('disc-run').textContent = 'Erst Kosten schätzen';
   document.getElementById('discover-estimate').innerHTML = '';
   loadDiscoverProviders();
 }
@@ -909,14 +911,14 @@ function discoverBody() {
 
 async function estimateDiscovery() {
   const el = document.getElementById('discover-estimate');
-  el.innerHTML = '<p class="muted" style="font-size:13px">Pricing it…</p>';
+  el.innerHTML = '<p class="muted" style="font-size:13px">Kosten werden berechnet…</p>';
   const data = await api('/api/discover/estimate', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(discoverBody()),
   });
   if (!data || data.error) {
     el.innerHTML = '<div class="test-result error">' +
-      escHtml((data && data.error) || 'Could not estimate.') + '</div>';
+      escHtml((data && data.error) || 'Schätzung nicht möglich.') + '</div>';
     return;
   }
 
@@ -924,35 +926,35 @@ async function estimateDiscovery() {
   const over = data.estimated_cost > cap;
   el.innerHTML = '<div class="estimate-box">' +
     '<div class="amount ' + (data.free ? 'free' : 'paid') + '">' +
-      (data.free ? 'Free' : '$' + data.estimated_cost.toFixed(4)) + '</div>' +
+      (data.free ? 'Kostenlos' : '$' + data.estimated_cost.toFixed(4)) + '</div>' +
     '<div class="muted" style="font-size:13px;margin-top:2px">' +
-      data.query_count + ' quer' + (data.query_count === 1 ? 'y' : 'ies') +
-      (data.free ? '' : ' &middot; cap is $' + cap.toFixed(2)) + '</div>' +
+      data.query_count + (data.query_count === 1 ? ' Suchanfrage' : ' Suchanfragen') +
+      (data.free ? '' : ' &middot; Limit $' + cap.toFixed(2)) + '</div>' +
     (over ? '<div class="test-result error" style="margin-top:12px">' +
-      'Over your cap. Raise the cap or narrow the search.</div>' : '') +
+      'Über deinem Limit. Erhöhe das Limit oder grenze die Suche ein.</div>' : '') +
     '<div class="query-list">' +
       data.queries.slice(0, 40).map(escHtml).join('<br>') +
-      (data.queries.length > 40 ? '<br>… and ' + (data.queries.length - 40) + ' more' : '') +
+      (data.queries.length > 40 ? '<br>… und ' + (data.queries.length - 40) + ' weitere' : '') +
     '</div></div>';
 
   const btn = document.getElementById('disc-run');
   btn.disabled = over;
-  btn.textContent = over ? 'Over cap'
-    : (data.free ? 'Run — free' : 'Run — spend up to $' + data.estimated_cost.toFixed(2));
+  btn.textContent = over ? 'Über dem Limit'
+    : (data.free ? 'Starten (kostenlos)' : 'Starten, bis zu $' + data.estimated_cost.toFixed(2));
 }
 
 async function runDiscovery() {
   const btn = document.getElementById('disc-run');
   btn.disabled = true;
-  btn.textContent = 'Running…';
+  btn.textContent = 'Läuft…';
   const data = await api('/api/discover/run', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(discoverBody()),
   });
   if (data && data.success) {
-    showToast('Discovery started — ' + data.queries + ' queries.', 'success');
+    showToast('Suche gestartet: ' + data.queries + ' Suchanfragen.', 'success');
   } else {
-    showToast((data && data.message) || 'Could not start.', 'error');
+    showToast((data && data.message) || 'Start nicht möglich.', 'error');
     btn.disabled = false;
   }
   loadDiscoverProviders();
@@ -960,8 +962,8 @@ async function runDiscovery() {
 
 async function stopDiscovery() {
   const data = await api('/api/discover/stop', {method: 'POST'});
-  showToast(data && data.success ? 'Stopping after the current query.'
-                                 : failMsg(data, 'Could not stop.'), data && data.success ? 'success' : 'error');
+  showToast(data && data.success ? 'Stoppt nach der laufenden Suchanfrage.'
+                                 : failMsg(data, 'Stoppen nicht möglich.'), data && data.success ? 'success' : 'error');
   loadDiscoverProviders();
 }
 
@@ -971,23 +973,23 @@ function renderProfileCard(pending, running) {
   const el = document.getElementById('discover-profile');
   if (!el) return;
   if (!pending) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div class="subhead">Read websites</div><div class="card"><div class="queue-item good" style="padding:0;border:0;box-shadow:none">' +
-    '<div class="qtext"><div class="qtitle">' + pending + ' compan' + (pending === 1 ? 'y' : 'ies') +
-    ' not looked at yet</div><div class="qdetail">Free, no account needed. Harvey reads each site for ' +
-    'who their agency is, what they are missing, and whether they run ads. Up to 200 per run.</div></div>' +
+  el.innerHTML = '<div class="subhead">Websites lesen</div><div class="card"><div class="queue-item good" style="padding:0;border:0;box-shadow:none">' +
+    '<div class="qtext"><div class="qtitle">' + pending + (pending === 1 ? ' Firma' : ' Firmen') +
+    ' noch nicht angesehen</div><div class="qdetail">Kostenlos, kein Konto nötig. Harvey liest jede Website und schaut, ' +
+    'welche Agentur sie betreut, was ihnen fehlt und ob sie Werbung schalten. Bis zu 200 pro Lauf.</div></div>' +
     '<button class="btn btn-primary btn-sm" onclick="runProfile(this)"' + (running ? ' disabled' : '') + '>' +
-    (running ? 'Busy…' : 'Read their sites') + '</button></div></div>';
+    (running ? 'Beschäftigt…' : 'Websites lesen') + '</button></div></div>';
 }
 
 async function runProfile(btn) {
   btn.disabled = true;
-  btn.textContent = 'Starting…';
+  btn.textContent = 'Startet…';
   const data = await api('/api/profile/run', {method: 'POST'});
   if (data && data.success) {
-    showToast(data.pending ? 'Reading ' + Math.min(data.pending, 200) + ' websites.' : 'Every site is already read.', 'success');
+    showToast(data.pending ? Math.min(data.pending, 200) + ' Websites werden gelesen.' : 'Alle Websites sind schon gelesen.', 'success');
     if (data.pending && !_discoverPoll) _discoverPoll = setInterval(loadDiscoverProviders, 4000);
   } else {
-    showToast(failMsg(data, 'Could not start.'), 'error');
+    showToast(failMsg(data, 'Start nicht möglich.'), 'error');
   }
   loadDiscoverProviders();
 }
@@ -995,9 +997,9 @@ async function runProfile(btn) {
 function renderDiscoverResult(report, running) {
   const el = document.getElementById('discover-result');
   if (running) {
-    el.innerHTML = '<div class="card"><h2>Running…</h2>' +
-      '<p class="muted" style="font-size:13px">Harvey is working through the ' +
-      'queries. Results land in Companies, and the run log is on Today.</p></div>';
+    el.innerHTML = '<div class="card"><h2>Läuft…</h2>' +
+      '<p class="muted" style="font-size:13px">Harvey arbeitet die Suchanfragen ab. ' +
+      'Ergebnisse landen unter Firmen, das Laufprotokoll steht unter Heute.</p></div>';
     return;
   }
   if (!report) { el.innerHTML = ''; return; }
@@ -1008,26 +1010,26 @@ function renderDiscoverResult(report, running) {
     value + '</div></div>';
 
   if (report.profiled_companies !== undefined && report.new_companies === undefined) {
-    el.innerHTML = '<div class="subhead">Last run</div><div class="stats-grid">' +
-      stat('Websites read', report.profiled_companies || 0, 'accent') +
-      stat('Facts recorded', report.profile_observations || 0) +
-      stat('Cost', 'free') + '</div>' +
-      (report.stopped ? '<div class="test-result error" style="margin-top:14px">Stopped early: ' + escHtml(report.stopped) + '</div>' : '');
+    el.innerHTML = '<div class="subhead">Letzter Lauf</div><div class="stats-grid">' +
+      stat('Gelesene Websites', report.profiled_companies || 0, 'accent') +
+      stat('Erfasste Fakten', report.profile_observations || 0) +
+      stat('Kosten', 'kostenlos') + '</div>' +
+      (report.stopped ? '<div class="test-result error" style="margin-top:14px">Vorzeitig gestoppt: ' + escHtml(report.stopped) + '</div>' : '');
     return;
   }
-  el.innerHTML = '<div class="subhead">Last run</div>' +
+  el.innerHTML = '<div class="subhead">Letzter Lauf</div>' +
     '<div class="stats-grid">' +
-      stat('New companies', report.new_companies || 0, 'accent') +
-      stat('Already known', report.known_companies || 0) +
-      stat('Observations', report.observations || 0) +
-      stat('Filtered as junk', report.junk || 0) +
-      (report.profiled_companies ? stat('Websites read', report.profiled_companies) : '') +
-      stat('Actual cost', report.actual_cost ? '$' + report.actual_cost.toFixed(4) : 'free') +
+      stat('Neue Firmen', report.new_companies || 0, 'accent') +
+      stat('Schon bekannt', report.known_companies || 0) +
+      stat('Beobachtungen', report.observations || 0) +
+      stat('Als Müll aussortiert', report.junk || 0) +
+      (report.profiled_companies ? stat('Gelesene Websites', report.profiled_companies) : '') +
+      stat('Tatsächliche Kosten', report.actual_cost ? '$' + report.actual_cost.toFixed(4) : 'kostenlos') +
     '</div>' +
     (report.stopped ? '<div class="test-result error" style="margin-top:14px">' +
-      'Stopped early: ' + escHtml(report.stopped) + '</div>' : '') +
+      'Vorzeitig gestoppt: ' + escHtml(report.stopped) + '</div>' : '') +
     ((report.errors || []).length
-      ? '<div class="card" style="margin-top:14px"><h2>Problems</h2>' +
+      ? '<div class="card" style="margin-top:14px"><h2>Probleme</h2>' +
         (report.errors || []).slice(0, 8).map(e =>
           '<div class="check-help">' + escHtml(e) + '</div>').join('') + '</div>'
       : '');
@@ -1050,7 +1052,7 @@ function renderCohortBuilder() {
 
   if (!confirmed.length) {
     el.innerHTML = '<p class="muted" style="font-size:13px">' +
-      'Confirm some signals above and they become the building blocks here.</p>';
+      'Bestätige oben einige Signale, dann werden sie hier zu Bausteinen.</p>';
     document.getElementById('cohort-result').innerHTML = '';
     return;
   }
@@ -1077,18 +1079,18 @@ function renderCohortBuilder() {
       'onchange="setCohortRange(' + jsq(code) + ',' + jsq(side) + ',this.value)">';
   };
   const rangeCol = numeric.length ?
-    '<div style="height:18px"></div><div><div class="subhead" style="margin-top:0">In range ' +
+    '<div style="height:18px"></div><div><div class="subhead" style="margin-top:0">Im Bereich ' +
       '<span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">' +
-      '&mdash; e.g. organic rank 11 to 30; leave a side blank for no limit</span></div>' +
+      'z. B. organischer Rang 11 bis 30; lass eine Seite leer für kein Limit</span></div>' +
       '<div class="cohort-grid">' +
       numeric.map(s =>
         '<div class="cohort-pick cohort-range"><span>' + escHtml(s.label || s.code) + '</span>' +
-          bound(s.code, 'min') + '<span class="muted">to</span>' + bound(s.code, 'max') + '</div>'
+          bound(s.code, 'min') + '<span class="muted">bis</span>' + bound(s.code, 'max') + '</div>'
       ).join('') + '</div></div>' : '';
 
-  el.innerHTML = col('Must have', 'require', '&mdash; every company in the cohort carries all of these') +
+  el.innerHTML = col('Muss haben', 'require', 'jede Firma der Kohorte hat alle davon') +
     '<div style="height:18px"></div>' +
-    col('Must not have', 'exclude', '&mdash; disqualifiers') + rangeCol;
+    col('Darf nicht haben', 'exclude', 'Ausschlusskriterien') + rangeCol;
 }
 
 function setCohortRange(code, side, value) {
@@ -1119,7 +1121,7 @@ async function runCohort() {
   const ranges = _cohortRanges();
   if (!require.length && !ranges.length) { el.innerHTML = ''; return; }
   // Remove the prior export button as soon as its criteria become stale.
-  el.innerHTML = '<p class="muted">Loading cohort…</p>';
+  el.innerHTML = '<p class="muted">Kohorte wird geladen…</p>';
 
   const data = await api('/api/cohort', {
     method: 'POST',
@@ -1135,12 +1137,12 @@ async function runCohort() {
 
   let html = '<div style="border-top:1px solid var(--border);margin-top:20px;padding-top:20px">' +
     '<div class="cohort-size">' + data.size + '</div>' +
-    '<div class="muted" style="font-size:13px;margin-top:2px">compan' +
-      (data.size === 1 ? 'y matches' : 'ies match') + ' this cohort right now</div>';
+    '<div class="muted" style="font-size:13px;margin-top:2px">' +
+      (data.size === 1 ? 'Firma passt' : 'Firmen passen') + ' gerade zu dieser Kohorte</div>';
 
   if (data.companies && data.companies.length) {
     html += '<div class="table-card" style="margin-top:16px"><table><thead><tr>' +
-      '<th>Company</th><th>Domain</th><th>Industry</th><th>Location</th>' +
+      '<th>Firma</th><th>Domain</th><th>Branche</th><th>Ort</th>' +
       '</tr></thead><tbody>' +
       data.companies.map(c =>
         '<tr><td>' + escHtml(c.name) + '</td><td class="muted">' + escHtml(c.domain) + '</td>' +
@@ -1151,19 +1153,19 @@ async function runCohort() {
     const first = data.offset + 1, last = data.offset + data.companies.length;
     const hasPrev = data.offset > 0, hasNext = last < data.size;
     html += '<div style="display:flex;align-items:center;gap:8px;margin-top:10px">' +
-      '<span class="muted" style="font-size:12px">Showing ' + first + '&ndash;' + last +
-        ' of ' + data.size + '</span>' +
+      '<span class="muted" style="font-size:12px">Zeige ' + first + ' bis ' + last +
+        ' von ' + data.size + '</span>' +
       '<span style="flex:1"></span>' +
       '<button class="btn btn-secondary btn-sm" onclick="pageCohort(-1)"' +
-        (hasPrev ? '' : ' disabled') + '>Prev</button>' +
+        (hasPrev ? '' : ' disabled') + '>Zurück</button>' +
       '<button class="btn btn-secondary btn-sm" onclick="pageCohort(1)"' +
-        (hasNext ? '' : ' disabled') + '>Next</button>' +
-      '<button class="btn btn-secondary btn-sm" onclick="exportCohort(this)">Export CSV</button>' +
+        (hasNext ? '' : ' disabled') + '>Weiter</button>' +
+      '<button class="btn btn-secondary btn-sm" onclick="exportCohort(this)">CSV exportieren</button>' +
       '</div>';
   } else if (data.size === 0) {
     html += '<p class="muted" style="font-size:13px;margin-top:12px">' +
-      'No company carries all of those yet. Either loosen the cohort, or run ' +
-      'prospecting to collect more.</p>';
+      'Noch keine Firma hat alle diese Signale. Lockere die Kohorte oder ' +
+      'sammle mit der Kontaktsuche mehr.</p>';
   } else if (_cohortOffset > 0) {
     // The cohort shrank under us (a re-profile, a delete): back to page one.
     _cohortOffset = 0;
@@ -1186,22 +1188,22 @@ async function exportCohort(button) {
     .map(([code, r]) => code + ':' + (r.min ?? '') + ':' + (r.max ?? ''));
   if (ranges.length) qs.set('ranges', ranges.join(','));
   button.disabled = true;
-  button.textContent = 'Exporting…';
+  button.textContent = 'Exportiert…';
   let url;
   let link;
   try {
     const response = await authFetch('/api/cohort.csv?' + qs);
-    if (await lockIfRefused(response)) throw new Error('Dashboard authorization required');
-    if (!response.ok) throw new Error('Export failed (HTTP ' + response.status + ')');
+    if (await lockIfRefused(response)) throw new Error('Dashboard-Freigabe nötig');
+    if (!response.ok) throw new Error('Export fehlgeschlagen (HTTP ' + response.status + ')');
     url = URL.createObjectURL(await response.blob());
     link = document.createElement('a');
     link.href = url;
     link.download = 'cohort.csv';
     document.body.appendChild(link);
     link.click();
-    button.textContent = 'Export CSV';
+    button.textContent = 'CSV exportieren';
   } catch (error) {
-    button.textContent = 'Export failed — retry';
+    button.textContent = 'Export fehlgeschlagen, erneut versuchen';
   } finally {
     if (link) link.remove();
     // Give the browser time to start consuming the download before revoking.
@@ -1231,13 +1233,13 @@ async function loadSettings() {
     const el = document.getElementById(id);
     if (!el) return;
     el.value = '';
-    el.placeholder = isSet ? 'Saved — enter new value to change' : base;
+    el.placeholder = isSet ? 'Gespeichert. Zum Ändern neuen Wert eingeben' : base;
   };
   const tag = (id, ok, okLabel) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.className = 'email-tag ' + (ok ? 'verified' : 'guess');
-    el.textContent = ok ? okLabel : 'not set';
+    el.textContent = ok ? okLabel : 'nicht gesetzt';
   };
 
   // Non-secret values repopulate
@@ -1253,40 +1255,40 @@ async function loadSettings() {
   document.getElementById('linkedin-email').value = data.linkedin_email || '';
   document.getElementById('cf-account-id').value = data.cloudflare_account_id || '';
 
-  savedPh('gmail-secret', data.gmail_client_secret_set, 'Enter client secret');
-  savedPh('smtp-pass', data.smtp_password_set, 'Enter password / app password');
-  savedPh('imap-pass', data.imap_password_set, 'Same as SMTP password');
+  savedPh('gmail-secret', data.gmail_client_secret_set, 'Client-Secret eingeben');
+  savedPh('smtp-pass', data.smtp_password_set, 'Passwort oder App-Passwort eingeben');
+  savedPh('imap-pass', data.imap_password_set, 'Wie das SMTP-Passwort');
   document.getElementById('imap-same-pass').checked = !data.imap_password_set;
-  savedPh('instantly-key', data.instantly_api_key_set, 'Enter your Instantly API key');
-  savedPh('reoon-key', data.reoon_api_key_set, '600 free/mo — reoon.com/email-verifier');
-  savedPh('zerobounce-key', data.zerobounce_api_key_set, '100 free/mo — best for M365/Workspace catch-alls');
-  savedPh('hunter-key', data.hunter_api_key_set, '50 free/mo + email-pattern lookup');
-  savedPh('linkedin-password', data.linkedin_password_set, 'Enter password');
-  savedPh('cf-api-token', data.cloudflare_api_token_set, 'Your Cloudflare API Token');
+  savedPh('instantly-key', data.instantly_api_key_set, 'Deinen Instantly-API-Schlüssel eingeben');
+  savedPh('reoon-key', data.reoon_api_key_set, '600 gratis pro Monat · reoon.com/email-verifier');
+  savedPh('zerobounce-key', data.zerobounce_api_key_set, '100 gratis pro Monat · am besten für Catch-alls bei M365/Workspace');
+  savedPh('hunter-key', data.hunter_api_key_set, '50 gratis pro Monat + Suche nach E-Mail-Mustern');
+  savedPh('linkedin-password', data.linkedin_password_set, 'Passwort eingeben');
+  savedPh('cf-api-token', data.cloudflare_api_token_set, 'Dein Cloudflare-API-Token');
 
   // Gmail auth status chip
   const g = document.getElementById('gmail-status');
   if (g) {
-    if (data.gmail_authorized) { g.className = 'email-tag verified'; g.textContent = 'authorized'; }
-    else if (data.gmail_client_secret_set) { g.className = 'email-tag risky'; g.textContent = 'run: harvey gmail auth'; }
-    else { g.className = 'email-tag guess'; g.textContent = 'not set up'; }
+    if (data.gmail_authorized) { g.className = 'email-tag verified'; g.textContent = 'autorisiert'; }
+    else if (data.gmail_client_secret_set) { g.className = 'email-tag risky'; g.textContent = 'ausführen: harvey gmail auth'; }
+    else { g.className = 'email-tag guess'; g.textContent = 'nicht eingerichtet'; }
   }
   const m = document.getElementById('m365-status');
   if (m) {
-    if (data.m365_authorized) { m.className = 'email-tag verified'; m.textContent = 'authorized'; }
-    else if (data.m365_client_id) { m.className = 'email-tag risky'; m.textContent = 'run: harvey microsoft auth'; }
-    else { m.className = 'email-tag guess'; m.textContent = 'not set up'; }
+    if (data.m365_authorized) { m.className = 'email-tag verified'; m.textContent = 'autorisiert'; }
+    else if (data.m365_client_id) { m.className = 'email-tag risky'; m.textContent = 'ausführen: harvey microsoft auth'; }
+    else { m.className = 'email-tag guess'; m.textContent = 'nicht eingerichtet'; }
   }
-  tag('reoon-status', data.reoon_api_key_set, 'set');
-  tag('zerobounce-status', data.zerobounce_api_key_set, 'set');
-  tag('hunter-status', data.hunter_api_key_set, 'set');
+  tag('reoon-status', data.reoon_api_key_set, 'gesetzt');
+  tag('zerobounce-status', data.zerobounce_api_key_set, 'gesetzt');
+  tag('hunter-status', data.hunter_api_key_set, 'gesetzt');
 }
 
 function saveGmail() {
   const payload = {GMAIL_CLIENT_ID: document.getElementById('gmail-id').value.trim()};
   const sec = document.getElementById('gmail-secret').value;
   if (sec) payload.GMAIL_CLIENT_SECRET = sec;
-  saveEnv(payload, 'Gmail OAuth saved. Now run "harvey gmail auth" in your terminal.').then(loadSettings);
+  saveEnv(payload, 'Gmail-OAuth gespeichert. Führe jetzt „harvey gmail auth“ im Terminal aus.').then(loadSettings);
 }
 
 function saveSmtp() {
@@ -1306,14 +1308,14 @@ function saveSmtp() {
   const imapPass = document.getElementById('imap-pass').value;
   if (imapPass) payload.IMAP_PASSWORD = imapPass;
   else if (document.getElementById('imap-same-pass').checked) payload.IMAP_PASSWORD = '';
-  saveEnv(payload, 'SMTP settings saved.').then(loadSettings);
+  saveEnv(payload, 'SMTP-Einstellungen gespeichert.').then(loadSettings);
 }
 
 function saveMicrosoft() {
   const client = document.getElementById('m365-client').value.trim();
-  if (!client) { showToast('Paste the Application (client) ID first.', 'error'); return; }
+  if (!client) { showToast('Füge zuerst die Anwendungs-ID (Client) ein.', 'error'); return; }
   saveEnv({M365_CLIENT_ID: client, M365_TENANT_ID: document.getElementById('m365-tenant').value.trim()},
-          'Saved. Now run "harvey microsoft auth" in your terminal.').then(loadSettings);
+          'Gespeichert. Führe jetzt „harvey microsoft auth“ im Terminal aus.').then(loadSettings);
 }
 
 function saveVerifiers() {
@@ -1324,8 +1326,8 @@ function saveVerifiers() {
   if (r) payload.REOON_API_KEY = r;
   if (z) payload.ZEROBOUNCE_API_KEY = z;
   if (h) payload.HUNTER_API_KEY = h;
-  if (!Object.keys(payload).length) { showToast('Enter at least one key first.', 'error'); return; }
-  saveEnv(payload, 'Verification keys saved.').then(loadSettings);
+  if (!Object.keys(payload).length) { showToast('Gib zuerst mindestens einen Schlüssel ein.', 'error'); return; }
+  saveEnv(payload, 'Prüfschlüssel gespeichert.').then(loadSettings);
 }
 
 async function saveEnv(payload, okMsg) {
@@ -1334,40 +1336,40 @@ async function saveEnv(payload, okMsg) {
     body: JSON.stringify(payload)
   });
   if (data && data.success) showToast(okMsg, 'success');
-  else showToast((data && data.message) || 'Save failed — is the dashboard still running?', 'error');
+  else showToast((data && data.message) || 'Speichern fehlgeschlagen. Läuft das Dashboard noch?', 'error');
 }
 
 // Secrets are only sent when typed: an empty box means "keep the saved one".
 function saveInstantly() {
   const key = document.getElementById('instantly-key').value.trim();
-  if (!key) { showToast('Enter a new key first. The saved one is kept.', 'error'); return; }
-  saveEnv({INSTANTLY_API_KEY: key}, 'Instantly API key saved.');
+  if (!key) { showToast('Gib zuerst einen neuen Schlüssel ein. Der gespeicherte bleibt erhalten.', 'error'); return; }
+  saveEnv({INSTANTLY_API_KEY: key}, 'Instantly-API-Schlüssel gespeichert.');
 }
 
 function saveLinkedIn() {
   const payload = {LINKEDIN_EMAIL: document.getElementById('linkedin-email').value.trim()};
   const pass = document.getElementById('linkedin-password').value;
   if (pass) payload.LINKEDIN_PASSWORD = pass;
-  saveEnv(payload, 'LinkedIn credentials saved.');
+  saveEnv(payload, 'LinkedIn-Zugangsdaten gespeichert.');
 }
 
 function saveCloudflare() {
   const payload = {CLOUDFLARE_ACCOUNT_ID: document.getElementById('cf-account-id').value.trim()};
   const token = document.getElementById('cf-api-token').value.trim();
   if (token) payload.CLOUDFLARE_API_TOKEN = token;
-  saveEnv(payload, 'Cloudflare credentials saved.');
+  saveEnv(payload, 'Cloudflare-Zugangsdaten gespeichert.');
 }
 
 async function testInstantly() {
   const key = document.getElementById('instantly-key').value.trim();
   const el = document.getElementById('instantly-test-result');
-  el.innerHTML = '<div class="test-result pending">Testing&hellip;</div>';
+  el.innerHTML = '<div class="test-result pending">Teste&hellip;</div>';
   const data = await api('/api/settings/test-instantly', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({api_key: key})
   });
   if (!data) {
-    el.innerHTML = '<div class="test-result error">Could not reach the dashboard server.</div>';
+    el.innerHTML = '<div class="test-result error">Dashboard-Server nicht erreichbar.</div>';
     return;
   }
   el.innerHTML = '<div class="test-result ' + (data.success ? 'success' : 'error') + '">' + escHtml(failMsg(data, '')) + '</div>';
@@ -1380,7 +1382,7 @@ async function loadHarveyStatus() {
   const headerDot = document.getElementById('header-dot');
   const headerText = document.getElementById('header-status-text');
 
-  if (_locked) return;  // the header already says "Locked"
+  if (_locked) return;  // the header already says "Gesperrt"
   if (!data) {
     headerDot.className = 'status-dot offline';
     headerText.textContent = 'Offline';
@@ -1389,19 +1391,19 @@ async function loadHarveyStatus() {
   const running = !!data.running;
 
   headerDot.className = 'status-dot ' + (running ? 'running' : 'stopped');
-  headerText.textContent = running ? 'Harvey is running' : 'Harvey is stopped';
+  headerText.textContent = running ? 'Harvey läuft' : 'Harvey ist gestoppt';
   document.getElementById('control-dot').className = 'dot ' + (running ? 'running' : 'stopped');
   const label = document.getElementById('control-label');
   label.className = 'label ' + (running ? 'running' : 'stopped');
-  label.textContent = running ? 'Running' : 'Stopped';
+  label.textContent = running ? 'Läuft' : 'Gestoppt';
 
   const meta = document.getElementById('control-meta');
   if (running && data.pid) {
     let info = 'PID ' + escHtml(String(data.pid));
-    if (data.started_at) info += ' &middot; started ' + formatDate(data.started_at);
+    if (data.started_at) info += ' &middot; gestartet ' + formatDate(data.started_at);
     meta.innerHTML = info;
   } else {
-    meta.innerHTML = 'Harvey wakes every few minutes, does what needs doing, and sleeps.';
+    meta.innerHTML = 'Harvey wacht alle paar Minuten auf, erledigt, was ansteht, und schläft wieder.';
   }
 
   document.getElementById('btn-start').style.display = running ? 'none' : '';
@@ -1412,8 +1414,8 @@ async function startHarvey() {
   const btn = document.getElementById('btn-start');
   btn.disabled = true;
   const data = await api('/api/harvey/start', {method: 'POST'});
-  if (data && data.success) showToast('Harvey started.', 'success');
-  else showToast((data && data.message) || 'Failed to start.', 'error');
+  if (data && data.success) showToast('Harvey gestartet.', 'success');
+  else showToast((data && data.message) || 'Start fehlgeschlagen.', 'error');
   btn.disabled = false;
   loadHarveyStatus();
 }
@@ -1422,8 +1424,8 @@ async function stopHarvey() {
   const btn = document.getElementById('btn-stop');
   btn.disabled = true;
   const data = await api('/api/harvey/stop', {method: 'POST'});
-  if (data && data.success) showToast('Harvey stopped.', 'success');
-  else showToast((data && data.message) || 'Failed to stop.', 'error');
+  if (data && data.success) showToast('Harvey gestoppt.', 'success');
+  else showToast((data && data.message) || 'Stoppen fehlgeschlagen.', 'error');
   btn.disabled = false;
   loadHarveyStatus();
 }
@@ -1436,7 +1438,7 @@ async function loadLogs() {
     el.textContent = data.lines.join('\n');
     if (stick) el.scrollTop = el.scrollHeight;
   } else {
-    el.textContent = 'No logs yet. Start Harvey to see activity.';
+    el.textContent = 'Noch keine Logs. Starte Harvey, um Aktivität zu sehen.';
   }
 }
 
@@ -1444,13 +1446,13 @@ async function loadLogs() {
 
 // Calls today per subscription — each labelled with the provider it ran on.
 function brainCallChips(data) {
-  const chip = (label, n) => '<span class="chip">' + label + ' calls today <b>' + escHtml(String(n || 0)) + '</b></span>';
+  const chip = (label, n) => '<span class="chip">' + label + ' Aufrufe heute <b>' + escHtml(String(n || 0)) + '</b></span>';
   const codex = data.codex_calls_today || 0;
   const st = data.brain_status || {};
   // A paused brain must not look healthy: say so, and why.
   const paused = st.status === 'paused'
     ? '<span class="chip" title="' + escHtml(st.reason || '') + '">' +
-      escHtml(st.provider === 'codex' ? 'Codex' : 'Brain') + ' <b>paused</b>: ' +
+      escHtml(st.provider === 'codex' ? 'Codex' : 'Modell') + ' <b>pausiert</b>: ' +
       escHtml((st.reason || '').slice(0, 120)) + '</span>'
     : '';
   if (data.brain_provider === 'codex') {
@@ -1461,9 +1463,9 @@ function brainCallChips(data) {
 
 function fmtTokens(n) {
   n = n || 0;
-  if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
+  if (n >= 1e9) return (n / 1e9).toFixed(1).replace('.', ',') + ' Mrd.';
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.', ',') + ' Mio.';
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace('.', ',') + ' Tsd.';
   return String(n);
 }
 
@@ -1474,7 +1476,7 @@ function emailTag(p) {
   const status = p.email_status || (p.email_verified ? 'verified' : 'guess');
   if (!own(STATUS, status)) return '';
   const m = statusMeta(status);
-  return ' <span class="mini t-' + m.tone + '" title="Email ' + escHtml(m.label.toLowerCase()) + '">' +
+  return ' <span class="mini t-' + m.tone + '" title="E-Mail: ' + escHtml(m.label) + '">' +
     escHtml(m.label) + '</span>';
 }
 
@@ -1484,20 +1486,20 @@ function emailTag(p) {
 function quotaCardHtml(data) {
   const provider = data && data.quota_provider;
   if (!provider) return '';
-  const title = provider === 'codex' ? 'Codex (ChatGPT plan) Quota' : 'Claude Subscription Quota';
+  const title = provider === 'codex' ? 'Codex-Kontingent (ChatGPT-Plan)' : 'Claude-Abo-Kontingent';
   let html = '<h2>' + escHtml(title) + '</h2>';
   if (!data.quota || !Object.keys(data.quota).length) {
     const why = provider === 'codex'
-      ? "Quota unavailable: Harvey couldn't read your ChatGPT plan's limits (check codex login, the Codex CLI version, and network)."
-      : "Quota unavailable: Harvey couldn't read your Claude subscription's limits (check claude login and network).";
-    return html + '<p class="muted">' + escHtml(why) + ' Until it can, budgets count Harvey\'s own calls.</p>';
+      ? 'Kontingent nicht verfügbar: Harvey konnte die Limits deines ChatGPT-Plans nicht lesen (prüfe codex login, die Codex-CLI-Version und das Netzwerk).'
+      : 'Kontingent nicht verfügbar: Harvey konnte die Limits deines Claude-Abos nicht lesen (prüfe claude login und das Netzwerk).';
+    return html + '<p class="muted">' + escHtml(why) + ' Bis dahin zählen die Budgets Harveys eigene Aufrufe.</p>';
   }
-  const labels = {five_hour: '5-hour window', seven_day: 'Weekly', primary: 'Primary window',
-                  secondary: 'Secondary window', limit_reached: 'Usage limit reached'};
+  const labels = {five_hour: '5-Stunden-Fenster', seven_day: 'Wöchentlich', primary: 'Primäres Fenster',
+                  secondary: 'Sekundäres Fenster', limit_reached: 'Nutzungslimit erreicht'};
   for (const [key, w] of Object.entries(data.quota)) {
     const pct = Math.min(100, Math.max(0, w.utilization || 0));
     const color = pct >= 80 ? 'yellow' : 'green';
-    const resets = w.resets_at ? 'resets ' + formatDate(w.resets_at) : '';
+    const resets = w.resets_at ? 'Reset ' + formatDate(w.resets_at) : '';
     html += '<div class="progress-wrap">' +
       '<div class="progress-label">' +
         '<span class="text">' + escHtml(labels[key] || key) + (resets ? ' &middot; ' + escHtml(resets) : '') + '</span>' +
@@ -1527,24 +1529,24 @@ async function loadUsage() {
     return '<div class="stat-card"><div class="label">' + label + '</div>' +
       '<div class="value">' + (p.calls || 0) + '</div>' +
       '<div class="breakdown">' +
-        '<span class="chip">calls</span>' +
-        '<span class="chip">out <b>' + fmtTokens(p.output_tokens) + '</b></span>' +
-        '<span class="chip">in <b>' + fmtTokens(p.input_tokens) + '</b></span>' +
-        '<span class="chip">cached <b>' + fmtTokens(p.cache_read_tokens) + '</b></span>' +
+        '<span class="chip">Aufrufe</span>' +
+        '<span class="chip">aus <b>' + fmtTokens(p.output_tokens) + '</b></span>' +
+        '<span class="chip">ein <b>' + fmtTokens(p.input_tokens) + '</b></span>' +
+        '<span class="chip">Cache <b>' + fmtTokens(p.cache_read_tokens) + '</b></span>' +
       '</div></div>';
   };
-  statsEl.innerHTML = card('Today', t.today) + card('Last 7 Days', t.week) + card('Last 30 Days', t.month);
+  statsEl.innerHTML = card('Heute', t.today) + card('Letzte 7 Tage', t.week) + card('Letzte 30 Tage', t.month);
 
   // Daily columns — output tokens per day (the work done)
   const dailyEl = document.getElementById('usage-daily');
   const days = (data.by_day || []).slice(-30);
   if (days.length) {
     const maxOut = Math.max(...days.map(d => d.output_tokens || 0), 1);
-    dailyEl.innerHTML = '<h2>Output tokens per day <span class="hint muted" style="font-weight:400">last ' +
-      days.length + ' days · peak ' + fmtTokens(maxOut) + '</span></h2>' +
-      '<div class="chart-cols" role="img" aria-label="Output tokens per day">' + days.map(d =>
-        '<span class="col" title="' + escHtml(d.day || '') + ': ' + fmtTokens(d.output_tokens) + ' out, ' +
-          (d.calls || 0) + ' calls"><i style="height:' + Math.max(2, (d.output_tokens || 0) / maxOut * 100) + '%"></i></span>'
+    dailyEl.innerHTML = '<h2>Ausgabe-Tokens pro Tag <span class="hint muted" style="font-weight:400">letzte ' +
+      days.length + ' Tage · Spitze ' + fmtTokens(maxOut) + '</span></h2>' +
+      '<div class="chart-cols" role="img" aria-label="Ausgabe-Tokens pro Tag">' + days.map(d =>
+        '<span class="col" title="' + escHtml(d.day || '') + ': ' + fmtTokens(d.output_tokens) + ' aus, ' +
+          (d.calls || 0) + ' Aufrufe"><i style="height:' + Math.max(2, (d.output_tokens || 0) / maxOut * 100) + '%"></i></span>'
       ).join('') + '</div>' +
       '<div class="chart-axis"><span>' + escHtml(days[0].day || '') + '</span><span>' +
         escHtml(days[days.length - 1].day || '') + '</span></div>';
@@ -1555,11 +1557,11 @@ async function loadUsage() {
 
   // Breakdown tables — calls + tokens, no cost column
   const tablesEl = document.getElementById('usage-tables');
-  const table = (title, rows, keyName) => {
+  const table = (title, rows, keyName, label) => {
     if (!rows || !rows.length) return '';
     const max = Math.max(...rows.map(r => r.calls || 0), 1);
     let h = '<div class="card flush"><div class="card-head"><h3>' + title + '</h3></div><table><thead><tr>' +
-      '<th>' + keyName + '</th><th>Calls</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache read</th>' +
+      '<th>' + (label || keyName) + '</th><th>Aufrufe</th><th class="num">Eingabe</th><th class="num">Ausgabe</th><th class="num">Cache gelesen</th>' +
       '</tr></thead><tbody>';
     for (const r of rows) {
       h += '<tr><td class="cell-main">' + escHtml(String(r[keyName.toLowerCase()] || '')) + '</td>' +
@@ -1574,16 +1576,16 @@ async function loadUsage() {
 
   const anyRows = (data.by_agent || []).length || (data.by_task || []).length;
   if (!anyRows) {
-    tablesEl.innerHTML = emptyState(icon('usage'), 'No usage recorded yet',
-      'Once Harvey starts making model calls (Claude or Codex), every one is logged here with exact calls and tokens by provider, agent and task.');
+    tablesEl.innerHTML = emptyState(icon('usage'), 'Noch keine Nutzung erfasst',
+      'Sobald Harvey das Modell aufruft (Claude oder Codex), wird jeder Aufruf hier erfasst, mit genauen Aufrufen und Tokens nach Anbieter, Agent und Aufgabe.');
   } else {
     const providers = data.by_provider || [];
     const showProviders = providers.length > 1 || (providers.length === 1 && providers[0].provider !== 'claude');
     tablesEl.innerHTML =
-      (showProviders ? table('By Provider (30 days)', providers, 'Provider') : '') +
-      table('By Agent (30 days)', data.by_agent, 'Agent') +
-      table('By Task (30 days)', data.by_task, 'Task') +
-      table('By Model (30 days)', data.by_model, 'Model');
+      (showProviders ? table('Nach Anbieter (30 Tage)', providers, 'Provider', 'Anbieter') : '') +
+      table('Nach Agent (30 Tage)', data.by_agent, 'Agent', 'Agent') +
+      table('Nach Aufgabe (30 Tage)', data.by_task, 'Task', 'Aufgabe') +
+      table('Nach Modell (30 Tage)', data.by_model, 'Model', 'Modell');
   }
 }
 
@@ -1604,7 +1606,7 @@ async function loadOutbox() {
   if (!data) { desk.innerHTML = offlineState(); list.innerHTML = ''; return; }
   if (data.error) {
     // Never let a failed read pass for "Nothing to review".
-    desk.innerHTML = emptyState(icon('alert'), 'Couldn\'t read the Outbox', escHtml(data.error));
+    desk.innerHTML = emptyState(icon('alert'), 'Postausgang konnte nicht gelesen werden', escHtml(data.error));
     list.innerHTML = '';
     return;
   }
@@ -1626,34 +1628,33 @@ async function loadOutbox() {
     (pending.length && !data.paused
       ? (pending.length > pending.filter(p => heldReason(p)).length
         ? '<button class="btn btn-primary btn-sm" onclick="outboxApproveAll()" ' +
-          'title="Emails Harvey held are left for you to approve one by one">Approve all ' +
-          (pending.length - pending.filter(p => heldReason(p)).length) + '</button>' : '') : '') +
+          'title="E-Mails, die Harvey zurückgehalten hat, gibst du einzeln frei">Alle ' +
+          (pending.length - pending.filter(p => heldReason(p)).length) + ' freigeben</button>' : '') : '') +
     (data.paused
       ? '<button class="btn btn-secondary btn-sm" onclick="sendingToggle(\'resume\')">' +
-        'Resume sending</button>'
+        'Versand fortsetzen</button>'
       : '<button class="btn btn-secondary btn-sm" onclick="sendingToggle(\'pause\')">' +
-        'Pause all sending</button>');
+        'Gesamten Versand pausieren</button>');
 
   // The kill switch gets a banner only when it's actually on — a permanent
   // bar for a thing that isn't happening is just noise.
   banner.innerHTML = sendingModeBanner(_sendingMode) + (data.paused
-    ? '<div class="banner bad">' + icon('alert') + '<div><b>Sending is paused</b>' +
-        '<p>' + escHtml(data.paused) + '. Approved mail stays queued until you resume.</p></div></div>'
+    ? '<div class="banner bad">' + icon('alert') + '<div><b>Versand pausiert</b>' +
+        '<p>' + escHtml(data.paused) + '. Freigegebene E-Mails bleiben in der Warteschlange, bis du fortsetzt.</p></div></div>'
     : '');
   // Only once there is mail to warn about: a fresh install sends nothing.
   const anyMail = pending.length || (data.approved || []).length || (data.sent || []).length;
   if (data.compliance_notice && anyMail) {
     banner.innerHTML +=
-      '<div class="banner wait">' + icon('alert') + '<div><b>' +
-        (/Anschrift/.test(data.compliance_notice) ? 'Absenderangaben fehlen' : 'Add your postal address') + '</b>' +
+      '<div class="banner wait">' + icon('alert') + '<div><b>Absenderangaben fehlen</b>' +
         '<p>' + escHtml(data.compliance_notice) + '</p></div></div>';
   }
 
   desk.innerHTML = pending.length ? renderDesk(pending, _desk.i) :
-    '<div class="card">' + emptyState(icon('check'), 'Nothing to review',
+    '<div class="card">' + emptyState(icon('check'), 'Nichts zu prüfen',
       _sendingMode && _sendingMode.mode === 'autopilot'
-        ? 'Autopilot is on, so Harvey sends on its own. Anything it holds for you shows up here.'
-        : 'Every draft Harvey writes lands here first. Approve one and it sends on schedule.') +
+        ? 'Der Autopilot ist an, Harvey sendet also selbst. Alles, was er für dich zurückhält, erscheint hier.'
+        : 'Jeder Entwurf von Harvey landet zuerst hier. Gib einen frei, dann geht er nach Plan raus.') +
     '</div>';
 
   const table = (title, rows, cols) => {
@@ -1669,28 +1670,28 @@ async function loadOutbox() {
   };
 
   list.innerHTML =
-    table('Approved &amp; scheduled', data.approved, [
-      ['To', r => r.to_email], ['Step', r => r.step], ['Subject', r => r.subject],
-      ['Sends', r => r.status === 'sending' ? badge(r.status) : escHtml(formatDate(r.send_at)), true, true],
+    table('Freigegeben und geplant', data.approved, [
+      ['An', r => r.to_email], ['Schritt', r => r.step], ['Betreff', r => r.subject],
+      ['Versand', r => r.status === 'sending' ? badge(r.status) : escHtml(formatDate(r.send_at)), true, true],
     ]) +
-    table('Recently sent', data.sent, [
-      ['To', r => r.to_email], ['Step', r => r.step], ['Subject', r => r.subject],
-      ['Sent', r => formatDate(r.sent_at), true],
+    table('Zuletzt gesendet', data.sent, [
+      ['An', r => r.to_email], ['Schritt', r => r.step], ['Betreff', r => r.subject],
+      ['Gesendet', r => formatDate(r.sent_at), true],
     ]) +
-    table('Didn\'t send', data.failed, [
-      ['To', r => r.to_email], ['Status', r => badge(r.status), false, true],
-      ['Reason', r => r.error, true], ['Updated', r => formatDate(r.updated_at), true],
+    table('Nicht gesendet', data.failed, [
+      ['An', r => r.to_email], ['Status', r => badge(r.status), false, true],
+      ['Grund', r => r.error, true], ['Aktualisiert', r => formatDate(r.updated_at), true],
     ]);
 }
 
 const CONTACT_SOURCES = {
-  known_company_backfill: 'team page on their site',
-  company_website: 'team page on their site',
-  scraped_mailto: 'address published on their site',
-  linkedin_search: 'LinkedIn search',
-  hunter_domain_search: 'Hunter domain search',
-  job_board: 'job board',
-  web_search: 'web search',
+  known_company_backfill: 'Teamseite auf ihrer Website',
+  company_website: 'Teamseite auf ihrer Website',
+  scraped_mailto: 'auf ihrer Website veröffentlichte Adresse',
+  linkedin_search: 'LinkedIn-Suche',
+  hunter_domain_search: 'Hunter-Domainsuche',
+  job_board: 'Jobbörse',
+  web_search: 'Websuche',
 };
 
 // What the draft is built on, so every claim can be checked against it.
@@ -1703,22 +1704,22 @@ function renderDeskContext(ctx) {
         escHtml(ctx.website.replace(/^https?:\/\//i, '')) + ' &#8599;</a>'
     : '';
   const who = [ctx.contact, ctx.contact_title].filter(Boolean).map(escHtml).join(' &middot; ');
-  const email = [ctx.email_status, ctx.score ? 'score ' + ctx.score : '']
+  const email = [ctx.email_status ? statusMeta(ctx.email_status).label : '', ctx.score ? 'Score ' + ctx.score : '']
     .filter(Boolean).map(escHtml).join(' &middot; ');
   const signals = Object.entries(ctx.signals || {})
     .map(([k, v]) => escHtml(k) + ': <b>' + escHtml(v) + '</b>').join('<br>');
   return '<div class="desk-context">' +
-    row('Company', escHtml(ctx.company)) +
+    row('Firma', escHtml(ctx.company)) +
     row('Website', site) +
-    row('About', escHtml(ctx.description)) +
-    row('Contact', who) +
-    row('Found via', escHtml(Object.prototype.hasOwnProperty.call(CONTACT_SOURCES, ctx.contact_source)
+    row('Über', escHtml(ctx.description)) +
+    row('Kontakt', who) +
+    row('Gefunden über', escHtml(Object.prototype.hasOwnProperty.call(CONTACT_SOURCES, ctx.contact_source)
       ? CONTACT_SOURCES[ctx.contact_source] : ctx.contact_source)) +
-    row('Email', email) +
-    row('Signals', signals) +
-    row('Campaign', ctx.campaign ? escHtml(ctx.campaign) +
-      ' <span class="muted">(how they were found, not a fact about them)</span>' : '') +
-    row('Writer notes', escHtml(ctx.notes)) +
+    row('E-Mail', email) +
+    row('Signale', signals) +
+    row('Kampagne', ctx.campaign ? escHtml(ctx.campaign) +
+      ' <span class="muted">(wie sie gefunden wurden, keine Aussage über sie)</span>' : '') +
+    row('Notizen des Writers', escHtml(ctx.notes)) +
   '</div>';
 }
 
@@ -1732,52 +1733,53 @@ let _sendingMode = null, _autopilotArmed = false, _modeBusy = false;
 function sendingModeBanner(m) {
   if (!m) return '';
   if (m.mode === 'autopilot') {
-    return '<div class="banner wait mode-banner">' + icon('alert') + '<div><b>Autopilot is on</b>' +
-      '<p>Harvey sends email on its own. It holds anything that links to a site that isn’t yours or ' +
-      'quotes its own instructions; those wait here' + (m.held ? ' (' + m.held + ' now)' : '') + '.</p></div>' +
+    return '<div class="banner wait mode-banner">' + icon('alert') + '<div><b>Autopilot ist an</b>' +
+      '<p>Harvey sendet E-Mails selbst. Er hält alles zurück, was auf eine fremde Website verlinkt oder ' +
+      'seine eigenen Anweisungen zitiert; das wartet hier' + (m.held ? ' (' + m.held + ' gerade)' : '') + '.</p></div>' +
       '<button class="btn btn-secondary btn-sm" onclick="setSendingMode(\'approval\')"' +
-        (_modeBusy ? ' disabled' : '') + '>Turn off autopilot</button></div>';
+        (_modeBusy ? ' disabled' : '') + '>Autopilot ausschalten</button></div>';
   }
   const instantly = m.provider === 'instantly';
-  return '<div class="banner mode-banner">' + icon('check') + '<div><b>Approval mode</b>' +
+  return '<div class="banner mode-banner">' + icon('check') + '<div><b>Freigabemodus</b>' +
     '<p>' + (instantly
-      ? 'Instantly can’t hold single emails, so campaigns aren’t sent to Instantly until you turn on autopilot.'
-      : 'Every email Harvey writes waits here until you approve it.') +
-    ' <a href="#" onclick="goTab(\'settings\');return false">About autopilot</a></p></div></div>';
+      ? 'Instantly kann keine einzelnen E-Mails zurückhalten. Kampagnen gehen deshalb erst an Instantly, wenn du den Autopilot einschaltest.'
+      : 'Jede E-Mail von Harvey wartet hier, bis du sie freigibst.') +
+    ' <a href="#" onclick="goTab(\'settings\');return false">Zum Autopilot</a></p></div></div>';
 }
 
 function sendingModeCard(m) {
-  if (!m) return '<div class="card muted">Couldn’t read the sending mode.</div>';
+  if (!m) return '<div class="card muted">Versandmodus konnte nicht gelesen werden.</div>';
   const auto = m.mode === 'autopilot';
   const instantly = m.provider === 'instantly';
-  const domains = (m.your_domains || []).map(escHtml).join(', ') || 'none yet';
-  let html = '<div class="card mode-card"><h3>Sending mode: ' + (auto ? 'Autopilot' : 'Approval') + '</h3>' +
-    '<p><b>Approval</b> (the default): every email Harvey writes, first emails, follow-ups and replies, ' +
-      'waits in the Outbox until you approve it.' +
-      (instantly ? ' On Instantly, which can’t hold single emails, that means campaigns aren’t deployed.' : '') + '</p>' +
-    '<p><b>Autopilot</b>: Harvey sends on its own, on schedule, within your daily limit and quiet hours. ' +
-      'Opt-outs, bounces and Pause all sending work the same. It still holds an email for you when it links ' +
-      'to, or gives an address at, a site that isn’t yours, or quotes Harvey’s own instructions: text from ' +
-      'websites and replies can try to steer what it writes. The first reply after you undo an opt-out waits too.</p>' +
-    '<p class="muted">Counted as yours: ' + domains + (m.booking_page ? '; your booking page ' + escHtml(m.booking_page) : '') +
-      '. Add others under <code>channels.email.link_domains</code> in <code>' + escHtml(m.file) + '</code>.</p>';
+  const domains = (m.your_domains || []).map(escHtml).join(', ') || 'noch keine';
+  let html = '<div class="card mode-card"><h3>Versandmodus: ' + (auto ? 'Autopilot' : 'Freigabe') + '</h3>' +
+    '<p><b>Freigabe</b> (Standard): Jede E-Mail von Harvey, ob erste E-Mail, Follow-up oder Antwort, ' +
+      'wartet im Postausgang, bis du sie freigibst.' +
+      (instantly ? ' Bei Instantly, das keine einzelnen E-Mails zurückhalten kann, heißt das: Kampagnen werden nicht gestartet.' : '') + '</p>' +
+    '<p><b>Autopilot</b>: Harvey sendet selbst, nach Plan, innerhalb deines Tageslimits und außerhalb der Ruhezeiten. ' +
+      'Abmeldungen, Unzustellbare und „Gesamten Versand pausieren“ funktionieren wie gewohnt. Eine E-Mail hält er ' +
+      'trotzdem für dich zurück, wenn sie auf eine fremde Website verlinkt oder dort eine Adresse nennt, oder wenn sie ' +
+      'Harveys eigene Anweisungen zitiert: Text von Websites und aus Antworten kann versuchen, zu steuern, was er schreibt. ' +
+      'Auch die erste Antwort, nachdem du eine Abmeldung zurückgenommen hast, wartet.</p>' +
+    '<p class="muted">Zählt als deine: ' + domains + (m.booking_page ? '; deine Buchungsseite ' + escHtml(m.booking_page) : '') +
+      '. Weitere trägst du unter <code>channels.email.link_domains</code> in <code>' + escHtml(m.file) + '</code> ein.</p>';
   if (auto) {
-    html += '<div class="convo-actions"><span class="muted">Turning it off works at once: emails autopilot ' +
-      'approved that haven’t gone out come back to the Outbox.' +
-      (instantly ? ' Campaigns already on Instantly keep running until you pause them there.' : '') + '</span>' +
+    html += '<div class="convo-actions"><span class="muted">Ausschalten wirkt sofort: E-Mails, die der Autopilot ' +
+      'freigegeben hat und die noch nicht raus sind, kommen zurück in den Postausgang.' +
+      (instantly ? ' Kampagnen, die schon bei Instantly sind, laufen weiter, bis du sie dort pausierst.' : '') + '</span>' +
       '<button class="btn btn-primary btn-sm" onclick="setSendingMode(\'approval\')"' +
-        (_modeBusy ? ' disabled' : '') + '>Turn off autopilot</button></div>';
+        (_modeBusy ? ' disabled' : '') + '>Autopilot ausschalten</button></div>';
   } else if (_autopilotArmed) {
-    html += '<div class="convo-actions mode-confirm"><span class="muted">Approve a batch or two by hand first ' +
-      'and read what Harvey writes. Type <b>autopilot</b> to turn it on. It starts from Harvey’s next cycle.</span>' +
-      '<input class="form-input" id="autopilot-confirm" autocomplete="off" aria-label="Type autopilot to confirm" ' +
+    html += '<div class="convo-actions mode-confirm"><span class="muted">Gib zuerst ein, zwei Stapel von Hand frei ' +
+      'und lies, was Harvey schreibt. Tippe <b>autopilot</b>, um ihn einzuschalten. Er startet mit Harveys nächstem Durchlauf.</span>' +
+      '<input class="form-input" id="autopilot-confirm" autocomplete="off" aria-label="Zum Bestätigen autopilot tippen" ' +
         'oninput="document.getElementById(\'autopilot-go\').disabled = this.value.trim().toLowerCase() !== \'autopilot\'" ' +
         'onkeydown="if (event.key === \'Enter\' && this.value.trim().toLowerCase() === \'autopilot\') setSendingMode(\'autopilot\')">' +
-      '<button class="btn btn-primary btn-sm" id="autopilot-go" disabled onclick="setSendingMode(\'autopilot\')">Turn on autopilot</button>' +
-      '<button class="btn btn-ghost btn-sm" onclick="_autopilotArmed=false;renderSendingModeCard()">Cancel</button></div>';
+      '<button class="btn btn-primary btn-sm" id="autopilot-go" disabled onclick="setSendingMode(\'autopilot\')">Autopilot einschalten</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="_autopilotArmed=false;renderSendingModeCard()">Abbrechen</button></div>';
   } else {
     html += '<div class="convo-actions"><button class="btn btn-secondary btn-sm" ' +
-      'onclick="_autopilotArmed=true;renderSendingModeCard()">Turn on autopilot…</button></div>';
+      'onclick="_autopilotArmed=true;renderSendingModeCard()">Autopilot einschalten…</button></div>';
   }
   return html + '</div>';
 }
@@ -1811,13 +1813,13 @@ async function setSendingMode(mode) {
     if (res && res.success) {
       _autopilotArmed = false;
       showToast(mode === 'autopilot'
-        ? 'Autopilot is on from Harvey’s next cycle. Held emails still wait for you.'
-        : 'Autopilot is off. Every email waits for you' +
-          (res.requeued ? '; ' + res.requeued + ' queued by autopilot came back to the Outbox.' : '.') +
+        ? 'Der Autopilot ist ab Harveys nächstem Durchlauf an. Zurückgehaltene E-Mails warten weiter auf dich.'
+        : 'Der Autopilot ist aus. Jede E-Mail wartet auf dich' +
+          (res.requeued ? '; ' + res.requeued + ' vom Autopilot eingereihte kamen zurück in den Postausgang.' : '.') +
           (_sendingMode && _sendingMode.provider === 'instantly'
-            ? ' Campaigns already on Instantly keep running: pause them in Instantly.' : ''), 'success');
+            ? ' Kampagnen, die schon bei Instantly sind, laufen weiter: pausiere sie in Instantly.' : ''), 'success');
     } else {
-      showToast(failMsg(res, 'Couldn’t change the sending mode.'), 'error');
+      showToast(failMsg(res, 'Versandmodus konnte nicht geändert werden.'), 'error');
     }
   } finally {
     _modeBusy = false;
@@ -1827,10 +1829,12 @@ async function setSendingMode(mode) {
 }
 
 // Why autopilot sent this back for a human (sender: gate.autopilot_review).
-const HELD_PREFIX = 'held for your review: ';   // state.HELD_FOR_REVIEW
+// state.HELD_FOR_REVIEW, and state.LEGACY_HELD_FOR_REVIEW on older rows.
+const HELD_PREFIXES = ['zur Prüfung zurückgehalten: ', 'held for your review: '];
 function heldReason(item) {
   const e = String((item && item.error) || '');
-  const why = e.startsWith(HELD_PREFIX) ? e.slice(HELD_PREFIX.length) : '';
+  const prefix = HELD_PREFIXES.find(p => e.startsWith(p));
+  const why = prefix ? e.slice(prefix.length) : '';
   return why.charAt(0).toUpperCase() + why.slice(1);
 }
 
@@ -1842,9 +1846,9 @@ function renderDesk(items, i) {
     return '<div class="desk-item ' + (n === i ? 'active' : '') + '" onclick="deskGo(' + n + ')">' +
       '<span class="avatar">' + initials(parts[0], parts[1]) + '</span>' +
       '<div class="di-text"><div class="to">' + escHtml(who) +
-        (heldReason(it) ? ' <span class="tag t-bad" title="Harvey held this instead of sending it">Held</span>' : '') +
+        (heldReason(it) ? ' <span class="tag t-bad" title="Harvey hat das zurückgehalten, statt es zu senden">Zurückgehalten</span>' : '') +
         '</div>' +
-      '<div class="sub">' + escHtml(it.subject || '(no subject)') + '</div></div>' +
+      '<div class="sub">' + escHtml(it.subject || '(kein Betreff)') + '</div></div>' +
     '</div>';
   }).join('');
 
@@ -1852,47 +1856,47 @@ function renderDesk(items, i) {
   const unsaved = (editing && _desk.unsaved) || {subject: cur.subject || '', body: cur.body || ''};
   // A reply keeps its subject: Gmail threads by it.
   const fixedSubject = cur.kind === 'reply'
-    ? ' readonly title="A reply keeps its subject so it stays in the thread"' : '';
+    ? ' readonly title="Eine Antwort behält ihren Betreff, damit sie im Verlauf bleibt"' : '';
   const draft = editing
     ? '<input id="desk-subject" class="desk-edit-subject" value="' + escHtml(unsaved.subject) + '"' +
         fixedSubject + ' oninput="deskKeep()">' +
       '<textarea id="desk-body" class="desk-edit-body" rows="14" oninput="deskKeep()">' +
         escHtml(unsaved.body) + '</textarea>'
-    : '<div class="subject">' + escHtml(cur.subject || '(no subject)') + '</div>' +
+    : '<div class="subject">' + escHtml(cur.subject || '(kein Betreff)') + '</div>' +
       '<div class="body">' + escHtml(cur.body) + '</div>';
   // Cold email leaves with the footer underneath; show it as it will go out.
   // Not added again when the body already ends with it, as in the Sender.
   const added = cur.kind === 'sequence' && !(cur.body || '').trimEnd().endsWith(_desk.footer)
     ? _desk.footer : '';
   const footer = added
-    ? '<div class="desk-footer" title="Added when it sends (compliance in harvey.yaml)">' +
+    ? '<div class="desk-footer" title="Wird beim Senden angehängt (compliance in harvey.yaml)">' +
         escHtml(added) + '</div>' : '';
   const actions = editing
-    ? '<button class="btn btn-primary" onclick="deskSave(' + jsq(cur.id) + ')">Save</button>' +
-      '<button class="btn btn-secondary" onclick="deskEdit(null)">Cancel</button>'
+    ? '<button class="btn btn-primary" onclick="deskSave(' + jsq(cur.id) + ')">Speichern</button>' +
+      '<button class="btn btn-secondary" onclick="deskEdit(null)">Abbrechen</button>'
     : '<button class="btn btn-primary" onclick="outboxAct(' + jsq(cur.id) + ',\'approve\')">' +
-        'Approve <kbd>A</kbd></button>' +
+        'Freigeben <kbd>F</kbd></button>' +
       '<button class="btn btn-secondary" onclick="deskEdit(' + jsq(cur.id) + ')">' +
-        'Edit <kbd>E</kbd></button>' +
+        'Bearbeiten <kbd>B</kbd></button>' +
       '<button class="btn btn-secondary" onclick="outboxAct(' + jsq(cur.id) + ',\'reject\')">' +
-        'Reject <kbd>R</kbd></button>';
+        'Ablehnen <kbd>X</kbd></button>';
 
   return '<div class="desk">' +
     '<div class="desk-list">' + rail + '</div>' +
     '<div class="desk-pane">' +
-      '<div class="to-line">To <b>' + escHtml(cur.to_email) + '</b>' +
-        '<span class="tag">' + (cur.kind === 'reply' ? 'Reply' : 'Email ' + escHtml(String(cur.step))) + '</span>' +
-        '<span class="muted">sends ' + formatDate(cur.send_at) + '</span></div>' +
+      '<div class="to-line">An <b>' + escHtml(cur.to_email) + '</b>' +
+        '<span class="tag">' + (cur.kind === 'reply' ? 'Antwort' : 'E-Mail ' + escHtml(String(cur.step))) + '</span>' +
+        '<span class="muted">Versand ' + formatDate(cur.send_at) + '</span></div>' +
       renderDeskContext(cur.context) +
       (heldReason(cur)
-        ? '<div class="banner wait desk-held">' + icon('alert') + '<div><b>Harvey held this instead of sending it</b>' +
-          '<div>' + escHtml(heldReason(cur)) + '. Read it before approving: text from a website or an ' +
-          'email can try to steer what Harvey writes.</div></div></div>'
+        ? '<div class="banner wait desk-held">' + icon('alert') + '<div><b>Harvey hat das zurückgehalten, statt es zu senden</b>' +
+          '<div>' + escHtml(heldReason(cur)) + '. Lies es vor dem Freigeben: Text von einer Website oder aus einer ' +
+          'E-Mail kann versuchen, zu steuern, was Harvey schreibt.</div></div></div>'
         : '') +
       draft + footer +
       '<div class="desk-actions">' + actions +
         '<span class="muted" style="font-size:12px;margin-left:auto">' +
-          (i + 1) + ' of ' + items.length + '</span>' +
+          (i + 1) + ' von ' + items.length + '</span>' +
       '</div>' +
     '</div></div>';
 }
@@ -1916,14 +1920,14 @@ function deskKeep() {
 // stored version of it: Save or Cancel first.
 function deskBusy() {
   if (!_desk.editing) return false;
-  showToast('Save or cancel your edit first.', 'error');
+  showToast('Speichere oder verwirf zuerst deine Änderung.', 'error');
   return true;
 }
 
 async function deskSave(id) {
   const subject = document.getElementById('desk-subject').value.trim();
   const body = document.getElementById('desk-body').value.trim();
-  if (!subject || !body) { showToast('Subject and body are both required.', 'error'); return; }
+  if (!subject || !body) { showToast('Betreff und Text sind beide nötig.', 'error'); return; }
   let data = null;
   try {
     const r = await authFetch('/api/outbox/' + encodeURIComponent(id) + '/edit', {
@@ -1936,10 +1940,10 @@ async function deskSave(id) {
   if (data && data.success) {
     _desk.editing = null;
     _desk.unsaved = null;
-    showToast('Saved. Still waiting for your approval.', 'success');
+    showToast('Gespeichert. Wartet weiter auf deine Freigabe.', 'success');
     loadOutbox();
   } else {
-    showToast((data && data.message) || 'Save failed.', 'error');
+    showToast((data && data.message) || 'Speichern fehlgeschlagen.', 'error');
   }
 }
 
@@ -1957,7 +1961,7 @@ document.addEventListener('keydown', e => {
   if (_desk.editing) {
     const typing = /^(input|textarea)$/i.test(e.target.tagName || '');
     if (e.key === 'Escape') { e.preventDefault(); deskEdit(null); }
-    else if (!typing && 'jkare'.includes(e.key.toLowerCase())) { e.preventDefault(); deskBusy(); }
+    else if (!typing && 'jkfxb'.includes(e.key.toLowerCase())) { e.preventDefault(); deskBusy(); }
     return;
   }
   const tag = (e.target.tagName || '').toLowerCase();
@@ -1966,33 +1970,36 @@ document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'j') { e.preventDefault(); deskGo(_desk.i + 1); }
   else if (k === 'k') { e.preventDefault(); deskGo(_desk.i - 1); }
-  else if (k === 'a' && cur) { e.preventDefault(); outboxAct(cur.id, 'approve'); }
-  else if (k === 'r' && cur) { e.preventDefault(); outboxAct(cur.id, 'reject'); }
-  else if (k === 'e' && cur) { e.preventDefault(); deskEdit(cur.id); }
+  // German letters: F = Freigeben, X = Ablehnen, B = Bearbeiten. Never A: in German
+  // it reads like "Ablehnen", and pressing it would approve an email.
+  else if (k === 'f' && cur) { e.preventDefault(); outboxAct(cur.id, 'approve'); }
+  else if (k === 'x' && cur) { e.preventDefault(); outboxAct(cur.id, 'reject'); }
+  else if (k === 'b' && cur) { e.preventDefault(); deskEdit(cur.id); }
 });
 
 async function outboxAct(id, action) {
   if (deskBusy()) return;
   const data = await api('/api/outbox/' + encodeURIComponent(id) + '/' + action, {method: 'POST'});
-  if (data && data.success) showToast(action === 'approve' ? 'Approved — will send on schedule.' : 'Rejected.', 'success');
-  else showToast(failMsg(data, 'Action failed.'), 'error');
+  if (data && data.success) showToast(action === 'approve' ? 'Freigegeben. Geht nach Plan raus.' : 'Abgelehnt.', 'success');
+  else showToast(failMsg(data, 'Aktion fehlgeschlagen.'), 'error');
   loadOutbox();
 }
 
 async function outboxApproveAll() {
   if (deskBusy()) return;
   const data = await api('/api/outbox/approve-all', {method: 'POST'});
-  if (data && data.success) showToast('Approved ' + data.approved + ' email(s).' + (data.held
-    ? ' ' + data.held + ' Harvey held ' + (data.held === 1 ? 'is' : 'are') + ' left for you to read and approve one by one.'
+  if (data && data.success) showToast(data.approved + ' E-Mail(s) freigegeben.' + (data.held
+    ? ' ' + data.held + (data.held === 1 ? ' zurückgehaltene wartet' : ' zurückgehaltene warten') +
+      ' darauf, dass du sie einzeln liest und freigibst.'
     : ''), 'success');
-  else showToast(failMsg(data, 'Approve-all failed.'), 'error');
+  else showToast(failMsg(data, 'Alle freigeben ist fehlgeschlagen.'), 'error');
   loadOutbox();
 }
 
 async function sendingToggle(action) {
   const data = await api('/api/sending/' + action, {method: 'POST'});
-  if (data && data.success) showToast(action === 'pause' ? 'Sending paused.' : 'Sending resumed.', 'success');
-  else showToast(failMsg(data, action === 'pause' ? 'Could not pause sending.' : 'Could not resume sending.'), 'error');
+  if (data && data.success) showToast(action === 'pause' ? 'Versand pausiert.' : 'Versand fortgesetzt.', 'success');
+  else showToast(failMsg(data, action === 'pause' ? 'Versand konnte nicht pausiert werden.' : 'Versand konnte nicht fortgesetzt werden.'), 'error');
   loadOutbox();
 }
 
@@ -2006,9 +2013,9 @@ async function loadCompanies() {
   if (!data) { el.innerHTML = offlineState(); return; }
   _companies = data;
   if (!data.length) {
-    el.innerHTML = emptyState(icon('companies'), 'No companies yet',
-      'Confirm your <b>Signals</b>, then find businesses on the <b>Discover</b> tab. ' +
-      'OpenStreetMap is free and needs no account.');
+    el.innerHTML = emptyState(icon('companies'), 'Noch keine Firmen',
+      'Bestätige deine <b>Signale</b> und finde dann Firmen im Tab <b>Entdecken</b>. ' +
+      'OpenStreetMap ist kostenlos und braucht kein Konto.');
     return;
   }
   renderCompaniesPage(_companiesPage);
@@ -2020,10 +2027,10 @@ function renderCompaniesPage(page) {
   const pages = Math.max(1, Math.ceil(data.length / COMPANIES_PER_PAGE));
   _companiesPage = Math.min(Math.max(0, page), pages - 1);
   const start = _companiesPage * COMPANIES_PER_PAGE;
-  let html = '<div class="table-card"><table class="nowrap"><thead><tr><th>Company</th>' +
-    '<th title="Company fit, 0-100: sector, decision maker, reachability, buying signal. Hover a score for why.">Fit</th>' +
-    '<th title="Hover a status for why the company was or wasn\'t contacted">Status</th>' +
-    '<th>Industry</th><th>Location</th><th class="num">Contacts</th><th>Added</th></tr></thead><tbody>';
+  let html = '<div class="table-card"><table class="nowrap"><thead><tr><th>Firma</th>' +
+    '<th title="Passung der Firma von 0 bis 100: Branche, Entscheider, Erreichbarkeit, Kaufsignal. Fahr über einen Wert, um die Gründe zu sehen.">Passung</th>' +
+    '<th title="Fahr über einen Status, um zu sehen, warum die Firma kontaktiert wurde oder nicht">Status</th>' +
+    '<th>Branche</th><th>Ort</th><th class="num">Kontakte</th><th>Hinzugefügt</th></tr></thead><tbody>';
   data.slice(start, start + COMPANIES_PER_PAGE).forEach((c, j) => {
     const i = start + j;
     const website = c.website || (c.domain ? 'https://' + c.domain : '');
@@ -2044,14 +2051,14 @@ function renderCompaniesPage(page) {
   });
   const pager = pages > 1
     ? ' &nbsp; <button class="btn btn-ghost btn-sm" ' + (_companiesPage === 0 ? 'disabled ' : '') +
-        'onclick="renderCompaniesPage(' + (_companiesPage - 1) + ')">&larr; Prev</button> ' +
-      'Page ' + (_companiesPage + 1) + ' of ' + pages +
+        'onclick="renderCompaniesPage(' + (_companiesPage - 1) + ')">&larr; Zurück</button> ' +
+      'Seite ' + (_companiesPage + 1) + ' von ' + pages +
       ' <button class="btn btn-ghost btn-sm" ' + (_companiesPage >= pages - 1 ? 'disabled ' : '') +
-        'onclick="renderCompaniesPage(' + (_companiesPage + 1) + ')">Next &rarr;</button>'
+        'onclick="renderCompaniesPage(' + (_companiesPage + 1) + ')">Weiter &rarr;</button>'
     : '';
   el.innerHTML = html + '</tbody></table></div>' +
-    '<div class="table-foot">' + (start + 1) + '–' + Math.min(start + COMPANIES_PER_PAGE, data.length) +
-    ' of ' + data.length + ' compan' + (data.length === 1 ? 'y' : 'ies') + pager + '</div>';
+    '<div class="table-foot">' + (start + 1) + ' bis ' + Math.min(start + COMPANIES_PER_PAGE, data.length) +
+    ' von ' + data.length + (data.length === 1 ? ' Firma' : ' Firmen') + pager + '</div>';
 }
 
 // Basic facts about one company, above its contacts: where it came from,
@@ -2080,22 +2087,22 @@ function companyInfoCard(company, profile) {
   const shown = new Set(['DECISION_MAKER_TITLE', 'CONTACT_FOUND', 'CONTACT_FORM_URL', 'HIRING_ROLE', 'FOUND_IN_SERP', 'TECH_STACK']);
   const other = Object.values(latest).filter(o => !shown.has(o.signal_code));
   let html = '<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>' + escHtml(c.name || c.domain) + '</h3>' +
-    '<span class="meta">' + (typeof company.fit === 'number' ? 'Fit ' + company.fit + ' / 100' : '') + '</span></div>' +
+    '<span class="meta">' + (typeof company.fit === 'number' ? 'Passung ' + company.fit + ' / 100' : '') + '</span></div>' +
     '<table><tbody>' +
     row('Website', link(website, c.domain || website)) +
-    row('Sector', escHtml(c.industry)) +
-    row('Area', escHtml(c.location)) +
-    row('Why selected', escHtml(reg.why_selected || (company.fit_reasons || []).join(' · '))) +
+    row('Branche', escHtml(c.industry)) +
+    row('Region', escHtml(c.location)) +
+    row('Warum ausgewählt', escHtml(reg.why_selected || (company.fit_reasons || []).join(' · '))) +
     row('Status', '<b>' + escHtml(reg.status || company.register_status || '') + '</b>' +
-      (reg.why_not_contacted || company.register_why ? ' — ' + escHtml(reg.why_not_contacted || company.register_why) : '')) +
-    row('People named on site', list(people, 8)) +
-    row('Contact form', form ? link(form.value_text, form.value_text) : '') +
-    row('Hiring', list(by('HIRING_ROLE'), 6)) +
-    row('Tech on website', escHtml(by('TECH_STACK').map(o => o.value_text).slice(0, 1).join(''))) +
-    row('Other signals', other.slice(0, 8).map(o => escHtml(o.label) + ': ' +
+      (reg.why_not_contacted || company.register_why ? ' · ' + escHtml(reg.why_not_contacted || company.register_why) : '')) +
+    row('Auf der Website genannt', list(people, 8)) +
+    row('Kontaktformular', form ? link(form.value_text, form.value_text) : '') +
+    row('Offene Stellen', list(by('HIRING_ROLE'), 6)) +
+    row('Technik der Website', escHtml(by('TECH_STACK').map(o => o.value_text).slice(0, 1).join(''))) +
+    row('Weitere Signale', other.slice(0, 8).map(o => escHtml(o.label) + ': ' +
       escHtml(o.value_text || String(o.value_num))).join('<br>')) +
-    row('Found via', c.source_url ? link(c.source_url, 'search result') + ' · ' + escHtml(c.source || '') : escHtml(c.source || '')) +
-    row('First found', escHtml((c.created_at || '').slice(0, 10))) +
+    row('Gefunden über', c.source_url ? link(c.source_url, 'Suchergebnis') + ' · ' + escHtml(c.source || '') : escHtml(c.source || '')) +
+    row('Zuerst gefunden', escHtml((c.created_at || '').slice(0, 10))) +
     '</tbody></table></div>';
   return html;
 }
@@ -2110,21 +2117,21 @@ async function showCompanyContacts(index) {
     api('/api/companies/' + encodeURIComponent(company.id) + '/profile'),
   ]);
   let html = '<button class="btn btn-ghost btn-sm" onclick="loadCompanies()" style="margin-bottom:12px">' +
-    '&larr; All companies</button>' + companyInfoCard(company, profile) +
-    '<div class="card flush"><div class="card-head"><h3>Contacts</h3>' +
+    '&larr; Alle Firmen</button>' + companyInfoCard(company, profile) +
+    '<div class="card flush"><div class="card-head"><h3>Kontakte</h3>' +
     '<span class="meta">' + escHtml([company.industry, company.location].filter(Boolean).join(' · ')) + '</span></div>';
   if (!data || !data.length) {
-    html += '<div class="empty"><div class="copy">No contacts found at this company yet.</div></div></div>';
+    html += '<div class="empty"><div class="copy">Bei dieser Firma noch keine Kontakte gefunden.</div></div></div>';
   } else {
-    html += '<table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>LinkedIn</th><th>Status</th><th>Source</th></tr></thead><tbody>';
+    html += '<table><thead><tr><th>Name</th><th>E-Mail</th><th>Telefon</th><th>LinkedIn</th><th>Status</th><th>Quelle</th></tr></thead><tbody>';
     for (const p of data) {
       const phoneIcon = p.phone_verified ? ' <span class="muted">&#10003;</span>' : '';
       html += '<tr><td><div class="cell-row"><span class="avatar">' + initials(p.first_name, p.last_name) + '</span>' +
           '<div class="cell-stack"><span class="cell-main">' + escHtml(p.first_name) + ' ' + escHtml(p.last_name) + '</span>' +
-          '<span class="cell-sub">' + escHtml(p.title) + '</span></div></div></td>' +
+          '<span class="cell-sub">' + escHtml(p.title === 'General inbox' ? 'Allgemeines Postfach' : p.title) + '</span></div></div></td>' +
         '<td>' + escHtml(p.email) + emailTag(p) + '</td>' +
         '<td>' + escHtml(p.phone) + phoneIcon + '</td>' +
-        '<td>' + (safeHref(p.linkedin_url) ? '<a href="' + safeHref(p.linkedin_url) + '" target="_blank" rel="noopener noreferrer">Profile</a>' : '') + '</td>' +
+        '<td>' + (safeHref(p.linkedin_url) ? '<a href="' + safeHref(p.linkedin_url) + '" target="_blank" rel="noopener noreferrer">Profil</a>' : '') + '</td>' +
         '<td>' + badge(p.status) + '</td><td class="muted">' + sourceLabel(p.source) + '</td></tr>';
     }
     html += '</tbody></table></div>';
@@ -2133,37 +2140,37 @@ async function showCompanyContacts(index) {
 }
 
 async function submitFeedback(entityType, entityId, promptText) {
-  const comment = prompt(promptText || 'Add your feedback:');
+  const comment = prompt(promptText || 'Dein Feedback:');
   if (!comment) return;
   const data = await api('/api/feedback', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({entity_type: entityType, entity_id: entityId, comment: comment})
   });
   if (data && data.success) showToast(entityType === 'campaign'
-    ? 'Saved. Harvey follows it in the emails it writes from now on.'
-    : 'Saved. Harvey uses it if it writes this person\'s first email (Gmail, SMTP or Microsoft 365).', 'success');
-  else showToast((data && data.message) || 'Could not save feedback.', 'error');
+    ? 'Gespeichert. Harvey beachtet es ab jetzt in den E-Mails, die er schreibt.'
+    : 'Gespeichert. Harvey nutzt es, wenn er die erste E-Mail an diese Person schreibt (Gmail, SMTP oder Microsoft 365).', 'success');
+  else showToast((data && data.message) || 'Feedback konnte nicht gespeichert werden.', 'error');
 }
 
 function fbProspect(i) {
   const p = _prospects[i];
-  if (p) submitFeedback('contact', p.id, 'Anything Harvey should know before writing to this person?');
+  if (p) submitFeedback('contact', p.id, 'Sollte Harvey etwas wissen, bevor er dieser Person schreibt?');
 }
 
 function fbCampaign(i) {
   const c = _campaigns[i];
-  if (c) submitFeedback('campaign', c.id, 'What should Harvey do differently in the emails it writes next? (e.g. "shorter; don\'t mention reviews")');
+  if (c) submitFeedback('campaign', c.id, 'Was soll Harvey in den nächsten E-Mails anders machen? (z. B. „kürzer; keine Bewertungen erwähnen“)');
 }
 
 // Search and status filter live outside the table, so the 15-second refresh
 // re-renders rows without losing what you typed.
 let _contactQuery = '', _contactFilter = 'all';
 const CONTACT_FILTERS = [
-  ['all', 'All', null],
-  ['todo', 'To write', ['new', 'queued']],
-  ['contacted', 'Contacted', ['contacted']],
-  ['replied', 'Replied', ['replied', 'interested', 'meeting']],
-  ['closed', 'Closed out', null],
+  ['all', 'Alle', null],
+  ['todo', 'Zu schreiben', ['new', 'queued']],
+  ['contacted', 'Kontaktiert', ['contacted']],
+  ['replied', 'Geantwortet', ['replied', 'interested', 'meeting']],
+  ['closed', 'Abgeschlossen', null],
 ];
 
 async function loadProspects() {
@@ -2172,16 +2179,16 @@ async function loadProspects() {
   if (!data) { el.innerHTML = offlineState(); return; }
   _prospects = data;
   if (!data.length) {
-    el.innerHTML = emptyState(icon('contacts'), 'No contacts yet',
-      'Harvey hasn\'t found any prospects. Once it\'s running, the Scout agent searches the web for people matching your ideal customer profile in <b>harvey.yaml</b>.');
+    el.innerHTML = emptyState(icon('contacts'), 'Noch keine Kontakte',
+      'Harvey hat noch keine Kontakte gefunden. Sobald er läuft, sucht der Scout-Agent im Web nach Leuten, die zu deinem Idealkundenprofil in <b>harvey.yaml</b> passen.');
     return;
   }
   if (!document.getElementById('contact-rows')) {
     el.innerHTML = '<div class="toolbar">' +
       '<label class="search">' + icon('discover') +
-        '<input class="form-input" id="contact-search" type="search" placeholder="Search name, company, email" ' +
-        'aria-label="Search contacts" oninput="_contactQuery=this.value;renderContacts()"></label>' +
-      '<div class="segmented" id="contact-filters" role="group" aria-label="Filter by status"></div>' +
+        '<input class="form-input" id="contact-search" type="search" placeholder="Name, Firma, E-Mail suchen" ' +
+        'aria-label="Kontakte suchen" oninput="_contactQuery=this.value;renderContacts()"></label>' +
+      '<div class="segmented" id="contact-filters" role="group" aria-label="Nach Status filtern"></div>' +
       '</div><div id="contact-rows"></div>';
     // A rebuild after an offline blip must show the search still applied.
     document.getElementById('contact-search').value = _contactQuery;
@@ -2212,20 +2219,20 @@ function renderContacts() {
 
   const rows = _prospects.map((p, i) => [p, i]).filter(([p]) => contactMatches(p, _contactFilter) && found(p));
   if (!rows.length) {
-    rowsEl.innerHTML = '<div class="table-card">' + emptyState(icon('discover'), 'No matches',
-      'Nothing matches that search and filter.') + '</div>';
+    rowsEl.innerHTML = '<div class="table-card">' + emptyState(icon('discover'), 'Keine Treffer',
+      'Nichts passt zu dieser Suche und diesem Filter.') + '</div>';
     return;
   }
-  let html = '<div class="table-card"><table class="nowrap"><thead><tr><th>Name</th><th>Company</th><th>Email</th>' +
-    '<th>Score</th><th>Status</th><th>Source</th><th>Added</th><th></th></tr></thead><tbody>';
+  let html = '<div class="table-card"><table class="nowrap"><thead><tr><th>Name</th><th>Firma</th><th>E-Mail</th>' +
+    '<th>Score</th><th>Status</th><th>Quelle</th><th>Hinzugefügt</th><th></th></tr></thead><tbody>';
   for (const [p, i] of rows) {
     html += '<tr><td><div class="cell-row"><span class="avatar">' + initials(p.first_name, p.last_name) + '</span>' +
         '<div class="cell-stack"><span class="cell-main">' + escHtml(p.first_name) + ' ' + escHtml(p.last_name) + '</span>' +
-        '<span class="cell-sub">' + escHtml(p.title) + '</span></div></div></td>' +
+        '<span class="cell-sub">' + escHtml(p.title === 'General inbox' ? 'Allgemeines Postfach' : p.title) + '</span></div></div></td>' +
       '<td>' + escHtml(p.company) + '</td>' +
       '<td><div class="cell-stack"><span>' + escHtml(p.email) + '</span>' +
         '<span class="cell-sub">' + [emailTag(p).trim(), p.phone ? escHtml(p.phone) +
-          (p.phone_verified ? ' <span class="verified" title="Phone verified">&#10003;</span>' : '') : '']
+          (p.phone_verified ? ' <span class="verified" title="Telefon geprüft">&#10003;</span>' : '') : '']
           .filter(Boolean).join(' · ') + '</span>' +
         '</div></td>' +
       '<td>' + (p.score || p.score === 0 ? meterHtml(p.score) : '') + '</td>' +
@@ -2234,14 +2241,14 @@ function renderContacts() {
       '<td class="muted" style="white-space:nowrap">' + relTime(p.created_at) + '</td>' +
       '<td><div class="cell-row">' + (p.status === 'opted_out' || p.opt_out_undone || _optOut.id === p.id
         ? '<button class="btn btn-ghost btn-sm" onclick="toggleOptOut(' + i + ')" ' +
-          'aria-expanded="' + (_optOut.id === p.id) + '" title="What made Harvey stop emailing them">' +
-          (p.status === 'opted_out' ? 'Why?' : 'Opt-out history') + '</button>' : '') +
+          'aria-expanded="' + (_optOut.id === p.id) + '" title="Warum Harvey dieser Person nicht mehr schreibt">' +
+          (p.status === 'opted_out' ? 'Warum?' : 'Abmeldeverlauf') + '</button>' : '') +
         '<button class="btn btn-ghost btn-sm row-action" onclick="fbProspect(' + i + ')" ' +
-        'title="Leave feedback on this contact">Feedback</button></div></td></tr>';
+        'title="Feedback zu diesem Kontakt geben">Feedback</button></div></td></tr>';
     if (_optOut.id === p.id) html += '<tr class="detail-row"><td colspan="8">' + optOutPanel(p) + '</td></tr>';
   }
   rowsEl.innerHTML = html + '</tbody></table></div>' +
-    '<div class="table-foot">' + rows.length + ' of ' + _prospects.length + ' contacts</div>';
+    '<div class="table-foot">' + rows.length + ' von ' + _prospects.length + ' Kontakten</div>';
 }
 
 // Why someone is opted out, and undoing it. Harvey never moves anyone off
@@ -2249,10 +2256,10 @@ function renderContacts() {
 // something else) needs you: see what triggered it, then undo it here.
 let _optOut = {id: null, data: null, armed: false, busy: false};
 const OPT_OUT_RULES = {
-  phrase: 'Matched an opt-out phrase',
-  no_thanks: 'Matched “no thanks”',
-  only_words: 'Their reply was only an opt-out word',
-  model: 'The model’s judgement (no phrase matched)',
+  phrase: 'Passte auf eine Abmeldeformulierung',
+  no_thanks: 'Passte auf „Nein danke“',
+  only_words: 'Die Antwort bestand nur aus einem Abmeldewort',
+  model: 'Einschätzung des Modells (keine Formulierung passte)',
 };
 
 async function toggleOptOut(i) {
@@ -2270,38 +2277,39 @@ async function toggleOptOut(i) {
 function optOutPanel(p) {
   const d = _optOut.data;
   const name = escHtml([p.first_name, p.last_name].filter(Boolean).join(' ') || p.email);
-  if (!d) return '<div class="optout-panel muted">Loading…</div>';
-  if (d.error) return '<div class="optout-panel muted">Couldn’t load the opt-out record. Try again.</div>';
-  let html = '<div class="optout-panel"><h4>' + (d.opted_out ? 'Why Harvey stopped emailing ' : 'Opt-out history for ') +
-    name + '</h4>';
+  if (!d) return '<div class="optout-panel muted">Lädt…</div>';
+  if (d.error) return '<div class="optout-panel muted">Die Abmeldedaten konnten nicht geladen werden. Versuch es noch einmal.</div>';
+  let html = '<div class="optout-panel"><h4>' + (d.opted_out ? 'Warum Harvey ' + name + ' nicht mehr schreibt'
+    : 'Abmeldeverlauf für ' + name) + '</h4>';
   if (d.recorded) {
     html += '<p>' + escHtml(d.why) + '</p><div class="optout-meta">' +
       escHtml(own(OPT_OUT_RULES, d.rule) || d.rule || '') + (d.at ? ' · ' + relTime(d.at) : '') + '</div>';
   } else if (d.opted_out || (d.history || []).length) {
-    html += '<p>They opted out before Harvey kept a record of why.' +
-      (d.message ? ' The last thing they wrote:' : ' There’s no reply from them on file.') + '</p>';
+    html += '<p>Die Person hat sich abgemeldet, bevor Harvey Gründe festgehalten hat.' +
+      (d.message ? ' Ihre letzte Nachricht:' : ' Es liegt keine Antwort von ihr vor.') + '</p>';
   }
   if (d.message) {
-    html += '<div class="thread-msg received"><div class="sender">' + escHtml(p.first_name || 'They') +
+    html += '<div class="thread-msg received"><div class="sender">' + escHtml(p.first_name || 'Kontakt') +
       (d.at ? ' &middot; ' + relTime(d.at) : '') + '</div>' + escHtml(d.message) + '</div>';
   }
   const undone = (d.history || []).filter(h => h.action === 'opt_out_undone');
   if (undone.length) {
-    html += '<div class="optout-meta">' + undone.map(h => 'You undid an opt-out ' + relTime(h.at)).join(' · ') + '</div>';
+    html += '<div class="optout-meta">' + undone.map(h => 'Du hast eine Abmeldung zurückgenommen, ' + relTime(h.at)).join(' · ') + '</div>';
   }
   if (!d.opted_out) {
-    html += '<div class="convo-actions"><span class="muted">Not opted out now (' +
+    html += '<div class="convo-actions"><span class="muted">Derzeit nicht abgemeldet (' +
       escHtml(statusMeta(d.status).label) + ').</span></div>';
   } else if (_optOut.armed) {
-    html += '<div class="convo-actions"><span class="muted">Harvey will treat them as having replied. Nothing is ' +
-      'sent automatically, emails the opt-out cancelled stay cancelled, and Harvey’s answer to their next ' +
-      'reply waits for your approval, even on autopilot. Only undo it if they didn’t mean to opt out.</span>' +
+    html += '<div class="convo-actions"><span class="muted">Harvey behandelt die Person dann so, als hätte sie geantwortet. ' +
+      'Nichts wird automatisch gesendet, von der Abmeldung abgebrochene E-Mails bleiben abgebrochen, und Harveys Antwort ' +
+      'auf ihre nächste Nachricht wartet auf deine Freigabe, auch im Autopilot. Nimm die Abmeldung nur zurück, ' +
+      'wenn sie sich nicht abmelden wollte.</span>' +
       '<button class="btn btn-primary btn-sm" onclick="undoOptOut()"' + (_optOut.busy ? ' disabled' : '') +
-        '>Confirm undo</button>' +
-      '<button class="btn btn-ghost btn-sm" onclick="_optOut.armed=false;renderContacts()">Cancel</button></div>';
+        '>Zurücknahme bestätigen</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="_optOut.armed=false;renderContacts()">Abbrechen</button></div>';
   } else {
     html += '<div class="convo-actions"><button class="btn btn-secondary btn-sm" ' +
-      'onclick="_optOut.armed=true;renderContacts()">Undo opt-out</button></div>';
+      'onclick="_optOut.armed=true;renderContacts()">Abmeldung zurücknehmen</button></div>';
   }
   return html + '</div>';
 }
@@ -2315,8 +2323,8 @@ async function undoOptOut() {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({confirm: true}),
   });
-  if (res && res.success) showToast('Opt-out undone. They’re marked as replied; Harvey sends nothing on its own.', 'success');
-  else showToast(failMsg(res, 'Could not undo the opt-out. Try again.'), 'error');
+  if (res && res.success) showToast('Abmeldung zurückgenommen. Die Person ist als geantwortet markiert; Harvey sendet nichts von sich aus.', 'success');
+  else showToast(failMsg(res, 'Die Abmeldung konnte nicht zurückgenommen werden. Versuch es noch einmal.'), 'error');
   if (_optOut.id !== id) return;
   _optOut.armed = false;
   _optOut.busy = false;
@@ -2341,7 +2349,7 @@ async function showOptOut(prospectId, email) {
 function fillMergeVars(text, r) {
   const inbox = r.source === 'company_inbox';
   const vals = {
-    first_name: r.first_name || (inbox ? 'there' : ''), last_name: r.last_name || '',
+    first_name: r.first_name || (inbox ? 'zusammen' : ''), last_name: r.last_name || '',
     company: r.company || '', title: r.title || '',
     personalization: r.personalization_notes || '',
   };
@@ -2376,7 +2384,7 @@ async function openInGmail(ci, si, ri) {
   // only gets the draft once the send is recorded.
   const w = window.open('', '_blank');
   if (!w) {
-    showToast('Your browser blocked the Gmail tab. Allow pop-ups for this page and click again.', 'error');
+    showToast('Dein Browser hat den Gmail-Tab blockiert. Erlaube Pop-ups für diese Seite und klick noch einmal.', 'error');
     return;
   }
   w.opener = null;
@@ -2387,7 +2395,7 @@ async function openInGmail(ci, si, ri) {
   try { if (!claimed) claimed = await markSent(ci, ri, true); } finally { _gmailBusy = false; }
   if (!claimed) { w.close(); return; }
   w.location.href = url;
-  if (left) showToast('This draft still has a {{placeholder}} in it. Fix it in Gmail before sending.', 'error');
+  if (left) showToast('Dieser Entwurf enthält noch einen {{Platzhalter}}. Korrigiere ihn in Gmail vor dem Senden.', 'error');
 }
 
 async function markSent(ci, ri, sent) {
@@ -2403,9 +2411,9 @@ async function markSent(ci, ri, sent) {
     res = await resp.json();
   } catch {}
   const ok = !!(res && res.success);
-  if (!ok) showToast((res && res.message) || 'Could not save that. Try again.', 'error');
-  else if (!sent && res.sent) showToast('They already replied, so this stays marked as sent.');
-  else showToast(sent ? 'Marked as sent by you.' : 'Unmarked.', 'success');
+  if (!ok) showToast((res && res.message) || 'Konnte nicht gespeichert werden. Versuch es noch einmal.', 'error');
+  else if (!sent && res.sent) showToast('Die Person hat schon geantwortet, deshalb bleibt das als gesendet markiert.');
+  else showToast(sent ? 'Als von dir gesendet markiert.' : 'Markierung entfernt.', 'success');
   loadCampaigns();
   // True only when this call changed it: a status means they replied or
   // opted out, 'already' means another click or tab got there first.
@@ -2418,14 +2426,14 @@ function campaignProgress(c) {
   if (!rs.length) return '';
   const count = st => rs.filter(r => st.includes(r.status)).length;
   const parts = [
-    ['Contacted', count(['contacted']), 'c-accent'],
-    ['Replied', count(['replied']), 'c-active'],
-    ['Interested', count(['interested', 'meeting']), 'c-good'],
-    ['Waiting', count(['new', 'queued']), 'c-accent-soft'],
+    ['Kontaktiert', count(['contacted']), 'c-accent'],
+    ['Geantwortet', count(['replied']), 'c-active'],
+    ['Interessiert', count(['interested', 'meeting']), 'c-good'],
+    ['Wartend', count(['new', 'queued']), 'c-accent-soft'],
   ];
   const closed = rs.length - parts.reduce((x, p) => x + p[1], 0);
-  if (closed > 0) parts.push(['Closed out', closed, 'c-idle']);
-  return '<div class="campaign-progress"><div class="bar" role="img" aria-label="Where this campaign\'s people stand">' +
+  if (closed > 0) parts.push(['Abgeschlossen', closed, 'c-idle']);
+  return '<div class="campaign-progress"><div class="bar" role="img" aria-label="Wo die Kontakte dieser Kampagne stehen">' +
     parts.filter(p => p[1]).map(p => '<span class="' + p[2] + '" style="width:' + (100 * p[1] / rs.length) +
       '%" title="' + p[0] + ': ' + p[1] + '"></span>').join('') + '</div>' +
     '<div class="campaign-legend">' + parts.filter(p => p[1]).map(p =>
@@ -2438,8 +2446,8 @@ async function loadCampaigns() {
   if (!data) { el.innerHTML = offlineState(); return; }
   _campaigns = data;
   if (!data.length) {
-    el.innerHTML = emptyState(icon('campaigns'), 'No campaigns yet',
-      'The Writer agent hasn\'t drafted any sequences. It kicks in automatically once Harvey has scored prospects to write for.');
+    el.innerHTML = emptyState(icon('campaigns'), 'Noch keine Kampagnen',
+      'Der Writer-Agent hat noch keine Sequenzen entworfen. Er legt automatisch los, sobald Harvey bewertete Kontakte hat, für die er schreiben kann.');
     return;
   }
   let html = '';
@@ -2452,13 +2460,13 @@ async function loadCampaigns() {
         if (r.sent_by_hand) {
           const tick = '<label style="display:inline-flex;align-items:center;gap:4px;font-size:13px;cursor:pointer">' +
             '<input type="checkbox" checked onchange="markSent(' + i + ',' + ri + ',this.checked)"> ' +
-            '&#10003; Sent by you</label>';
+            '&#10003; Von dir gesendet</label>';
           if (s === 0) return '<span class="rcpt-who">' + escHtml(r.email) + '</span>' + tick;
           // Follow-ups are the user's too: Harvey never emails someone they emailed.
           return '<span class="rcpt-who">' + escHtml(r.email) + '</span>' +
             '<button class="btn btn-secondary btn-sm" onclick="openInGmail(' + i + ',' + s + ',' + ri + ')">' +
-            'Open in Gmail</button>' +
-            '<span class="muted" style="font-size:12px">Harvey won\'t send follow-ups to people you emailed yourself.</span>';
+            'In Gmail öffnen</button>' +
+            '<span class="muted" style="font-size:12px">Harvey sendet keine Follow-ups an Leute, denen du selbst geschrieben hast.</span>';
         }
         if (s !== 0) return '';
         if (!r.can_send_by_hand) {
@@ -2466,19 +2474,19 @@ async function loadCampaigns() {
           return r.can_mark_sent
             ? '<label class="muted" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">' +
               '<input type="checkbox" onchange="markSent(' + i + ',' + ri + ',this.checked)"> ' +
-              'I already emailed ' + escHtml(r.email) + ' myself</label>'
+              'Ich habe ' + escHtml(r.email) + ' schon selbst geschrieben</label>'
             : '';
         }
         const risky = r.email_status === 'risky'
-          ? ' <span class="mini t-waiting">Catch-all, may bounce</span>' : '';
+          ? ' <span class="mini t-waiting">Catch-all, kann unzustellbar sein</span>' : '';
         return '<span class="rcpt-who">' + escHtml(r.email) + risky + '</span>' +
           '<button class="btn btn-secondary btn-sm" onclick="openInGmail(' + i + ',' + s + ',' + ri + ')">' +
-          'Open in Gmail</button>' +
-          '<label><input type="checkbox" onchange="markSent(' + i + ',' + ri + ',this.checked)"> Mark as sent</label>'
+          'In Gmail öffnen</button>' +
+          '<label><input type="checkbox" onchange="markSent(' + i + ',' + ri + ',this.checked)"> Als gesendet markieren</label>'
       }).filter(Boolean).map(x => '<div class="rcpt">' + x + '</div>').join('');
       stepsHtml += '<div class="email-step"><span class="step-dot">' + escHtml(String(step.step || '?')) + '</span>' +
-        '<div><div class="step-num">' + (s === 0 ? 'First email' : 'Follow-up') +
-        (step.delay_days ? ' &middot; ' + escHtml(String(step.delay_days)) + ' days after the last' : '') + '</div>' +
+        '<div><div class="step-num">' + (s === 0 ? 'Erste E-Mail' : 'Follow-up') +
+        (step.delay_days ? ' &middot; ' + escHtml(String(step.delay_days)) + ' Tage nach der letzten' : '') + '</div>' +
         '<div class="subject">' + escHtml(step.subject) + '</div>' +
         '<div class="body">' + escHtml(step.body) + '</div>' +
         (sendBtns ? '<div class="step-actions">' + sendBtns + '</div>' : '') +
@@ -2486,13 +2494,13 @@ async function loadCampaigns() {
     });
     const pc = (c.prospect_ids || []).length;
     html += '<div class="campaign-card"><div class="campaign-top">' +
-      '<div class="campaign-title"><h3>' + escHtml(c.name || 'Untitled Campaign') + '</h3>' +
+      '<div class="campaign-title"><h3>' + escHtml(c.name || 'Kampagne ohne Titel') + '</h3>' +
         '<button class="btn btn-ghost btn-sm" onclick="fbCampaign(' + i + ')">Feedback</button></div>' +
-      '<div class="meta">' + badge(c.status) + '<span>' + pc + ' prospect' + (pc !== 1 ? 's' : '') + '</span>' +
-        '<span>' + (c.sequence || []).length + ' emails</span><span>Created ' + relTime(c.created_at) + '</span></div>' +
+      '<div class="meta">' + badge(c.status) + '<span>' + pc + (pc !== 1 ? ' Kontakte' : ' Kontakt') + '</span>' +
+        '<span>' + (c.sequence || []).length + ' E-Mails</span><span>Erstellt ' + relTime(c.created_at) + '</span></div>' +
       campaignProgress(c) + '</div>' +
       '<div class="sequence">' +
-      (stepsHtml || '<p class="muted" style="font-size:13px;padding-top:16px">No email steps in this campaign.</p>') + '</div></div>';
+      (stepsHtml || '<p class="muted" style="font-size:13px;padding-top:16px">Diese Kampagne hat keine E-Mail-Schritte.</p>') + '</div></div>';
   });
   el.innerHTML = html;
 }
@@ -2501,15 +2509,15 @@ async function loadCampaigns() {
 // replies, Harvey's answers, and any answer still waiting for approval.
 let _convos = [], _convoFilter = 'needs';
 const STAGE_LABELS = {
-  initial_outreach: 'Outreach', engaged: 'Engaged', qualifying: 'Qualifying', presenting: 'Presenting',
-  negotiating: 'Negotiating', closing: 'Closing', closed_won: 'Won', closed_lost: 'Lost',
+  initial_outreach: 'Erstkontakt', engaged: 'Im Gespräch', qualifying: 'Qualifizierung', presenting: 'Präsentation',
+  negotiating: 'Verhandlung', closing: 'Abschluss', closed_won: 'Gewonnen', closed_lost: 'Verloren',
 };
 const CONVO_FILTERS = [
-  ['needs', 'Needs you', c => !!c.draft || c.status === 'needs_human'],
-  ['open', 'Open', c => c.status !== 'closed' && c.status !== 'awaiting_reply'],
-  ['awaiting', 'Awaiting reply', c => c.status === 'awaiting_reply'],
-  ['closed', 'Closed', c => c.status === 'closed'],
-  ['all', 'All', () => true],
+  ['needs', 'Braucht dich', c => !!c.draft || c.status === 'needs_human'],
+  ['open', 'Offen', c => c.status !== 'closed' && c.status !== 'awaiting_reply'],
+  ['awaiting', 'Wartet auf Antwort', c => c.status === 'awaiting_reply'],
+  ['closed', 'Geschlossen', c => c.status === 'closed'],
+  ['all', 'Alle', () => true],
 ];
 
 async function loadConversations() {
@@ -2518,11 +2526,11 @@ async function loadConversations() {
   if (!data) { el.innerHTML = offlineState(); return; }
   _convos = data;
   if (!data.length) {
-    el.innerHTML = emptyState(icon('conversations'), 'No conversations yet',
-      'No prospects have replied so far. When they do, the Handler agent classifies each reply and responds — every thread shows up here.');
+    el.innerHTML = emptyState(icon('conversations'), 'Noch keine Gespräche',
+      'Bisher hat noch kein Kontakt geantwortet. Sobald jemand antwortet, ordnet der Handler-Agent die Antwort ein und reagiert darauf. Jeder Verlauf erscheint hier.');
     return;
   }
-  // Open on "Needs you" only when something needs you.
+  // Open on "Braucht dich" only when something needs you.
   if (_convoFilter === 'needs' && !data.some(CONVO_FILTERS[0][2]))
     _convoFilter = data.some(CONVO_FILTERS[1][2]) ? 'open' : 'all';
   renderConversations();
@@ -2533,7 +2541,7 @@ function setConvoFilter(f) { _convoFilter = f; renderConversations(); }
 function renderConversations() {
   const el = document.getElementById('conversations-list');
   const filter = CONVO_FILTERS.find(f => f[0] === _convoFilter) || CONVO_FILTERS[CONVO_FILTERS.length - 1];
-  const bar = '<div class="toolbar"><div class="segmented" role="group" aria-label="Filter conversations">' +
+  const bar = '<div class="toolbar"><div class="segmented" role="group" aria-label="Gespräche filtern">' +
     CONVO_FILTERS.map(f => '<button class="' + (f[0] === filter[0] ? 'on' : '') + '" aria-pressed="' + (f[0] === filter[0]) +
       '" onclick="setConvoFilter(\'' + f[0] + '\')">' + f[1] + ' <span class="n">' +
       _convos.filter(f[2]).length + '</span></button>').join('') + '</div></div>';
@@ -2542,8 +2550,8 @@ function renderConversations() {
   const shown = _convos.filter(filter[2]).map((c, i) => [c, i])
     .sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
   if (!shown.length) {
-    el.innerHTML = bar + '<div class="card">' + emptyState(icon('check'), 'Nothing here',
-      'No conversation matches this filter.') + '</div>';
+    el.innerHTML = bar + '<div class="card">' + emptyState(icon('check'), 'Hier ist nichts',
+      'Kein Gespräch passt zu diesem Filter.') + '</div>';
     return;
   }
   el.innerHTML = bar + shown.map(convoCard).join('');
@@ -2555,11 +2563,11 @@ function convoCard(c) {
     .map(it => ({...it, key: +parseTs(it.ts)}))
     // An item with no time goes last instead of scrambling the order.
     .sort((a, b) => (isNaN(a.key) ? Infinity : a.key) - (isNaN(b.key) ? Infinity : b.key) || 0);
-  const first = c.first_name || 'Them';
+  const first = c.first_name || 'Kontakt';
   const thread = items.map(it => {
     if (it.email) {
       return '<div class="thread-email"><div class="te-head">' + icon('campaigns') +
-        '<b>Email ' + escHtml(String(it.email.step)) + '</b><span>' + escHtml(it.email.subject) + '</span>' +
+        '<b>E-Mail ' + escHtml(String(it.email.step)) + '</b><span>' + escHtml(it.email.subject) + '</span>' +
         '<span class="te-when">' + relTime(it.email.sent_at) + '</span></div>' +
         '<div class="te-body">' + escHtml(it.email.body) + '</div></div>';
     }
@@ -2569,11 +2577,11 @@ function convoCard(c) {
       escHtml(m.content) + '</div>';
   }).join('');
   const draft = c.draft
-    ? '<div class="thread-draft"><div class="sender">' + icon('pen') + 'Harvey drafted a reply · waiting for you</div>' +
+    ? '<div class="thread-draft"><div class="sender">' + icon('pen') + 'Harvey hat eine Antwort entworfen · wartet auf dich</div>' +
       '<div class="td-body">' + escHtml(c.draft.body) + '</div>' +
-      '<button class="btn btn-primary btn-sm" onclick="goTab(\'outbox\')">Review in Outbox' + icon('arrow') + '</button></div>'
+      '<button class="btn btn-primary btn-sm" onclick="goTab(\'outbox\')">Im Postausgang prüfen' + icon('arrow') + '</button></div>'
     : '';
-  const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.company || 'Unknown';
+  const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.company || 'Unbekannt';
   const stage = own(STAGE_LABELS, c.stage) ? '<span class="tag">' + STAGE_LABELS[c.stage] + '</span>' : '';
   return '<div class="convo-card"><div class="convo-head">' +
     '<span class="avatar">' + initials(c.first_name, c.last_name) + '</span>' +
@@ -2582,7 +2590,7 @@ function convoCard(c) {
     // An escalation's intent badge says the same as its status: show one.
     '<div class="tags">' + (c.intent && !(c.status === 'needs_human' && c.intent === 'escalate') ? badge(c.intent) : '') +
       stage + badge(c.status) + '</div></div>' +
-    '<div class="thread">' + (thread || '<p class="muted" style="font-size:13px">No messages in this thread yet.</p>') +
+    '<div class="thread">' + (thread || '<p class="muted" style="font-size:13px">Noch keine Nachrichten in diesem Verlauf.</p>') +
     draft + '</div>' + convoActions(c) + '</div>';
 }
 
@@ -2593,30 +2601,30 @@ function convoActions(c) {
     // A complaint or legal threat from someone who opted out: handing it
     // back wouldn't help, Harvey never answers them.
     return '<div class="convo-actions"><span class="muted">' + icon('alert') +
-      'Opted out, and Harvey handed this to you. Reply from your inbox if you need to, then:</span>' +
-      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'closed\')">Close</button>' +
+      'Abgemeldet, und Harvey hat das an dich übergeben. Antworte bei Bedarf aus deinem Postfach, dann:</span>' +
+      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'closed\')">Schließen</button>' +
       '<button class="btn btn-secondary btn-sm" onclick="showOptOut(' + jsq(c.prospect_id) + ',' + jsq(c.prospect_email) +
-      ')">Why opted out?</button></div>';
+      ')">Warum abgemeldet?</button></div>';
   }
   if (c.status === 'needs_human') {
     return '<div class="convo-actions"><span class="muted">' + icon('alert') +
-      'Harvey handed this to you. Reply from your inbox, then:</span>' +
-      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'open\')">Hand back to Harvey</button>' +
-      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'closed\')">Close</button></div>';
+      'Harvey hat das an dich übergeben. Antworte aus deinem Postfach, dann:</span>' +
+      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'open\')">An Harvey zurückgeben</button>' +
+      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'closed\')">Schließen</button></div>';
   }
   if (c.status === 'open') {
     return '<div class="convo-actions"><button class="btn btn-ghost btn-sm" onclick="setConvoStatus(' +
-      jsq(c.id) + ',\'closed\')">Close conversation</button></div>';
+      jsq(c.id) + ',\'closed\')">Gespräch schließen</button></div>';
   }
   if (c.status === 'closed' && c.prospect_status === 'opted_out') {
     // Reopening wouldn't help: Harvey never answers someone who opted out.
-    return '<div class="convo-actions"><span class="muted">' + icon('alert') + 'Opted out. Harvey won’t write to them.</span>' +
+    return '<div class="convo-actions"><span class="muted">' + icon('alert') + 'Abgemeldet. Harvey schreibt dieser Person nicht mehr.</span>' +
       '<button class="btn btn-secondary btn-sm" onclick="showOptOut(' + jsq(c.prospect_id) + ',' + jsq(c.prospect_email) +
-      ')">Why opted out?</button></div>';
+      ')">Warum abgemeldet?</button></div>';
   }
   if (c.status === 'closed') {
     return '<div class="convo-actions"><button class="btn btn-ghost btn-sm" onclick="setConvoStatus(' +
-      jsq(c.id) + ',\'open\')">Reopen</button></div>';
+      jsq(c.id) + ',\'open\')">Wieder öffnen</button></div>';
   }
   return '';
 }
@@ -2626,8 +2634,8 @@ async function setConvoStatus(id, status) {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({status: status}),
   });
-  if (data && data.success) showToast(status === 'open' ? 'Open again. Harvey will answer the next reply.' : 'Closed. A new reply starts a new conversation.', 'success');
-  else showToast(failMsg(data, 'Could not update that conversation.'), 'error');
+  if (data && data.success) showToast(status === 'open' ? 'Wieder offen. Harvey antwortet auf die nächste Nachricht.' : 'Geschlossen. Eine neue Antwort startet ein neues Gespräch.', 'success');
+  else showToast(failMsg(data, 'Das Gespräch konnte nicht geändert werden.'), 'error');
   loadConversations();
   loadToday();
 }
@@ -2637,8 +2645,8 @@ async function loadActivity() {
   const data = await api('/api/activity');
   if (!data) { el.innerHTML = offlineState(); return; }
   if (!data.length) {
-    el.innerHTML = emptyState(icon('activity'), 'No activity yet',
-      'Harvey hasn\'t taken any actions. Every prospect found, email written, and reply handled will appear here the moment it happens.');
+    el.innerHTML = emptyState(icon('activity'), 'Noch keine Aktivität',
+      'Harvey hat noch nichts getan. Jeder gefundene Kontakt, jede geschriebene E-Mail und jede bearbeitete Antwort erscheint hier, sobald es passiert.');
     return;
   }
   let html = '<div class="card"><div class="timeline">';

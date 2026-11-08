@@ -31,7 +31,7 @@ import aiosmtplib
 import httpx
 
 from harvey.collectors import people as people_mod
-from harvey.public_http import page_text
+from harvey.public_http import page_text, same_site
 from harvey.collectors.profile import BOOKING_HINTS
 from harvey.integrations.email_finder import (
     ROLE_LOCALS, _clean_name_part, build_email, classify_mx, generate_patterns,
@@ -164,6 +164,25 @@ def imprint_links(html: str, base: str) -> list[str]:
 def _own(addr: str, domain: str) -> bool:
     other = addr.rpartition("@")[2].removeprefix("www.")
     return other == domain or other.endswith("." + domain)
+
+
+def _names_the_business(email: str, name: str, domain: str) -> bool:
+    """praxis.huber@gmx.de or physio-huber@t-online.de for Physio Huber: the business's
+    own freemail address, by a role word or a word of its name or domain."""
+    local = (email or "").lower().partition("@")[0]
+    if any(word in local for word in _ROLE_WORDS):
+        return True
+    words = {w for part in (name or "").split() for w in [_clean_name_part(part)] if len(w) >= 4}
+    words |= set(re.findall(r"[a-z]{4,}", (domain or "").split(".")[0]))
+    words -= {"praxis", "physio", "physiotherapie", "gmbh", "therapie", "zentrum"}
+    return any(w in local for w in words)
+
+
+def person_patterns(person: dict, domain: str) -> set[str]:
+    """Every address the usual patterns make from this person's name."""
+    first, last = person.get("first_name", ""), person.get("last_name", "")
+    lasts = [last] + ([last.split("-")[0]] if "-" in last else [])
+    return {e for ln in lasts for e in generate_patterns(first, ln, domain)}
 
 
 def candidates_for(person: dict, domain: str, site_emails: list[str]) -> list[tuple[str, str]]:
@@ -446,7 +465,8 @@ async def build_lead(scout, checker: MailboxChecker, company: dict) -> dict:
                     continue
                 seen.add(people_mod._norm_url(url))
                 resp = await scout._site_fetch(site, url)
-                if resp is not None and scout._host(str(getattr(resp, "url", "") or url)) == scout._host(domain):
+                if resp is not None and (same_site(scout._host(str(getattr(resp, "url", "") or url)), scout._host(domain))
+                                         or same_site(scout._host(str(getattr(resp, "url", "") or url)), scout._host(site["base"]))):
                     pages.append((url, page_text(resp)))
             lead["description"] = site_description(home)
             lead["booking"] = next((m.group(0) for p in BOOKING_HINTS
@@ -458,25 +478,46 @@ async def build_lead(scout, checker: MailboxChecker, company: dict) -> dict:
                 phones += [p for p in phones_on_page(page) if p not in phones]
                 site_emails += [e for e in people_mod.emails_on_page(page) if e not in site_emails]
             lead["site_phones"] = phones[:4]
-            site_emails = [e for e in site_emails
-                           if _own(e, domain) or e.rpartition("@")[2] in FREEMAIL][:6]
-            for addr in site_emails:
-                if addr != map_email:
-                    emails.append({"email": addr, "source": SOURCE_SITE, "person": "", "check": UNCHECKED})
             people = people_mod.find_people(pages, domain)
             people = [p for p in sorted(people, key=lambda p: -(p.get("rank") or 0))
                       if p.get("first_name") and p.get("last_name")]
+            everyone = [{"name": f"{p['first_name']} {p['last_name']}"} for p in people]
+            # A freemail address on the site is often the web designer's or a
+            # neighbour practice's: kept only when it spells someone named here.
+            site_emails = [e for e in site_emails
+                           if _own(e, domain)
+                           or (e.rpartition("@")[2] in FREEMAIL
+                               and (_person_behind(e, everyone)
+                                    or _names_the_business(e, company.get("name", ""), domain)))][:6]
+            for addr in site_emails:
+                if addr != map_email:
+                    emails.append({"email": addr, "source": SOURCE_SITE, "person": "", "check": UNCHECKED})
             lead["people"] = [{"name": f"{p['first_name']} {p['last_name']}",
                                "title": p.get("title") or ("Inhaber" if p.get("owner") else ""),
                                "owner": bool(p.get("owner"))} for p in people[:5]]
+            fits: dict[str, set[str]] = {}
+            for person in people:
+                for addr in person_patterns(person, domain):
+                    fits.setdefault(addr, set()).add(f"{person['first_name']} {person['last_name']}")
             for person in people[:PERSONS_PER_COMPANY]:
                 name = f"{person['first_name']} {person['last_name']}"
                 for addr, source in candidates_for(person, domain, site_emails):
+                    owners = fits.get(addr, set()) | {name}
                     match = next((e for e in emails if e["email"] == addr), None)
+                    if len(owners) > 1:
+                        # Hans and Heike Müller can both be hmueller@: nobody gets it.
+                        if match:
+                            match["person"] = ""
+                        continue
                     if match:
-                        match["person"] = name
+                        if not match["person"]:
+                            match["person"] = name
+                        elif match["person"] != name:
+                            match["person"] = ""
                     else:
                         emails.append({"email": addr, "source": source, "person": name, "check": UNCHECKED})
+        elif site.get("redirected"):
+            lead["site_note"] = f"leitet weiter auf {site['redirected']}, nicht übernommen"
         else:
             lead["site_note"] = "Website nicht erreichbar"
     # Check every address on the company's own domain in one session; a
@@ -516,10 +557,17 @@ def _provider_label(lead: dict) -> str:
     return f"{names.get(provider, 'eigener')} ({host})"
 
 
+_ROLE_WORDS = ("info", "office", "kontakt", "praxis", "mail", "post", "buero", "termin", "anmeldung",
+               "empfang", "team", "service", "kanzlei", "studio", "zentrale", "verwaltung", "hallo",
+               "therapie", "physio", "ordination", "rezeption", "sekretariat", "verkauf", "bestellung")
+_NAME_SHAPED = re.compile(r"^(?:[a-z]{2,}[._-][a-z]{2,}|[a-z][._-]?[a-z]{3,}[._-]?[a-z]?)$")
+
+
 def is_role_address(email: str, people: list[dict] | None = None) -> bool:
     """An inbox for the business (info@, praxis@, therapie@, graz@), not one person's
-    mailbox. Personal: a freemail address (gmail, gmx), or one that spells a person's
-    name, first name alone included (carmen@ when the site names Carmen Brandstetter)."""
+    mailbox. Personal: a freemail address (gmail, gmx), one shaped like a name
+    (vorname.nachname@, j.schmidt@), or one that spells a person named on the site,
+    first name alone included (carmen@ when the site names Carmen Brandstetter)."""
     local, _, domain = (email or "").lower().partition("@")
     if not local:
         return False
@@ -531,19 +579,46 @@ def is_role_address(email: str, people: list[dict] | None = None) -> bool:
         first = _clean_name_part((p.get("name") or "").split(" ")[0])
         if (first and local.split(".")[0] == first) or _person_behind(email, [p]):
             return False
+    if any(word in local for word in _ROLE_WORDS):
+        return True
+    if re.search(r"[._-]", local) and _NAME_SHAPED.match(local):
+        return False        # vorname.nachname@, j.schmidt@: someone's own mailbox
+    return True
+
+
+def is_business_inbox(email: str, people: list[dict] | None = None,
+                      company_name: str = "", domain: str = "") -> bool:
+    """Strict: an inbox for the business by its own words (info@, praxis@, therapie@,
+    praxis.huber@), never an address that might be one unnamed person's (carmen@,
+    graz@ stays unknown). Only these get the site's first person next to them."""
+    if not is_role_address(email, people):
+        return False
+    local = (email or "").lower().partition("@")[0]
+    business = {w for part in (company_name or "").split() for w in [_clean_name_part(part)] if len(w) >= 3}
+    business |= set(re.findall(r"[a-z]{3,}", (domain or "").split(".")[0]))
+    # Every part must be about the business (team-sabine@ or sekretariat.mayer@ is a person's).
+    for token in filter(None, re.split(r"[._\-\d]+", local)):
+        if not (token in ROLE_LOCALS or token in _ROLE_WORDS or token in business
+                or any(token == w + "n" or token == w + "s" for w in _ROLE_WORDS)):
+            return False
     return True
 
 
 def _person_behind(email: str, people: list[dict]) -> str:
-    """The named person an address spells out (m.lindner@, martina.lindner@), or ""."""
-    local = (email or "").partition("@")[0].lower()
+    """The one named person an address spells out exactly (m.lindner@,
+    martina.lindner@, lindner@), or "" when it spells nobody, spells a longer
+    name (a.bergmann@ is not Anna Berg) or could be more than one of them."""
+    found = []
     for p in people:
         first, _, last = (p.get("name") or "").strip().partition(" ")
-        last = last.split()[-1] if last.split() else ""
-        f, l = _clean_name_part(first), _clean_name_part(last)
-        if l and len(l) >= 3 and l in local and (f[:1] and (local.startswith(f[:1]) or f in local)):
-            return p["name"]
-    return ""
+        surnames = last.split()
+        if not first or not surnames:
+            continue
+        lasts = {surnames[-1], last.replace(" ", "-")}
+        lasts |= {ln.split("-")[0] for ln in list(lasts) if "-" in ln}
+        if any(infer_pattern_from_email(email, first, ln) for ln in lasts):
+            found.append(p["name"])
+    return found[0] if len(found) == 1 else ""
 
 
 def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
@@ -562,7 +637,8 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     if owner:
         contact = next((p for p in people if p["name"] == owner), None) \
             or {"name": owner, "title": ""}
-    elif best and is_role_address(best["email"], people):
+    elif best and is_business_inbox(best["email"], people, company.get("name", ""),
+                                    (company.get("domain") or "")):
         contact = people[0] if people else None
     else:
         contact = None      # a personal address of someone the site doesn't name
@@ -770,7 +846,8 @@ async def sample_prospects(state, n: int) -> list:
                 break
         if not person:
             email = best_email([e for e in emails if not e.get("person")
-                                and is_role_address(e["email"], lead.get("people") or [])])
+                                and is_business_inbox(e["email"], lead.get("people") or [],
+                                                      record.get("name", ""))])
             if not email:
                 continue
         notes = [lead.get("description") or ""]

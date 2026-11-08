@@ -47,7 +47,7 @@ async def test_drain_never_sends_a_first_email_to_someone_already_contacted(stat
     provider = FakeProvider()
     await make_sender(state, provider)._drain_due()
     assert provider.sent == []
-    assert (await state.get_outbox(status="cancelled"))[0]["error"] == "already contacted"
+    assert (await state.get_outbox(status="cancelled"))[0]["error"] == "schon kontaktiert"
 
 
 @pytest.mark.asyncio

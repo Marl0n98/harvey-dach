@@ -296,17 +296,18 @@ def test_cost_notes_are_machine_classifiable():
     chip both key off the cost note. A signal that costs credits must not
     read as free — that is how someone accidentally turns on paid collection.
     """
+    from harvey.signals import FREE_COST_PREFIXES
     paid = {"SERP_RANK", "MAPS_RANK", "EMAIL_STATUS", "EMAIL_PATTERN", "FOUND_IN_SERP"}
     for sig in SIGNAL_CATALOG:
-        free = sig["cost_note"].lower().startswith(("free", "included"))
+        free = sig["cost_note"].lower().startswith(FREE_COST_PREFIXES)
         if sig["code"] in paid:
             continue
         assert free, f"{sig['code']} has an unclassifiable cost note: {sig['cost_note']!r}"
 
     serp = next(s for s in SIGNAL_CATALOG if s["code"] == "SERP_RANK")
-    assert not serp["cost_note"].lower().startswith("free")
+    assert not serp["cost_note"].lower().startswith(FREE_COST_PREFIXES)
     email = next(s for s in SIGNAL_CATALOG if s["code"] == "EMAIL_STATUS")
-    assert not email["cost_note"].lower().startswith("free")
+    assert not email["cost_note"].lower().startswith(FREE_COST_PREFIXES)
 
 
 def test_every_signal_has_a_category_the_ui_renders():
@@ -445,10 +446,10 @@ vm.runInThisContext("const _cohort = {require: new Set(['A']), exclude: new Set(
     assert len(data['links']) == 1
     assert data['links'][0]['clicked'] and data['links'][0]['removed']
     assert data['revoked'] == ['blob:local']
-    assert data['success'] == {'disabled': False, 'textContent': 'Export CSV'}
-    assert data['failure'] == {'disabled': False, 'textContent': 'Export failed — retry'}
+    assert data['success'] == {'disabled': False, 'textContent': 'CSV exportieren'}
+    assert data['failure'] == {'disabled': False, 'textContent': 'Export fehlgeschlagen, erneut versuchen'}
     assert data['refused'] == data['failure']
-    assert len(data['locks']) == 1 and 'saved token was not accepted' in data['locks'][0]
+    assert len(data['locks']) == 1 and 'gespeicherte Token wurde nicht akzeptiert' in data['locks'][0]
 
 
 def test_cohort_csv_invalid_codes_are_client_error(client):
@@ -499,7 +500,7 @@ const page = (name, offset) => ({size: 100, offset, companies: [{name}]});
                               capture_output=True, check=True)
     data = json.loads(response.stdout)
     assert data['offsets'] == [0, 50, 50]
-    assert 'Loading cohort' in data['loading'] and 'Export CSV' not in data['loading']
+    assert 'Kohorte wird geladen' in data['loading'] and 'CSV exportieren' not in data['loading']
     assert 'LATEST' in data['latest'] and 'STALE' not in data['latest']
     assert data['afterOld'] == data['latest']
     assert data['cleared'] == data['afterClear'] == ''

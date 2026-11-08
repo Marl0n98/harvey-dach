@@ -27,12 +27,12 @@ DONE = {"contacted", "replied", "meeting", "closed"}
 def _contacts(prospects: list[dict]) -> str:
     out = []
     for p in prospects:
-        name = f"{p.get('first_name') or ''} {p.get('last_name') or ''}".strip() or "General inbox"
+        name = f"{p.get('first_name') or ''} {p.get('last_name') or ''}".strip() or "Allgemeines Postfach"
         title = p.get("title") or ""
-        email = p.get("email") or "no email"
-        status = p.get("email_status") or "unchecked"
+        email = p.get("email") or "keine E-Mail"
+        status = p.get("email_status") or "ungeprüft"
         label = f"{name}" + (f" ({title})" if title and title != "General inbox" else "")
-        flag = " [not relevant]" if p.get("status") == "lost" else ""
+        flag = " [nicht relevant]" if p.get("status") == "lost" else ""
         out.append(f"{label}: {email} [{status}]{flag}")
     return "; ".join(out)
 
@@ -44,58 +44,60 @@ def company_status(company: dict, prospects: list[dict], outbox: list[dict],
     what happens next. ``send_to_risky`` is channels.email.send_to_risky."""
     domain = (company.get("domain") or "").lower()
     if domain and dnc and do_not_contact_match(f"x@{domain}", dnc):
-        return "Excluded", "On your do-not-contact list"
+        return "Ausgeschlossen", "Steht auf deiner Sperrliste"
     listed = [p for p in prospects
               if dnc and p.get("email") and do_not_contact_match(p["email"], dnc)]
     if listed and len(listed) == len([p for p in prospects if p.get("email")]):
-        return "Excluded", "Every contact here is on your do-not-contact list"
+        return "Ausgeschlossen", "Jeder Kontakt hier steht auf deiner Sperrliste"
     prospects = [p for p in prospects if p not in listed]
     if any(p.get("status") == "opted_out" for p in prospects):
-        return "Opted out", "A contact here asked not to be emailed"
+        return "Abgemeldet", "Ein Kontakt hier will keine E-Mails mehr"
 
     states = {o.get("status") for o in outbox}
     if "sent" in states or any(p.get("status") in DONE for p in prospects):
         replied = any(p.get("status") in {"replied", "meeting", "closed"} for p in prospects)
-        return ("Replied" if replied else "Emailed"), ""
+        return ("Hat geantwortet" if replied else "Angeschrieben"), ""
     if states & {"approved", "sending"}:
         when = min((o.get("send_at") or "" for o in outbox if o.get("status") == "approved"), default="")
-        return "Approved", f"Approved by you; first send due {when[:10]}" if when else "Approved by you"
+        return "Freigegeben", f"Von dir freigegeben, erster Versand am {when[:10]}" if when else "Von dir freigegeben"
     if "pending_review" in states:
-        return "Draft waiting", "Email written, waiting for your review in the Outbox"
+        return "Entwurf wartet", "E-Mail geschrieben, wartet im Postausgang auf deine Prüfung"
 
     # The Writer picks up only 'new' contacts. A 'queued' one has had its
     # drafts staged; with nothing pending (above), they were stopped.
     if any(p.get("status") == "queued" for p in prospects) and \
             not any(p.get("status") == "new" for p in prospects):
         if states & {"rejected", "failed", "cancelled"}:
-            return "Not contacted", "Drafts were rejected or blocked before sending"
-        return "Queued", "Staged for a campaign"
+            return "Nicht kontaktiert", "Entwürfe wurden vor dem Versand abgelehnt oder blockiert"
+        return "Eingereiht", "Für eine Kampagne vorbereitet"
     if any(p.get("status") == "write_failed" for p in prospects) and \
             not any(p.get("status") in LIVE for p in prospects):
-        return "Not contacted", ("Harvey couldn't write a draft after several tries; "
-                                 "see the log, and fix the cause to retry")
+        return "Nicht kontaktiert", ("Harvey konnte nach mehreren Versuchen keinen Entwurf schreiben. "
+                                     "Schau ins Log und behebe die Ursache, dann versucht es Harvey neu")
     live = [p for p in prospects if p.get("status") in LIVE]
     statuses = {(p.get("email_status") or "") for p in live}
     has_form = any(o.get("signal_code") == "CONTACT_FORM_URL" for o in observations)
-    form = " Contact form available." if has_form else ""
+    form = " Kontaktformular vorhanden." if has_form else ""
     if "verified" in statuses or (send_to_risky and "risky" in statuses):
-        return "Ready", "Deliverable email found; Harvey will write to it on a coming cycle"
+        return "Bereit", "Zustellbare E-Mail gefunden. Harvey schreibt sie in einer der nächsten Runden an"
     if "risky" in statuses:
-        return "Not contacted", ("Only a risky (catch-all) email, which your rules don't send to. "
-                                 "Try phone, LinkedIn or the cold-email domain later." + form)
+        return "Nicht kontaktiert", ("Nur eine riskante E-Mail (Catch-all), an die deine Regeln nicht senden. "
+                                     "Versuch es per Telefon, LinkedIn oder später über die Domain für "
+                                     "Kaltakquise." + form)
     if live and statuses <= {"guess", "invalid", ""}:
-        who = ", ".join(sorted({(p.get("title") or "contact") for p in live}))[:120]
-        return "Not contacted", (f"Found {who}, but no valid email (address guessed or rejected by "
-                                 "the verifier). Try phone, LinkedIn or a contact database." + form)
+        who = ", ".join(sorted({(p.get("title") or "Kontakt") for p in live}))[:120]
+        return "Nicht kontaktiert", (f"{who} gefunden, aber keine gültige E-Mail (Adresse geraten oder "
+                                     "von der Prüfung abgelehnt). Versuch es per Telefon, LinkedIn oder "
+                                     "über eine Kontaktdatenbank." + form)
     if prospects and not live:
         if states & {"rejected", "failed", "cancelled"}:
-            return "Not contacted", "Drafts were rejected or blocked before sending"
-        return "Not contacted", "Contacts found were not relevant (e.g. not a factory, wrong person)"
+            return "Nicht kontaktiert", "Entwürfe wurden vor dem Versand abgelehnt oder blockiert"
+        return "Nicht kontaktiert", "Die gefundenen Kontakte waren nicht relevant (z. B. keine Fabrik, falsche Person)"
     if company.get("prospects_checked_at"):
-        return "Not contacted", "Website read, but no named person or usable email on it." + form
+        return "Nicht kontaktiert", "Website gelesen, aber keine Person mit Namen und keine brauchbare E-Mail darauf." + form
     if company.get("profile_checked_at"):
-        return "Not processed yet", "Website read; Harvey hasn't looked for contacts here yet." + form
-    return "Not processed yet", "Found by search; website not read yet"
+        return "Noch nicht bearbeitet", "Website gelesen, Harvey hat hier noch nicht nach Kontakten gesucht." + form
+    return "Noch nicht bearbeitet", "Über die Suche gefunden, Website noch nicht gelesen"
 
 
 async def build_register(query_db, config, company_id: str | None = None) -> list[dict]:
@@ -132,7 +134,7 @@ async def build_register(query_db, config, company_id: str | None = None) -> lis
         fit, reasons = company_fit(c, ps, obs, config, dnc)
         status, why = company_status(c, ps, by_o.get(cid, []), obs, dnc, send_to_risky)
         sector, area = c.get("industry") or "", c.get("location") or ""
-        found = f"Found via {c['source']}" if c.get("source") else ""
+        found = f"Gefunden über {c['source']}" if c.get("source") else ""
         rows.append({
             # id and fit_reasons are for the dashboard; the CSV leaves them out.
             "id": cid,

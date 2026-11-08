@@ -576,7 +576,7 @@ async def test_an_answer_that_never_finishes_holds_cold_email(state, monkeypatch
 
     assert result.held and not result.allowed and result.pause_checks
     assert result.retry_address  # a slow lookup for this address could be why
-    assert "too long" in result.reason
+    assert "zu lange" in result.reason
 
 
 # ── a failure that may be down to the address, though it pauses checks ──
@@ -886,8 +886,8 @@ async def test_a_rate_limit_is_not_reported_as_a_used_up_allowance(state, api_ke
 
     assert result.held and result.pause_checks
     assert result.hold_kind == "rate_limited"
-    assert "rate limit" in result.reason
-    assert "add PRECLEARED_API_KEY" not in result.reason
+    assert "Limit pro Minute" in result.reason
+    assert "Trag PRECLEARED_API_KEY ein" not in result.reason
 
 
 @pytest.mark.asyncio
@@ -900,7 +900,7 @@ async def test_a_429_on_a_key_is_a_rate_limit_whatever_its_body(state, content):
     result = await client.clear("person@example.com", state)
 
     assert result.hold_kind == "rate_limited"
-    assert "add PRECLEARED_API_KEY" not in result.reason
+    assert "Trag PRECLEARED_API_KEY ein" not in result.reason
 
 
 @pytest.mark.asyncio
@@ -924,14 +924,14 @@ async def test_a_rate_limit_is_recorded_as_its_own_hold(state):
 
     hold = await stored_hold(state)
     assert hold["kind"] == "rate_limited" and hold["waiting"] == 2
-    assert hold_message(hold)["title"] == "Precleared is limiting how fast Harvey can check"
+    assert hold_message(hold)["title"] == "Precleared bremst, wie schnell Harvey prüfen kann"
 
 
 def test_the_rate_limit_hold_says_what_happens_next():
     message = hold_message({"kind": "rate_limited", "waiting": 2})
-    assert message["title"] == "Precleared is limiting how fast Harvey can check"
-    assert message["detail"].startswith("2 cold emails are waiting.")
-    assert "next cycle" in message["detail"]
+    assert message["title"] == "Precleared bremst, wie schnell Harvey prüfen kann"
+    assert message["detail"].startswith("2 Kaltakquise-Mails warten.")
+    assert "nächsten Runde" in message["detail"]
     assert "free key" not in message["detail"]
     assert message["url"] == ""
 

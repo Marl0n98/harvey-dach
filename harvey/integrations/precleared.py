@@ -258,7 +258,7 @@ class PreclearedClient:
             return Clearance(allowed=False, held=True, pause_checks=True, retry_address=True,
                              hold_kind="unavailable",
                              reason=_clean(self._redact(
-                                 f"Precleared check failed ({type(e).__name__}: {e})"))[:240])
+                                 f"Precleared-Prüfung fehlgeschlagen ({type(e).__name__}: {e})"))[:240])
         if not result.held and result.verdict in DEFINITE_VERDICTS:
             # One entry per address: a fresh verdict replaces any earlier
             # one, including legacy entries written without a fingerprint.
@@ -350,9 +350,9 @@ class PreclearedClient:
                 # and the error would print it back, so it isn't tried.
                 return Clearance(allowed=False, held=True, pause_checks=True,
                                  hold_kind="key_rejected", fix_url=GET_KEY_URL,
-                                 reason="PRECLEARED_API_KEY has a character that can't be "
-                                        "sent (a curly quote, a space or a line break); "
-                                        "check it in .env")
+                                 reason="PRECLEARED_API_KEY enthält ein Zeichen, das sich nicht "
+                                        "senden lässt (ein typografisches Anführungszeichen, ein "
+                                        "Leerzeichen oder einen Zeilenumbruch). Prüf ihn in der .env")
             headers["Authorization"] = f"Bearer {self.api_key}"
 
         try:
@@ -365,11 +365,11 @@ class PreclearedClient:
             slow = isinstance(e, httpx.ReadTimeout)
             return Clearance(allowed=False, held=True, pause_checks=True, retry_address=slow,
                              hold_kind="unavailable",
-                             reason=self._redact(f"Precleared unreachable: {e}"))
+                             reason=self._redact(f"Precleared nicht erreichbar: {e}"))
         except asyncio.TimeoutError:
             return Clearance(allowed=False, held=True, pause_checks=True, retry_address=True,
                              hold_kind="unavailable",
-                             reason="Precleared took too long to answer")
+                             reason="Precleared hat zu lange für eine Antwort gebraucht")
 
         if resp.status_code == 429:
             if self.api_key or _error_code(resp) == "rate_limited":
@@ -377,13 +377,13 @@ class PreclearedClient:
                 # is Precleared's per-minute rate limit, not the daily one.
                 return Clearance(allowed=False, held=True, pause_checks=True,
                                  hold_kind="rate_limited",
-                                 reason="Precleared rate limit reached; asking again next cycle")
+                                 reason="Precleared-Limit pro Minute erreicht. Harvey fragt in der nächsten Runde wieder")
             # Keyless allowance used up: a free key gives this install its own.
             return Clearance(
                 allowed=False, held=True, pause_checks=True,
                 hold_kind="keyless_limit", fix_url=GET_KEY_URL,
-                reason="Precleared daily allowance used up; add PRECLEARED_API_KEY "
-                       "(free key: https://precleared.dev/get-key) or wait until tomorrow",
+                reason="Precleared-Tageskontingent aufgebraucht. Trag PRECLEARED_API_KEY ein "
+                       "(kostenloser Schlüssel: https://precleared.dev/get-key) oder warte bis morgen",
             )
         if resp.status_code == 402:
             # The key's free checks for today are used and it has no credits left,
@@ -394,15 +394,15 @@ class PreclearedClient:
                 allowed=False, held=True, pause_checks=True,
                 hold_kind="out_of_checks", fix_url=buy_url,
                 reason=self._redact(
-                    "Precleared: today's free checks on your key are used and it has "
-                    f"no credits left; add a pack ({buy_url}) "
-                    "or wait until tomorrow"
+                    "Precleared: Die kostenlosen Prüfungen deines Schlüssels für heute sind "
+                    f"aufgebraucht und es sind keine Credits übrig. Kauf ein Paket ({buy_url}) "
+                    "oder warte bis morgen"
                 ),
             )
         if resp.status_code == 401:
             return Clearance(allowed=False, held=True, pause_checks=True,
                              hold_kind="key_rejected", fix_url=GET_KEY_URL,
-                             reason="PRECLEARED_API_KEY was rejected (wrong or revoked)")
+                             reason="PRECLEARED_API_KEY wurde abgelehnt (falsch oder widerrufen)")
         if resp.status_code != 200:
             # A busy or unreachable server affects every address; anything
             # else may be about this address alone, so only its email waits.
@@ -415,7 +415,7 @@ class PreclearedClient:
             data = resp.json()
         except (ValueError, RecursionError):
             return Clearance(allowed=False, held=True, pause_checks=True, retry_address=True,
-                             hold_kind="unavailable", reason="Precleared returned invalid JSON")
+                             hold_kind="unavailable", reason="Precleared hat ungültiges JSON geliefert")
 
         # Only a JSON object with a known verdict counts as an answer.
         # Anything else is treated like an unavailable check, so cold email
@@ -425,12 +425,12 @@ class PreclearedClient:
         if not isinstance(data, dict):
             return Clearance(allowed=False, held=True, pause_checks=True, retry_address=True,
                              hold_kind="unavailable",
-                             reason="Precleared returned an unexpected response (not a JSON object)")
+                             reason="Precleared hat eine unerwartete Antwort geliefert (kein JSON-Objekt)")
         verdict = data.get("verdict")
         if not isinstance(verdict, str) or verdict not in VERDICTS:
             return Clearance(allowed=False, held=True, pause_checks=True, retry_address=True,
                              hold_kind="unavailable",
-                             reason="Precleared returned a response without a known verdict")
+                             reason="Precleared hat eine Antwort ohne bekanntes Urteil geliefert")
 
         receipt = data.get("receipt")
         receipt_id = _text(receipt.get("id")) if isinstance(receipt, dict) else ""
@@ -700,46 +700,48 @@ def hold_message(hold: dict) -> dict:
         waiting = max(1, int(hold.get("waiting") or 1))
     except (TypeError, ValueError):
         waiting = 1
-    emails = f"{waiting} cold email is waiting" if waiting == 1 else f"{waiting} cold emails are waiting"
-    replies = "Replies are not held."
+    emails = "1 Kaltakquise-Mail wartet" if waiting == 1 else f"{waiting} Kaltakquise-Mails warten"
+    replies = "Antworten werden nicht zurückgehalten."
     if kind == "keyless_limit":
         return {
-            "tone": "warn", "url": url or GET_KEY_URL, "url_label": "Get a free key",
-            "title": "Precleared's free checks for today are used up",
-            "detail": (f"{emails}. Without a key, Precleared allows 10 checks a day. "
-                       f"A free key gives Harvey its own 25 a day: get one at {url or GET_KEY_URL} "
-                       "and put it in .env as PRECLEARED_API_KEY. Otherwise the waiting "
-                       f"emails go out after the checks reset at midnight UK time. {replies}"),
+            "tone": "warn", "url": url or GET_KEY_URL, "url_label": "Kostenlosen Schlüssel holen",
+            "title": "Die kostenlosen Precleared-Prüfungen für heute sind aufgebraucht",
+            "detail": (f"{emails}. Ohne Schlüssel erlaubt Precleared 10 Prüfungen am Tag. "
+                       f"Mit einem kostenlosen Schlüssel bekommt Harvey eigene 25 am Tag: Hol dir einen unter "
+                       f"{url or GET_KEY_URL} und trag ihn in der .env als PRECLEARED_API_KEY ein. Sonst "
+                       "gehen die wartenden Mails raus, wenn die Prüfungen um Mitternacht britischer "
+                       f"Zeit zurückgesetzt werden. {replies}"),
         }
     if kind == "out_of_checks":
         return {
-            "tone": "warn", "url": url or BUY_URL, "url_label": "Buy checks",
-            "title": "Your Precleared key is out of checks for today",
-            "detail": (f"{emails}. The key has used today's free checks and has no pack "
-                       f"left. Buy checks to send them now: {url or BUY_URL}. Otherwise they "
-                       "go out after the free checks reset at midnight UK time, or switch the "
-                       f"check off (compliance.precleared.enabled: false). {replies}"),
+            "tone": "warn", "url": url or BUY_URL, "url_label": "Prüfungen kaufen",
+            "title": "Dein Precleared-Schlüssel hat für heute keine Prüfungen mehr",
+            "detail": (f"{emails}. Der Schlüssel hat die kostenlosen Prüfungen für heute verbraucht "
+                       f"und kein Paket mehr. Kauf Prüfungen, um sie jetzt zu senden: {url or BUY_URL}. "
+                       "Sonst gehen sie raus, wenn die kostenlosen Prüfungen um Mitternacht britischer "
+                       "Zeit zurückgesetzt werden. Oder schalte die Prüfung ab "
+                       f"(`compliance.precleared.enabled: false`). {replies}"),
         }
     if kind == "key_rejected":
         return {
-            "tone": "bad", "url": url or GET_KEY_URL, "url_label": "Get a new key",
-            "title": "Precleared rejected your key",
-            "detail": (f"{emails}. PRECLEARED_API_KEY was rejected (wrong or revoked). "
-                       "Check the key in .env, get a new free key at "
-                       f"{url or GET_KEY_URL}, or switch the check off "
-                       f"(compliance.precleared.enabled: false). {replies}"),
+            "tone": "bad", "url": url or GET_KEY_URL, "url_label": "Neuen Schlüssel holen",
+            "title": "Precleared hat deinen Schlüssel abgelehnt",
+            "detail": (f"{emails}. PRECLEARED_API_KEY wurde abgelehnt (falsch oder widerrufen). "
+                       "Prüf den Schlüssel in der .env, hol dir einen neuen kostenlosen unter "
+                       f"{url or GET_KEY_URL} oder schalte die Prüfung ab "
+                       f"(`compliance.precleared.enabled: false`). {replies}"),
         }
     if kind == "rate_limited":
         return {
             "tone": "warn", "url": "", "url_label": "",
-            "title": "Precleared is limiting how fast Harvey can check",
-            "detail": (f"{emails}. Precleared allows a set number of checks a minute, "
-                       f"and Harvey asks again next cycle. {replies}"),
+            "title": "Precleared bremst, wie schnell Harvey prüfen kann",
+            "detail": (f"{emails}. Precleared erlaubt nur eine bestimmte Zahl an Prüfungen pro "
+                       f"Minute. Harvey fragt in der nächsten Runde wieder. {replies}"),
         }
-    reason = _text(_clean(_text(hold.get("reason")))) or "no answer"
+    reason = _text(_clean(_text(hold.get("reason")))) or "keine Antwort"
     return {
         "tone": "warn", "url": "", "url_label": "",
-        "title": "Precleared can't be reached right now",
-        "detail": (f"{emails} until it answers ({reason}). Harvey asks again every "
-                   f"cycle. {replies}"),
+        "title": "Precleared ist gerade nicht erreichbar",
+        "detail": (f"{emails}, bis Precleared antwortet ({reason}). Harvey fragt in jeder Runde "
+                   f"wieder. {replies}"),
     }

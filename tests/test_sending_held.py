@@ -88,13 +88,13 @@ async def test_the_heartbeat_records_and_clears_it(state):
 @pytest.mark.parametrize("reason,fix", [
     ("Gmail: not signed in to Gmail. Run 'harvey gmail auth'.", "harvey gmail auth"),
     ("Microsoft: not authorized. Run 'harvey microsoft auth'.", "harvey microsoft auth"),
-    ("inbox has more than 40 pages; refusing a partial read", "more mail"),
-    ("Graph 503 on GET /me/messages", "tries again every cycle"),
+    ("inbox has more than 40 pages; refusing a partial read", "mehr Mail"),
+    ("Graph 503 on GET /me/messages", "versucht es in jeder Runde neu"),
 ])
 def test_the_message_names_the_fix(reason, fix):
     title, detail = held_message({"reason": reason, "since": "2026-10-24T08:00:00"}, waiting=3)
-    assert "isn't sending" in title
-    assert fix in detail and "3 emails are waiting" in detail and "opt-out" in detail
+    assert "Versand pausiert" in title
+    assert fix in detail and "3 E-Mails warten" in detail and "Abmeldung" in detail
 
 
 # ── where it shows ──
@@ -123,7 +123,7 @@ def test_harvey_status_shows_it(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(state_mod, "StateManager", lambda *a, **k: real(str(db)))
     cli.cmd_status(argparse.Namespace(check=False))
     out = capsys.readouterr().out
-    assert "NOT SENDING" in out and "harvey gmail auth" in out
+    assert "KEIN VERSAND" in out and "harvey gmail auth" in out
 
 
 # ── review of the notice ──
@@ -158,9 +158,9 @@ async def test_gmail_says_which_sign_in_problem_it_is(monkeypatch, stored, statu
 def test_a_reply_that_couldnt_be_handled_is_worded_as_that():
     reason = "a reply from ann@gmail.com couldn't be handled (KeyError: 'signature' not authorized pages)"
     title, detail = held_message({"reason": reason, "since": "2026-10-24T08:00:00"}, waiting=1)
-    assert "couldn't handle a reply" in title
-    assert "harvey gmail auth" not in detail and "more mail" not in detail
-    assert "1 email is waiting" in detail
+    assert "Antwort nicht verarbeiten" in title
+    assert "harvey gmail auth" not in detail and "mehr Mail" not in detail
+    assert "1 E-Mail wartet" in detail
 
 
 @pytest.mark.asyncio
@@ -173,7 +173,7 @@ async def test_a_new_hold_after_a_stale_one_starts_now(state):
 
 @pytest.mark.parametrize("unread,paused,problem,expected", [
     (["read_replies"], "", "gmail: not signed in", "gmail: not signed in"),
-    (["read_replies"], "", "", "replies couldn't all be read and handled."),
+    (["read_replies"], "", "", "Antworten konnten nicht alle gelesen und bearbeitet werden."),
     (["read_replies"], "Codex is paused", "gmail: x", None),      # the brain card covers it
     ([], "", "", ""),                                             # sending ran: clear
 ])
@@ -193,7 +193,7 @@ def test_the_outbox_card_on_today_says_which_mode(client, monkeypatch):
         db.execute("INSERT INTO outbox (id, prospect_id, kind, step, to_email, subject, body, status, send_at) "
                    "VALUES ('o1', 'p', 'reply', 1, 'a@x.test', 's', 'b', 'pending_review', ?)", (_now_iso(),))
     db.close()
-    for approval, words in ((True, "Nothing sends until you approve it"), (False, "Autopilot sends the rest")):
+    for approval, words in ((True, "Nichts geht raus, bevor du es freigibst"), (False, "Den Rest sendet der Autopilot")):
         monkeypatch.setattr(dash, "_require_approval_now", lambda a=approval: a)
         [card] = [i for i in client.get("/api/today").json()["items"] if i["key"] == "outbox"]
         assert words in card["detail"]

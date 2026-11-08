@@ -105,6 +105,20 @@ def pitch_problem(text: str, config) -> str:
     return ""
 
 
+def batch_leak(steps, prospects) -> str:
+    """What in a shared template belongs to one prospect (company or domain), or ""."""
+    text = " ".join(f"{s.subject} {s.body}" for s in steps).lower()
+    for p in prospects:
+        email_domain = (getattr(p, "email", "") or "").rpartition("@")[2].lower()
+        # Company and domain only: surnames like Kurz, Klein or Sommer are ordinary words.
+        for value in (getattr(p, "company", ""),
+                      email_domain if email_domain and "." in email_domain else ""):
+            value = str(value or "").strip().lower()
+            if len(value) >= 4 and re.search(r"(?<![\w])" + re.escape(value) + r"(?![\w])", text):
+                return value
+    return ""
+
+
 def operator_rules_block(rules: str) -> str:
     """The operator's email rules as a prompt section ("" when there are none).
 
@@ -535,11 +549,10 @@ Return ONLY JSON: {{"subject": "...", "body": "..."}}"""
     async def _write_sequence(self, prospects: list) -> list[EmailStep]:
         """Ask the brain to write a 3-email sequence."""
         # Build context about the prospects
-        prospect_summary = "\n".join(
-            f"- {p.full_name()}, {p.title} at {p.company}"
-            + (f" | Notes: {p.personalization_notes}" if p.personalization_notes else "")
-            for p in prospects[:5]  # Show sample for context
-        )
+        # One template goes to the whole batch, so the model sees only what the
+        # batch shares (industry, roles), never one company's name or facts.
+        roles = sorted({(p.industry or "").strip() + " | " + (p.title or "").strip() for p in prospects[:20]})
+        prospect_summary = "\n".join(f"- industry and role: {r}" for r in roles[:8])
         inbox_batch = all(p.is_company_inbox for p in prospects)
         if inbox_batch:
             merge_rule = (
@@ -551,7 +564,7 @@ Return ONLY JSON: {{"subject": "...", "body": "..."}}"""
             merge_rule = (
                 "- Use {{first_name}}, {{company}}, {{title}} as merge variables — every email\n"
                 "  must use at least one, and email 1 must reference something specific to\n"
-                "  these prospects' industry or role (use the notes above)."
+                "  these prospects' industry or role. Never name or describe one company."
             )
 
         prompt = self.brain.load_prompt(
@@ -641,6 +654,11 @@ Return ONLY a JSON array (no markdown fences, no commentary):
             # Nobody's name is known: "Hi {{first_name}}" or "as {{title}}"
             # would render as "Hi there" at best and "as General inbox" at worst.
             logger.warning("Writer: inbox sequence used a person merge variable; discarding it.")
+            return []
+        if leak := batch_leak(steps, prospects):
+            # A template is sent to every prospect: a name or fact of one of
+            # them would land in someone else's email.
+            logger.warning(f"Writer: sequence template names one prospect ({leak}); discarding it.")
             return []
         polished = await humanize(
             self.brain, [{"subject": s.subject, "body": s.body} for s in steps],

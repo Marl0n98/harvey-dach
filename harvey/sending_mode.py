@@ -34,31 +34,32 @@ SIGNATURE_HOLD_PREFIX = "email signature: "
 def held_message(hold: dict, waiting: int) -> tuple[str, str]:
     """What Today and `harvey status` say while sending is held because
     replies couldn't all be read or handled: (title, detail)."""
-    reason = str(hold.get("reason") or "replies couldn't all be read").strip().rstrip(".")
+    reason = str(hold.get("reason") or "nicht alle Antworten konnten gelesen werden").strip().rstrip(".")
     low = reason.lower()
-    emails = "1 email is waiting" if waiting == 1 else f"{waiting} emails are waiting"
+    emails = "1 E-Mail wartet" if waiting == 1 else f"{waiting} E-Mails warten"
     if low.startswith(SIGNATURE_HOLD_PREFIX):
-        return ("Harvey isn't sending: your email logo can't be used",
-                f"{reason[len(SIGNATURE_HOLD_PREFIX):]}. Fix the file, or clear "
-                f"channels.email.signature.logo to send plain text. {emails}.")
+        return ("Versand pausiert: Dein E-Mail-Logo lässt sich nicht verwenden",
+                f"{reason[len(SIGNATURE_HOLD_PREFIX):]}. Reparier die Datei oder leere "
+                f"`channels.email.signature.logo`, dann geht reiner Text raus. {emails}.")
     if low.startswith("a reply from"):
         # The inbox was read; handling one reply failed. Its text and the
         # sender's address are no guide to a fix, so match nothing in it.
-        title = "Harvey isn't sending: it couldn't handle a reply"
-        fix = "Harvey tries again every cycle; if this lasts, check the log."
+        title = "Versand pausiert: Harvey konnte eine Antwort nicht verarbeiten"
+        fix = "Harvey versucht es in jeder Runde neu. Wenn das anhält, schau ins Log."
     else:
-        title = "Harvey isn't sending: it couldn't read your inbox"
+        title = "Versand pausiert: Harvey konnte dein Postfach nicht lesen"
         # Only the providers' own messages name a fix.
         if "harvey gmail auth" in low:
-            fix = "Run `harvey gmail auth` to sign in again."
+            fix = "Führ `harvey gmail auth` aus und melde dich neu an."
         elif "harvey microsoft auth" in low:
-            fix = "Run `harvey microsoft auth` to sign in again."
+            fix = "Führ `harvey microsoft auth` aus und melde dich neu an."
         elif "refusing a partial read" in low:
-            fix = ("The mailbox got more mail in the last week than Harvey reads, so it can't "
-                   "be sure it saw every reply. Send from a dedicated mailbox, or archive old mail.")
+            fix = ("Im Postfach kam letzte Woche mehr Mail an, als Harvey liest. Es kann also "
+                   "nicht sicher sein, jede Antwort gesehen zu haben. Versende von einem eigenen "
+                   "Postfach oder archivier alte Mails.")
         else:
-            fix = "Harvey tries again every cycle; if this lasts, check the log."
+            fix = "Harvey versucht es in jeder Runde neu. Wenn das anhält, schau ins Log."
     return (title,
-            f"{reason}. {fix} {emails}: replies are read first, so an opt-out "
-            f"stops its follow-up before anything goes. Held since "
+            f"{reason}. {fix} {emails}: Antworten werden zuerst gelesen, damit eine "
+            f"Abmeldung das Follow-up stoppt, bevor etwas rausgeht. Pausiert seit "
             f"{str(hold.get('since', '?'))[:16].replace('T', ' ')} UTC.")

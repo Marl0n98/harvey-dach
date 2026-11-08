@@ -42,23 +42,26 @@ FIND_LIMIT = 25
 CHOICE_KEY = "trulyinbox:choice"
 CHOICES = ("connected", "other")
 
-KEY_REJECTED = ("TrulyInbox rejected the API key. Create a workspace key in TrulyInbox "
-                "(Settings > API keys) and connect it again.")
-MISSING_SCOPE = ("The TrulyInbox key is missing a scope. Create a workspace key with "
-                 "accounts:read, warmup:read, analytics:read and workspace:read.")
-NO_API_PLAN = "Your TrulyInbox plan doesn't include API access. API access starts on Starter."
-PAUSED = "Your TrulyInbox subscription is paused. Resume it in TrulyInbox."
-WRONG_WORKSPACE = "This key belongs to a different TrulyInbox workspace."
-NO_WORKSPACE = ("Couldn't find the TrulyInbox workspace. Add the workspace:read scope "
-                "to the key, or set TRULYINBOX_WORKSPACE_ID in .env.")
-RATE_LIMITED = "TrulyInbox's API limit is reached. Try again in a minute."
-LOCKED_OUT = ("TrulyInbox locked this computer out for 15 minutes after rejected keys. "
-              "Wait, then try again with a working key.")
-BAD_WORKSPACE_ID = "TRULYINBOX_WORKSPACE_ID must be the workspace's number. Fix it in .env."
-NO_ADDRESS = ("Harvey doesn't know which mailbox it sends from. Set persona.email in "
-              "harvey.yaml first.")
-NO_ANSWER = "TrulyInbox didn't answer. Try again in a minute."
-UNREADABLE = "TrulyInbox sent a reply Harvey couldn't read."
+KEY_REJECTED = ("TrulyInbox hat den API-Schlüssel abgelehnt. Leg in TrulyInbox einen "
+                "Workspace-Schlüssel an (Settings > API keys) und verbinde ihn neu.")
+MISSING_SCOPE = ("Dem TrulyInbox-Schlüssel fehlt eine Berechtigung (Scope). Leg einen "
+                 "Workspace-Schlüssel mit accounts:read, warmup:read, analytics:read und "
+                 "workspace:read an.")
+NO_API_PLAN = ("Dein TrulyInbox-Tarif enthält keinen API-Zugang. Den gibt es ab dem "
+               "Tarif Starter.")
+PAUSED = "Dein TrulyInbox-Abo ist pausiert. Nimm es in TrulyInbox wieder auf."
+WRONG_WORKSPACE = "Dieser Schlüssel gehört zu einem anderen TrulyInbox-Workspace."
+NO_WORKSPACE = ("Konnte den TrulyInbox-Workspace nicht finden. Gib dem Schlüssel die "
+                "Berechtigung workspace:read oder setz TRULYINBOX_WORKSPACE_ID in der .env.")
+RATE_LIMITED = "Das API-Limit von TrulyInbox ist erreicht. Versuch es in einer Minute noch einmal."
+LOCKED_OUT = ("TrulyInbox hat diesen Computer nach abgelehnten Schlüsseln für 15 Minuten "
+              "gesperrt. Warte und versuch es dann mit einem funktionierenden Schlüssel.")
+BAD_WORKSPACE_ID = ("TRULYINBOX_WORKSPACE_ID muss die Nummer des Workspace sein. "
+                    "Korrigier das in der .env.")
+NO_ADDRESS = ("Harvey weiß nicht, von welchem Postfach es sendet. Setz zuerst "
+              "`persona.email` in der harvey.yaml.")
+NO_ANSWER = "TrulyInbox hat nicht geantwortet. Versuch es in einer Minute noch einmal."
+UNREADABLE = "TrulyInbox hat eine Antwort geschickt, die Harvey nicht lesen konnte."
 
 # Each error rule in both spellings the docs use (6-digit and string codes).
 AUTH_CODES = {"150001", "150002", "invalid_api_key", "unauthorized", "Api.InvalidKey"}
@@ -199,7 +202,7 @@ class TrulyInbox:
             raise TrulyInboxError(NO_ANSWER)
         message = (_str(envelope.get("errorMessage")) or _str(error.get("message")))
         message = message.replace(self._key, "[hidden]")[:200]
-        raise TrulyInboxError(f"TrulyInbox returned {resp.status_code}"
+        raise TrulyInboxError(f"TrulyInbox hat {resp.status_code} zurückgegeben"
                               + (f": {message}" if message else "."))
 
     async def _workspace(self) -> str:
@@ -277,10 +280,10 @@ def key_from_env() -> tuple[str, str]:
 def describe_status(health: MailboxHealth | None, error: str, choice: str) -> str:
     """One line for `harvey trulyinbox`: connected, another service, or not set up."""
     if error:
-        return f"connected, but: {error}"
+        return f"verbunden, aber: {error}"
     if health is not None:
-        return "connected"
-    return {"other": "using another warmup service"}.get(choice, "not set up")
+        return "verbunden"
+    return {"other": "nutzt einen anderen Warmup-Dienst"}.get(choice, "nicht eingerichtet")
 
 
 async def current_health(address: str) -> tuple[MailboxHealth | None, str]:

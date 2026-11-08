@@ -158,3 +158,43 @@ def page_text(resp) -> str:
             except UnicodeDecodeError:
                 pass
     return getattr(resp, "text", "") or ""
+
+
+# Hosts under which many unrelated sites live: never "the same business".
+SHARED_PARENTS = ("jimdosite.com", "jimdo.com", "jimdofree.com", "wordpress.com", "wixsite.com",
+                  "blogspot.com", "webnode.page", "webnode.at", "webnode.de", "site123.me",
+                  "business.site", "one.com", "squarespace.com", "weebly.com", "github.io",
+                  "netlify.app", "vercel.app", "strato.de", "ionos.de", "t-online.de", "gmx.net")
+
+
+def _parent_ok(parent: str) -> bool:
+    """A domain that may stand for its subdomains: a real name (firma.de), not a
+    shared platform or a public suffix like co.at."""
+    labels = parent.split(".")
+    return (len(labels) >= 2 and len(labels[-2]) >= 3 and parent not in SHARED_PARENTS
+            and labels[-2] not in ("com", "net", "org", "gv", "ac", "or", "co"))
+
+
+def same_site(host: str, key: str) -> bool:
+    """The same business's site: the same host, or the same name under another
+    ending (praxis-huber.at and praxis-huber.de)."""
+    host, key = (host or "").lower().removeprefix("www."), (key or "").lower().removeprefix("www.")
+    if not host or host == key:
+        return True
+    if _parent_ok(key) and host.endswith("." + key):
+        return True         # jobs.firma.de under firma.de
+    if _parent_ok(host) and key.endswith("." + host):
+        return True         # home.firma.de -> firma.de
+    a, b = host.split("."), key.split(".")
+    return len(a) >= 2 and len(b) >= 2 and a[-2] == b[-2] and len(a[-2]) >= 4 and a[:-2] == b[:-2]
+
+
+# Job sites a careers page may hand over to; the posting is still this company's.
+ATS_HOSTS = ("personio.de", "personio.com", "join.com", "softgarden.io", "softgarden.de",
+             "greenhouse.io", "lever.co", "workable.com", "recruitee.com", "smartrecruiters.com",
+             "onlyfy.jobs", "jobs.ch", "karriere.at", "dvinci-hr.com", "rexx-systems.com")
+
+
+def is_ats_host(host: str) -> bool:
+    host = (host or "").lower()
+    return any(host == a or host.endswith("." + a) for a in ATS_HOSTS)

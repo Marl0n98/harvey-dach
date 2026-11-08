@@ -49,23 +49,26 @@ from harvey.integrations.email_finder import (
 from harvey.integrations.linkedin import LinkedInAutomation
 from harvey.models.company import Company
 from harvey.models.prospect import COMPANY_INBOX_SOURCE, Prospect
-from harvey.public_http import public_http_client, page_text
+from harvey.public_http import public_http_client, same_site, page_text
 from harvey.state import StateManager
 from harvey.untrusted import UNTRUSTED_RULE, fence
 
-def _is_role_address(email: str, people: list[dict] | None = None) -> bool:
-    from harvey.leads import is_role_address
-    return is_role_address(email, people)
+def _is_role_address(email: str, people: list[dict] | None = None,
+                     company_name: str = "", domain: str = "") -> bool:
+    from harvey.leads import is_business_inbox
+    return is_business_inbox(email, people, company_name, domain)
 
 
-def _confirmed_for(confirmed: list[dict], name: str) -> str:
-    """A lead-list address confirmed for this person: named for them, or spelling their name."""
+def _confirmed_for(confirmed: list[dict], name: str, everyone: list[str] | None = None) -> str:
+    """A lead-list address confirmed for this person: stored for them, or spelling
+    their name and nobody else's on the site."""
     from harvey.leads import _person_behind
     for e in confirmed:
         if (e.get("person") or "").strip() == name:
             return e["email"]
+    names = [{"name": n} for n in (everyone or [name])]
     for e in confirmed:
-        if not e.get("person") and _person_behind(e["email"], [{"name": name}]):
+        if not e.get("person") and _person_behind(e["email"], names) == name:
             return e["email"]
     return ""
 
@@ -180,7 +183,7 @@ class Scout:
         # that answered with a bot challenge instead of a page.
         self._site_reads: dict[str, dict] = {}
         self._site_evidence: dict[str, dict] = {}
-        self._own_domains: dict[str, bool] = {}
+        self._own_domains: dict[tuple[str, str], bool] = {}
         self._challenged: set[str] = set()
 
     async def run(self):
@@ -1480,6 +1483,8 @@ Respond ONLY with the JSON array."""
         base, resp = await self._resolve_base_url(domain, retries=2)
         if resp is None:
             return info
+        if not same_site(self._host(str(getattr(resp, "url", "") or base)), self._host(domain)):
+            return info     # lands on another business's site: nothing there is this company's
         info["website"] = base
 
         # Keep the raw HTML so signal detection reuses this fetch.
@@ -1543,6 +1548,11 @@ Respond ONLY with the JSON array."""
             return site
         home_text = page_text(home) if home is not None else ""
         home_url = str(getattr(home, "url", "") or base)
+        if not same_site(self._host(home_url), key):
+            # The homepage lands on another domain (a successor practice, a group's
+            # main site, a sold or parked domain): nothing there is this company's.
+            site["redirected"] = self._host(home_url)
+            return site
         site["base"] = base
         site["pages"].append((home_url, home_text))
         norm = people_mod._norm_url
@@ -1566,7 +1576,7 @@ Respond ONLY with the JSON array."""
                 continue
             final = str(getattr(resp, "url", "") or url)
             text = page_text(resp)
-            if self._host(final) != key:
+            if not (same_site(self._host(final), key) or same_site(self._host(final), self._host(home_url))):
                 continue        # redirected to another business (a franchisor's /team)
             if norm(final) in (norm(home_url), norm(base)) or text == home_text:
                 continue        # a menu link that is really the homepage
@@ -1742,7 +1752,9 @@ Respond ONLY with the JSON array."""
             )
             if email_status != "verified":
                 # `harvey leads` may already have confirmed this person's address.
-                known = _confirmed_for(confirmed, f"{first_name} {last_name}")
+                known = _confirmed_for(
+                    confirmed, f"{first_name} {last_name}",
+                    [f"{m.get('first_name', '')} {m.get('last_name', '')}" for m in team_members])
                 if known:
                     email, email_status = known, "verified"
 
@@ -1784,7 +1796,7 @@ Respond ONLY with the JSON array."""
             known_inbox = next((e["email"] for e in confirmed
                                 if not e.get("person") and _is_role_address(
                                     e["email"], [{"name": f"{m.get('first_name', '')} {m.get('last_name', '')}"}
-                                                 for m in team_members])), "")
+                                                 for m in team_members], company_name, domain)), "")
             if known_inbox:
                 inbox = Prospect(
                     email=known_inbox, email_status="verified", email_verified=True,
@@ -1896,7 +1908,10 @@ Respond ONLY with the JSON array."""
                     continue
                 site["tried"].add(people_mod._norm_url(url))
                 resp = await self._site_fetch(site, url)
-                if resp is not None:
+                # Only pages that stay on this site: a /kontakt that redirects
+                # elsewhere would hand over another business's inbox.
+                landed = self._host(str(getattr(resp, "url", "") or url)) if resp is not None else ""
+                if resp is not None and (same_site(landed, domain) or same_site(landed, self._host(site["base"]))):
                     pages.append((url, page_text(resp)))
 
         candidates = []
@@ -1919,16 +1934,17 @@ Respond ONLY with the JSON array."""
         homepage lands on this site (phroofing.test redirects to
         prairieheritageroofing.test). One request, cached."""
         cache = self.__dict__.setdefault("_own_domains", {})
-        if other in cache:
-            return cache[other]
-        cache[other] = False
+        key = (other, self._host(site["base"]))     # per company: a shared address isn't "own" for all
+        if key in cache:
+            return cache[key]
+        cache[key] = False
         if not re.fullmatch(r"[a-z0-9\-]+(?:\.[a-z0-9\-]+)+", other or ""):
             return False
         resp = await self._site_fetch(site, f"https://{other}")
         if resp is not None:
             landed = self._host(str(getattr(resp, "url", "") or f"https://{other}"))
-            cache[other] = landed == self._host(site["base"]) and landed != other
-        return cache[other]
+            cache[key] = landed == self._host(site["base"]) and landed != other
+        return cache[key]
 
     # ── Strategy 4: Job boards — companies hiring for signal roles ──
 

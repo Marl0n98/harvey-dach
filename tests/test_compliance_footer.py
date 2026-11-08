@@ -107,7 +107,7 @@ async def test_old_configs_without_a_compliance_section_still_send(state):
 def test_the_gate_refuses_cold_email_missing_its_configured_address():
     ok = pre_send_check("jane@acme.com", "hello there", "A note. Question?",
                         postal_address=ADDRESS)
-    assert not ok and any("postal address" in r for r in ok.reasons)
+    assert not ok and any("Postanschrift" in r for r in ok.reasons)
     assert pre_send_check("jane@acme.com", "hello there",
                           "A note. Question?\n\n" + ADDRESS, postal_address=ADDRESS)
     # Replies never need it.
@@ -409,7 +409,7 @@ def test_an_edit_the_footer_would_push_over_the_limit_is_refused(client, monkeyp
                    "'a@acme.test', 's', 'b', '2026-01-01T00:00:00', 'pending_review')")
     body = " ".join(["word"] * 215)  # fits alone, not with the footer
     r = client.post("/api/outbox/o1/edit", json={"subject": "s", "body": body})
-    assert r.status_code == 400 and "too long" in r.json()["message"]
+    assert r.status_code == 400 and "zu lang" in r.json()["message"]
 
 
 def test_campaigns_carry_the_footer_for_sending_by_hand(client, monkeypatch, env):

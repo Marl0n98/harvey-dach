@@ -918,7 +918,7 @@ class Handler:
                 action_type="escalation",
                 agent="handler",
                 details={"prospect_email": lead_email,
-                         "reason": f"'{listed}' is on your do-not-contact list",
+                         "reason": f"'{listed}' steht auf deiner Sperrliste",
                          "reply_preview": reply_text[:200]},
             )
             logger.info(f"Handler: {lead_email} wrote back but is on the do-not-contact list. "
@@ -965,7 +965,7 @@ class Handler:
             await self.state.log_action(
                 action_type="escalation",
                 agent="handler",
-                details={"prospect_email": lead_email, "reason": "no usable reply draft",
+                details={"prospect_email": lead_email, "reason": "kein brauchbarer Antwortentwurf",
                          "reply_preview": reply_text[:200]},
             )
             logger.warning(
@@ -989,7 +989,7 @@ class Handler:
                 action_type="escalation",
                 agent="handler",
                 details={"prospect_email": lead_email,
-                         "reason": "first reply since you undid their opt-out",
+                         "reason": "erste Antwort, seit du die Abmeldung aufgehoben hast",
                          "reply_preview": reply_text[:200]},
             )
             logger.info(f"Handler: {lead_email} wrote after their opt-out was undone. Handed to you.")
@@ -1001,7 +1001,7 @@ class Handler:
                 action_type="escalation",
                 agent="handler",
                 details={"prospect_email": lead_email,
-                         "reason": "Harvey's answer was held: " + "; ".join(held_reasons)[:200],
+                         "reason": "Harveys Antwort wurde zurückgehalten: " + "; ".join(held_reasons)[:200],
                          "reply_preview": reply_text[:200]},
             )
             logger.warning(f"Handler: answer to {lead_email} held ({held_reasons}). Handed to you.")

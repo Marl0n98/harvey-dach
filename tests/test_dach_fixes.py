@@ -262,7 +262,7 @@ def test_contacts_reuse_addresses_the_lead_list_confirmed():
                  {"email": "anna@gze.at", "person": "Anna Berg", "check": leads.OK}]
     assert _confirmed_for(confirmed, "Anna Berg") == "anna@gze.at"
     assert _confirmed_for(confirmed, "Carmen Huber") == "c.huber@gze.at"
-    assert _confirmed_for(confirmed, "Otto Graz") == ""
+    assert _confirmed_for(confirmed, "Otto Brandl") == ""
 
 
 def test_mojibake_from_the_site_itself_is_repaired():
@@ -286,4 +286,118 @@ def test_business_inboxes_beyond_the_role_list():
     lead = {"people": [{"name": "Carmen Brandstetter", "title": ""}],
             "emails": [{"email": "graz@praxis-am-park.at", "source": "Website", "person": "", "check": leads.OK}]}
     row, _ = leads.rows_for({"name": "Auster"}, lead)
+    assert row["Ansprechpartner"] == ""     # graz@ could be anyone's: no person guessed
+    lead["emails"][0]["email"] = "therapie@praxis-am-park.at"
+    row, _ = leads.rows_for({"name": "Auster"}, lead)
     assert row["Ansprechpartner"] == "Carmen Brandstetter"
+
+
+def test_name_shaped_addresses_never_get_someone_elses_name():
+    lead = {"people": [{"name": "Anna Huber", "title": "Inhaberin"}],
+            "emails": [{"email": "j.schmidt@firma.de", "source": "Website", "person": "", "check": leads.OK}]}
+    row, _ = leads.rows_for({"name": "Firma", "domain": "firma.de"}, lead)
+    assert row["Ansprechpartner"] == ""
+    lead["emails"][0]["email"] = "carmen@firma.de"
+    row, _ = leads.rows_for({"name": "Firma", "domain": "firma.de"}, lead)
+    assert row["Ansprechpartner"] == ""
+
+
+def test_the_business_own_freemail_address_is_kept():
+    assert leads._names_the_business("praxis.huber@gmx.de", "Physio Huber", "physio-huber.at")
+    assert leads._names_the_business("physio-huber@t-online.de", "Physio Huber", "physio-huber.at")
+    assert not leads._names_the_business("tom.design@gmx.de", "Physio Huber", "physio-huber.at")
+
+
+# ── attribution: data must never land on the wrong company or person ──
+
+def test_two_people_with_one_surname_share_no_guessed_address():
+    assert leads._person_behind("hmueller@x.de", [{"name": "Hans Müller"}, {"name": "Heike Müller"}]) == ""
+    assert leads._person_behind("hmueller@x.de", [{"name": "Hans Müller"}, {"name": "Eva Berg"}]) == "Hans Müller"
+    hans = {"first_name": "Hans", "last_name": "Müller"}
+    heike = {"first_name": "Heike", "last_name": "Müller"}
+    shared = leads.person_patterns(hans, "x.de") & leads.person_patterns(heike, "x.de")
+    assert "hmueller@x.de" in shared and "mueller@x.de" in shared
+
+
+def test_confirmed_lead_address_needs_one_clear_owner():
+    from harvey.agents.scout import _confirmed_for
+    confirmed = [{"email": "h.mueller@x.de", "person": "", "check": leads.OK}]
+    assert _confirmed_for(confirmed, "Heike Müller", ["Hans Müller", "Heike Müller"]) == ""
+    assert _confirmed_for(confirmed, "Heike Müller", ["Heike Müller", "Eva Berg"]) == "h.mueller@x.de"
+
+
+def test_same_site_only_for_the_same_name():
+    from harvey.public_http import same_site
+    assert same_site("praxis-huber.de", "praxis-huber.de")
+    assert same_site("praxis-huber.de", "praxis-huber.at")
+    assert not same_site("fremd-praxis.de", "praxis-alt.de")
+    assert not same_site("mvz-zentrale.de", "praxis-alt.de")
+
+
+def test_batch_template_never_names_one_prospect():
+    from harvey.agents.writer import batch_leak
+    steps = [SimpleNamespace(subject="Frage", body="Wie läuft es bei Physio Lindenhof mit Terminen?")]
+    ps = [SimpleNamespace(company="Physio Lindenhof", last_name="Huber", email="a@physio-lindenhof.at"),
+          SimpleNamespace(company="Praxis Berg", last_name="Berg", email="b@berg.at")]
+    assert batch_leak(steps, ps) == "physio lindenhof"
+    steps = [SimpleNamespace(subject="Frage", body="Wie läuft es bei {{company}} mit Terminen?")]
+    assert batch_leak(steps, ps) == ""
+
+
+def test_impressum_skips_the_web_agency_and_the_chamber():
+    from harvey.collectors.people import people_from_impressum
+    html = ("<p>Physio Huber GmbH</p><p>Geschäftsführer: Anna Huber</p><p>Webdesign</p>"
+            "<p>XY Media GmbH, Geschäftsführer: Tim Meier</p>"
+            "<p>Zuständige Kammer: Ärztekammer, vertreten durch den Präsidenten Dr. Karl Groß</p>")
+    assert [p["last_name"] for p in people_from_impressum(html)] == ["Huber"]
+
+
+def test_a_second_business_on_a_known_website_is_not_merged():
+    from harvey.collectors.discover import _same_business, is_junk
+    assert _same_business("Physio Huber", "Physiotherapie Huber GmbH")
+    assert not _same_business("Physio Huber", "Praxis Berg")
+    assert all(is_junk(d) for d in ("jameda.de", "doctolib.de", "herold.at", "gelbeseiten.de"))
+
+
+@pytest.mark.parametrize("html, owners", [
+    # Right after a credit, nobody is taken: missing an owner is safe, a stranger isn't.
+    ("<p>Fotos: Studio Licht</p><p>Geschäftsführer: Max Muster</p>", []),
+    ("<p>Webdesign: XY Media, Geschäftsführer: Tim Meier</p><p>Inhaberin: Eva Berg</p>", []),
+    ("<p>Webdesign &amp; Umsetzung:</p><p>Pixelwerk Mediendesign</p><p>Inhaber: Thomas Weber</p>", []),
+    ("<p>Webdesign: Agentur Blau</p><p>Vertreten durch:</p><p>Tim Blau</p>", []),
+    ("<p>Zuständige Kammer:</p><p>Zahnärztekammer Nordrhein</p><p>Vertreten durch: Ralf Hausweiler</p>", []),
+    ("<p>Webdesign: XY</p><p>x</p><p>y</p><p>z</p><p>Impressum</p><p>Inhaberin: Eva Berg</p>", ["Berg"]),
+    ("<p>© 2024 Praxis Huber, Inhaber: Paul Huber</p>", ["Huber"]),
+])
+def test_impressum_owner_survives_nearby_credits(html, owners):
+    from harvey.collectors.people import people_from_impressum
+    assert [p["last_name"] for p in people_from_impressum(html)] == owners
+
+
+def test_subdomains_and_job_sites_count_as_the_same_business():
+    from harvey.public_http import is_ats_host, same_site
+    assert same_site("jobs.firma.de", "firma.de") and same_site("firma.de", "home.firma.de")
+    assert is_ats_host("firma.jobs.personio.de") and not is_ats_host("fremd.de")
+
+
+def test_batch_leak_ignores_surnames_that_are_words():
+    from harvey.agents.writer import batch_leak
+    steps = [SimpleNamespace(subject="Kurz gefragt", body="Ganz kurz: wie läuft es bei {{company}}?")]
+    ps = [SimpleNamespace(company="Praxis Kurz", last_name="Kurz", email="a@praxis-kurz.at")]
+    assert batch_leak(steps, ps) == ""
+
+
+def test_a_longer_surname_is_someone_else():
+    assert leads._person_behind("a.bergmann@firma.de", [{"name": "Anna Berg"}]) == ""
+    assert leads._person_behind("k.wolfram@firma.de", [{"name": "Klaus Wolf"}]) == ""
+    assert leads._person_behind("a.berg@firma.de", [{"name": "Anna Berg"}]) == "Anna Berg"
+
+
+def test_platform_roots_and_person_inboxes():
+    from harvey.public_http import same_site
+    assert not same_site("jimdosite.com", "praxis-huber.jimdosite.com")
+    assert not same_site("co.at", "firma.co.at")
+    assert not leads.is_business_inbox("team-sabine@firma.de", [], "Firma", "firma.de")
+    assert not leads.is_business_inbox("sekretariat.mayer@firma.de", [], "Firma", "firma.de")
+    assert leads.is_business_inbox("praxis.huber@huber.de", [], "Praxis Huber", "huber.de")
+    assert leads.is_business_inbox("therapie@physiozentrum-nord.at", [], "Physiozentrum Nord", "physiozentrum-nord.at")

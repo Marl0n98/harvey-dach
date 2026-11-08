@@ -102,7 +102,7 @@ async def test_a_rejected_key_is_never_sent_again():
         calls.append(request)
         return httpx.Response(401, json={"success": False, "errorCode": "150001"})
     for _ in range(3):
-        with pytest.raises(ti.TrulyInboxError, match="rejected"):
+        with pytest.raises(ti.TrulyInboxError, match="abgelehnt"):
             await ti.TrulyInbox(KEY, transport=httpx.MockTransport(respond)).mailbox_health(ADDR)
     assert len(calls) == 1
     ti.forget_rejected(KEY)   # connecting a key again clears it
@@ -113,11 +113,11 @@ async def test_a_rejected_key_is_never_sent_again():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status, code, words", [
-    (403, "150003", "scope"),
+    (403, "150003", "Scope"),
     (403, "150007", "Starter"),
-    (403, "040006", "paused"),
-    (429, "150005", "limit"),
-    (500, None, "didn't answer"),
+    (403, "040006", "pausiert"),
+    (429, "150005", "Limit"),
+    (500, None, "nicht geantwortet"),
 ])
 async def test_errors_say_what_to_do(status, code, words):
     with pytest.raises(ti.TrulyInboxError, match=words):
@@ -138,7 +138,7 @@ async def test_the_key_never_appears_in_an_error_or_repr():
 async def test_a_network_failure_is_a_plain_error():
     def boom(request):
         raise httpx.ConnectError("down", request=request)
-    with pytest.raises(ti.TrulyInboxError, match="didn't answer"):
+    with pytest.raises(ti.TrulyInboxError, match="nicht geantwortet"):
         await ti.TrulyInbox(KEY, workspace_id="42",
                             transport=httpx.MockTransport(boom)).mailbox_health(ADDR)
 
@@ -181,23 +181,23 @@ def test_not_connected_recommends_trulyinbox_with_the_link():
 
 def test_warmed_mailbox_is_ok_and_shows_inbox_rate():
     c = d.check_warmup_service(_health(), WarmupConfig(start_date="2026-10-01"), today=TODAY)
-    assert c.status == d.OK and "day 24" in c.detail and "99% inbox" in c.detail
+    assert c.status == d.OK and "Tag 24" in c.detail and "99 % im Posteingang" in c.detail
 
 
 def test_too_few_days_is_not_ready():
     c = d.check_warmup_service(_health(started_on=TODAY - timedelta(days=5)), today=TODAY)
-    assert c.status == d.FAIL and "day 5 of 14" in c.detail
+    assert c.status == d.FAIL and "Tag 5 von 14" in c.detail
 
 
 def test_too_much_spam_is_not_ready():
     c = d.check_warmup_service(_health(sent=100, spam=8), today=TODAY)
-    assert c.status == d.FAIL and "8% spam" in c.detail
+    assert c.status == d.FAIL and "8 % Spam" in c.detail
 
 
 @pytest.mark.parametrize("kw, words", [
-    ({"found": False}, "isn't in your TrulyInbox"),
-    ({"login_ok": False}, "sign in"),
-    ({"warming": False}, "isn't on"),
+    ({"found": False}, "noch nicht in deinem TrulyInbox-Konto"),
+    ({"login_ok": False}, "anmelden"),
+    ({"warming": False}, "nicht an"),
 ])
 def test_problems_in_trulyinbox_say_what_to_fix(kw, words):
     c = d.check_warmup_service(_health(**kw), today=TODAY)
@@ -254,14 +254,14 @@ async def test_the_choice_is_remembered(tmp_path):
 @pytest.mark.parametrize("sent", [0, 5, 19])
 def test_too_little_warmup_mail_is_never_called_warmed(sent):
     c = d.check_warmup_service(_health(sent=sent, spam=0), today=TODAY)
-    assert c.status != d.OK and "not enough" in c.detail
+    assert c.status != d.OK and "reicht noch nicht" in c.detail
 
 
 @pytest.mark.asyncio
 async def test_a_workspace_id_that_isnt_a_number_is_refused():
     def respond(request):
         return _ok([{"id": "42\nSMTP_HOST=evil.example", "name": "x"}])
-    with pytest.raises(ti.TrulyInboxError, match="workspace"):
+    with pytest.raises(ti.TrulyInboxError, match="Workspace"):
         await ti.TrulyInbox(KEY, transport=httpx.MockTransport(respond)).mailbox_health(ADDR)
     with pytest.raises(ti.TrulyInboxError, match="TRULYINBOX_WORKSPACE_ID"):
         await ti.TrulyInbox(KEY, workspace_id="../x", transport=_vendor()).mailbox_health(ADDR)
@@ -274,16 +274,16 @@ async def test_an_ip_lockout_is_not_called_a_bad_key():
     def respond(request):
         calls.append(request)
         return httpx.Response(429, json={"success": False, "errorCode": "150006"})
-    with pytest.raises(ti.TrulyInboxError, match="15 minutes"):
+    with pytest.raises(ti.TrulyInboxError, match="15 Minuten"):
         await ti.TrulyInbox(KEY, "42", transport=httpx.MockTransport(respond)).mailbox_health(ADDR)
     assert ti._hash(KEY) not in ti._REJECTED
 
 
 @pytest.mark.parametrize("health, error, choice, words", [
-    (None, "", "", "not set up"),
-    (None, "", "other", "another warmup service"),
-    (None, ti.KEY_REJECTED, "connected", "connected, but"),
-    ("h", "", "connected", "connected"),
+    (None, "", "", "nicht eingerichtet"),
+    (None, "", "other", "anderen Warmup-Dienst"),
+    (None, ti.KEY_REJECTED, "connected", "verbunden, aber"),
+    ("h", "", "connected", "verbunden"),
 ])
 def test_the_status_line_is_honest(health, error, choice, words):
     h = _health() if health else None

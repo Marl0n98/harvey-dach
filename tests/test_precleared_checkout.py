@@ -30,7 +30,7 @@ async def test_malformed_https_link_uses_fallback(state, url):
         lambda r: httpx.Response(402, json={"buy_url": url})))
     result = await client.clear("person@example.com", state)
     assert result.held and not result.allowed
-    assert f"add a pack ({BUY_URL})" in result.reason
+    assert f"Kauf ein Paket ({BUY_URL})" in result.reason
 
 @pytest.mark.asyncio
 async def test_402_holds_sequences_allows_reply_then_recovers_next_cycle(state):
@@ -78,7 +78,7 @@ async def test_encoded_key_not_exposed_in_checkout_reason(state, encoding, locat
     client = PreclearedClient("GB", api_key=key, transport=httpx.MockTransport(
         lambda r: httpx.Response(402, json={"buy_url": checkout})))
     result = await client.clear("person@example.com", state)
-    assert f"add a pack ({BUY_URL})" in result.reason
+    assert f"Kauf ein Paket ({BUY_URL})" in result.reason
     assert key not in unquote(result.reason)
     assert await state.get_setting(SETTINGS_PREFIX + "person@example.com") == ""
 
@@ -94,4 +94,4 @@ async def test_valid_checkout_is_preserved_exactly(state, checkout):
         lambda r: httpx.Response(402, json={"buy_url": checkout})))
     result = await client.clear("person@example.com", state)
     assert result.held and not result.allowed
-    assert f"add a pack ({checkout})" in result.reason
+    assert f"Kauf ein Paket ({checkout})" in result.reason

@@ -17,40 +17,40 @@ def p(email_status="verified", status="new", first="Nora", title="Managing Direc
 
 
 @pytest.mark.parametrize("prospects,outbox,expect", [
-    ([p()], [{"status": "sent"}], "Emailed"),
-    ([p(status="replied")], [], "Replied"),
-    ([p()], [{"status": "approved", "send_at": "2026-01-05T04:00"}], "Approved"),
-    ([p()], [{"status": "pending_review"}], "Draft waiting"),
-    ([p()], [], "Ready"),
-    ([p("risky")], [], "Not contacted"),
-    ([p("invalid")], [], "Not contacted"),
-    ([p(status="lost")], [], "Not contacted"),
+    ([p()], [{"status": "sent"}], "Angeschrieben"),
+    ([p(status="replied")], [], "Hat geantwortet"),
+    ([p()], [{"status": "approved", "send_at": "2026-01-05T04:00"}], "Freigegeben"),
+    ([p()], [{"status": "pending_review"}], "Entwurf wartet"),
+    ([p()], [], "Bereit"),
+    ([p("risky")], [], "Nicht kontaktiert"),
+    ([p("invalid")], [], "Nicht kontaktiert"),
+    ([p(status="lost")], [], "Nicht kontaktiert"),
 ])
 def test_status_follows_what_harvey_did(prospects, outbox, expect):
     assert company_status(CO, prospects, outbox, [], [])[0] == expect
 
 
 def test_reasons_say_why_nothing_went_out():
-    assert "risky" in company_status(CO, [p("risky")], [], [], [])[1]
-    assert "no valid email" in company_status(CO, [p("guess")], [], [], [])[1]
+    assert "riskante" in company_status(CO, [p("risky")], [], [], [])[1]
+    assert "keine gültige E-Mail" in company_status(CO, [p("guess")], [], [], [])[1]
     form = [{"signal_code": "CONTACT_FORM_URL", "value_text": "https://acme.example/contact"}]
     why = company_status({**CO, "prospects_checked_at": "x"}, [], [], form, [])[1]
-    assert "no named person" in why and "Contact form available" in why
-    assert company_status(CO, [], [], [], [])[0] == "Not processed yet"
+    assert "keine Person mit Namen" in why and "Kontaktformular vorhanden" in why
+    assert company_status(CO, [], [], [], [])[0] == "Noch nicht bearbeitet"
 
 
 def test_risky_is_ready_when_you_send_to_risky():
-    assert company_status(CO, [p("risky")], [], [], [], send_to_risky=True)[0] == "Ready"
-    assert company_status(CO, [p("risky")], [], [], [])[0] == "Not contacted"
+    assert company_status(CO, [p("risky")], [], [], [], send_to_risky=True)[0] == "Bereit"
+    assert company_status(CO, [p("risky")], [], [], [])[0] == "Nicht kontaktiert"
 
 
 def test_an_opt_out_is_not_shown_as_emailed():
     status, why = company_status(CO, [p(status="opted_out")], [{"status": "sent"}], [], [])
-    assert status == "Opted out" and "asked not to be emailed" in why
+    assert status == "Abgemeldet" and "keine E-Mails mehr" in why
 
 
 def test_do_not_contact_says_only_what_it_knows():
-    assert company_status(CO, [], [], [], ["acme.example"])[1] == "On your do-not-contact list"
+    assert company_status(CO, [], [], [], ["acme.example"])[1] == "Steht auf deiner Sperrliste"
 
 
 @pytest.mark.asyncio
@@ -66,29 +66,29 @@ async def test_register_reads_the_live_do_not_contact_list(monkeypatch):
         return [CO] if "FROM companies" in sql else []
 
     row = (await build_register(query_db, config))[0]
-    assert row["status"] == "Excluded" and row["fit"] == 0
+    assert row["status"] == "Ausgeschlossen" and row["fit"] == 0
 
 
 @pytest.mark.parametrize("closed", ["rejected", "failed", "cancelled"])
 def test_a_queued_contact_whose_drafts_were_stopped_is_not_ready(closed):
     status, why = company_status(CO, [p(status="queued")], [{"status": closed}], [], [])
-    assert status == "Not contacted" and "rejected or blocked" in why
+    assert status == "Nicht kontaktiert" and "abgelehnt oder blockiert" in why
 
 
 def test_write_failed_says_so():
     status, why = company_status(CO, [p(status="write_failed")], [], [], [])
-    assert status == "Not contacted" and "draft" in why.lower() and "not relevant" not in why
+    assert status == "Nicht kontaktiert" and "entwurf" in why.lower() and "nicht relevant" not in why
 
 
 def test_every_contact_on_the_do_not_contact_list_is_excluded():
-    assert company_status(CO, [p()], [], [], ["nora@acme.example"])[0] == "Excluded"
+    assert company_status(CO, [p()], [], [], ["nora@acme.example"])[0] == "Ausgeschlossen"
     gmail = {**CO, "domain": ""}
     person = {**p(), "email": "jo@gmail.example"}
-    assert company_status(gmail, [person], [], [], ["gmail.example"])[0] == "Excluded"
+    assert company_status(gmail, [person], [], [], ["gmail.example"])[0] == "Ausgeschlossen"
 
 
 def test_do_not_contact_is_excluded_first():
-    assert company_status(CO, [p()], [{"status": "sent"}], [], ["acme.example"])[0] == "Excluded"
+    assert company_status(CO, [p()], [{"status": "sent"}], [], ["acme.example"])[0] == "Ausgeschlossen"
 
 
 @pytest.mark.asyncio
@@ -107,8 +107,8 @@ async def test_register_keeps_companies_without_contacts_and_is_spreadsheet_safe
 
     rows = await build_register(query_db, config)
     assert [r["company"] for r in rows] == ["Acme Forge", "=HYPERLINK(\"x\")"]  # best fit first
-    assert rows[0]["why_selected"].startswith("Found via osm; sector: forging company")
-    assert rows[1]["status"] == "Not processed yet" and rows[1]["website"] == "https://beta.example"
+    assert rows[0]["why_selected"].startswith("Gefunden über osm; Branche: forging company")
+    assert rows[1]["status"] == "Noch nicht bearbeitet" and rows[1]["website"] == "https://beta.example"
     assert "'=HYPERLINK" in to_csv(rows)
 
 
@@ -134,7 +134,7 @@ def test_cli_writes_the_register(tmp_path, monkeypatch, capsys):
     cmd_companies(SimpleNamespace(out=str(out)))
     text = out.read_text(encoding="utf-8-sig")
     assert "Acme Forge" in text and text.startswith("company,website")
-    assert "1 companies" in capsys.readouterr().out
+    assert "1 Firmen" in capsys.readouterr().out
 
 
 def test_cli_without_a_database_says_so(tmp_path, monkeypatch, capsys):

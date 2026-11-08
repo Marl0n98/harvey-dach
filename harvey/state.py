@@ -45,13 +45,15 @@ HAND_SENT_REASON = "sent_by_hand"
 REVIEW_NEXT_REPLY_KEY = "review_next_reply:"
 # Outbox error prefix for an email autopilot held for a human (gate.
 # autopilot_review): approve-all skips these, they're approved one by one.
-HELD_FOR_REVIEW = "held for your review: "
+HELD_FOR_REVIEW = "zur Prüfung zurückgehalten: "
+# The English prefix rows written before the German one still carry.
+LEGACY_HELD_FOR_REVIEW = "held for your review: "
 # Set while the heartbeat holds sending because replies couldn't all be read
 # (JSON: since, last_seen, reason), so Today and `harvey status` can say so.
 SENDS_HELD_KEY = "sends_held"
 # Outbox error on a sequence email cancelled because someone else at the
 # company replied: one answer from a company stops the cold email to all of it.
-COLLEAGUE_REPLIED = "a colleague replied"
+COLLEAGUE_REPLIED = "jemand aus der Firma hat geantwortet"
 # Setting set (to their name) when someone's reply stops their company.
 # An out-of-office or a "wrong person" doesn't set it.
 COMPANY_STOP_KEY = "company_stop:"
@@ -102,7 +104,7 @@ def _company_answered(p: str) -> str:
     return (f"EXISTS (SELECT 1 FROM prospects c, settings s "
             f"WHERE s.key = '{COMPANY_STOP_KEY}' || c.id AND {_colleagues(p, 'c')})")
 # Outbox error on what autopilot had approved when it was turned off.
-AUTOPILOT_OFF_REASON = "waiting for you: autopilot was turned off before it went out"
+AUTOPILOT_OFF_REASON = "wartet auf dich: Der Autopilot wurde ausgeschaltet, bevor sie rausging"
 # Outbox error on an approved cold email the compliance check couldn't answer
 # for: it was moved back and is tried again then (sender: _retry_later).
 RECHECK_PREFIX = "Precleared couldn't check this address; trying again after "
@@ -1351,8 +1353,8 @@ class StateManager:
                 cursor = await db.execute(
                     "UPDATE outbox SET status = 'approved', approved_by = 'you', error = '', "
                     "updated_at = ? WHERE status = 'pending_review' "
-                    "AND COALESCE(error, '') NOT LIKE ?",
-                    (_utcnow().isoformat(), HELD_FOR_REVIEW + "%"),
+                    "AND COALESCE(error, '') NOT LIKE ? AND COALESCE(error, '') NOT LIKE ?",
+                    (_utcnow().isoformat(), HELD_FOR_REVIEW + "%", LEGACY_HELD_FOR_REVIEW + "%"),
                 )
             await db.commit()
             return cursor.rowcount
@@ -1400,8 +1402,9 @@ class StateManager:
         """Emails autopilot sent back for a human, still waiting."""
         async with self._connect() as db:
             async with db.execute(
-                "SELECT COUNT(*) FROM outbox WHERE status = 'pending_review' AND error LIKE ?",
-                (HELD_FOR_REVIEW + "%",),
+                "SELECT COUNT(*) FROM outbox WHERE status = 'pending_review' "
+                "AND (error LIKE ? OR error LIKE ?)",
+                (HELD_FOR_REVIEW + "%", LEGACY_HELD_FOR_REVIEW + "%"),
             ) as cursor:
                 return (await cursor.fetchone())[0]
 

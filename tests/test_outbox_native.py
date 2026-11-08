@@ -149,8 +149,8 @@ def test_gate_blocks_bad_content():
 
     bad = pre_send_check("jane@acme.com", "hello", "Hi {{first_name}}, act now!", p)
     assert not bad.ok
-    assert any("merge" in r for r in bad.reasons)
-    assert any("banned" in r for r in bad.reasons)
+    assert any("Platzhalter" in r for r in bad.reasons)
+    assert any("verbotene" in r for r in bad.reasons)
 
     guess = Prospect(first_name="J", last_name="D", title="VP",
                      email="jane@acme.com", email_status="guess")
@@ -164,7 +164,7 @@ def test_gate_blocks_bad_content():
 
 def test_gate_link_and_html_limits():
     r = pre_send_check("a@b.co", "s", "See https://a.com and https://b.com")
-    assert any("links" in x for x in r.reasons)
+    assert any("Links" in x for x in r.reasons)
     r2 = pre_send_check("a@b.co", "s", "<div>hello</div>")
     assert any("HTML" in x for x in r2.reasons)
 
@@ -258,7 +258,7 @@ async def test_drain_gate_failure_marks_failed(state):
     await sender._drain_due()
     failed = await state.get_outbox(status="failed")
     assert len(failed) == 1
-    assert "gate" in failed[0]["error"]
+    assert "Versandprüfung" in failed[0]["error"]
     assert provider.sent == []
 
 

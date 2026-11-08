@@ -187,4 +187,4 @@ def test_status_still_works_when_the_config_is_invalid(tmp_path, monkeypatch, ca
     monkeypatch.setattr(harvey.state, "StateManager", lambda: real_state(str(tmp_path / "s.db")))
     monkeypatch.setattr(harvey.config, "load_config", invalid)
     cmd_status(SimpleNamespace(check=False))
-    assert "Prospects:" in capsys.readouterr().out
+    assert "Kontakte:" in capsys.readouterr().out

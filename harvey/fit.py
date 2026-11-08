@@ -61,14 +61,14 @@ def company_fit(company: dict, prospects: list[dict], observations: list[dict],
         dnc = getattr(getattr(config, "compliance", None), "do_not_contact", None) or []
     domain = (company.get("domain") or "").lower()
     if domain and dnc and do_not_contact_match(f"x@{domain}", dnc):
-        return 0, ["on the do-not-contact list"]
+        return 0, ["steht auf der Sperrliste"]
 
     score, reasons = 0, []
 
     industries = {i.strip().lower() for i in (icp.industries or [])}
     if (company.get("industry") or "").strip().lower() in industries:
         score += SECTOR
-        reasons.append(f"sector: {company['industry']}")
+        reasons.append(f"Branche: {company['industry']}")
 
     # Someone who opted out or is on the list won't be written to: they
     # don't make the company reachable.
@@ -86,34 +86,34 @@ def company_fit(company: dict, prospects: list[dict], observations: list[dict],
                     break
     if makers:
         score += DECISION_MAKER
-        reasons.append(f"decision maker: {makers[0].get('title')}")
+        reasons.append(f"Entscheider: {makers[0].get('title')}")
     elif named:
         score += DECISION_MAKER // 2
-        reasons.append("named contact (not a target title)")
+        reasons.append("Kontakt mit Namen (kein Zieltitel)")
     elif live:
         score += 5
-        reasons.append("general inbox only")
+        reasons.append("nur allgemeines Postfach")
 
     best = max((EMAIL_POINTS.get((p.get("email_status") or "").lower(), 0) for p in live), default=0)
     if best:
         score += best
-        label = {25: "verified email", 12: "risky email", 5: "guessed email"}[best]
+        label = {25: "geprüfte E-Mail", 12: "riskante E-Mail", 5: "geratene E-Mail"}[best]
         reasons.append(label)
     elif any(o.get("signal_code") == "CONTACT_FORM_URL" for o in observations):
         score += 5
-        reasons.append("contact form only")
+        reasons.append("nur Kontaktformular")
     else:
-        reasons.append("no way to reach yet")
+        reasons.append("noch kein Weg, sie zu erreichen")
 
     terms = _hiring_terms(icp)
     roles = current_roles(observations)
     hit = next((t for o in roles if (t := _role_matches(o.get("value_text"), terms))), "")
     if hit:
         score += BUYING
-        reasons.append(f"hiring: {hit}")
+        reasons.append(f"sucht: {hit}")
     elif roles:
         score += 5
-        reasons.append("careers page, no matching role")
+        reasons.append("Karriereseite, aber keine passende Stelle")
 
     return min(score, 100), reasons
 

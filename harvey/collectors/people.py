@@ -439,13 +439,38 @@ _IMPRINT_ROLE = re.compile(
 _IMPRINT_STOP = re.compile(r"(?i)\b(?:gmbh|ag|ug|kg|ohg|mbb|e\.\s?v\.|strasse|straße|tel|telefon|e-?mail|fax|hrb|handelsregister)\b")
 
 
+# Headings after which an Impressum names someone else: the web agency, the
+# photographer, the chamber or authority, the data protection officer.
+_IMPRINT_OTHERS = re.compile(
+    r"(?i)\b(?:webdesign|web-design|umsetzung|realisierung|konzeption|gestaltung|programmierung|"
+    r"technische\s+umsetzung|hosting|bildnachweis|bildquellen|fotos?|fotografie|"
+    r"kammer|aufsichtsbeh(?:ö|oe)rde|zust(?:ä|ae)ndige\s+beh(?:ö|oe)rde|berufsrecht|"
+    r"datenschutzbeauftragte[rn]?|streitschlichtung|haftungsausschluss|agentur)\b")
+
+
+_IMPRINT_OWN_HEADING = re.compile(
+    r"(?i)^\s*(?:impressum|angaben\s+gem(?:ä|ae)(?:ß|ss)|anbieterkennzeichnung|"
+    r"offenlegung|informationspflicht|verantwortlich\s+f(?:ü|ue)r\s+den\s+inhalt)\b")
+
+
 def people_from_impressum(html: str, url: str = "") -> list[dict]:
     """The person a German, Austrian or Swiss site names as legally responsible:
     "Geschäftsführer: Jürgen Müller", "Vertreten durch: Dr. Anna Wolf und Max Bär"."""
     found, seen = [], set()
     lines = page_lines(html)
+    others = 0      # lines left in a block about a third party
     for i, line in enumerate(lines):
         m = _IMPRINT_ROLE.search(line)
+        before = line[:m.start()] if m else line
+        if _IMPRINT_OTHERS.search(before):
+            # A credit (Webdesign, Fotos, Kammer…) and the next lines are about
+            # someone else, "Inhaber:" and "vertreten durch:" included.
+            others = 4      # this line and the three after it
+        elif _IMPRINT_OWN_HEADING.match(line):
+            others = 0      # "Impressum", "Angaben gemäß § 5": the business's own section
+        if others:
+            others -= 1
+            continue
         if not m:
             continue
         raw = m.group("names").strip(" :,")

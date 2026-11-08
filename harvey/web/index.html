@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="no-referrer">
-<title>Harvey — Command Deck</title>
+<title>Harvey · Kommandozentrale</title>
 <!-- First, so the token leaves the address bar before anything else runs. -->
 <script src="/static/auth.js"></script>
 <link rel="stylesheet" href="/static/app.css">
@@ -44,17 +44,17 @@
 <div id="lock-screen"
      style="display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;padding:24px">
   <div class="card" style="max-width:500px;width:100%">
-    <h2>Dashboard locked</h2>
+    <h2>Dashboard gesperrt</h2>
     <p class="lede" id="lock-reason" role="alert"></p>
-    <p class="lede">Open the link that <code>harvey dashboard</code> printed in your terminal,
-      or run <code>harvey dashboard --url</code> to print it again. You can also paste the
-      token from <code>data/dashboard-token</code>:</p>
+    <p class="lede">Öffne den Link, den <code>harvey dashboard</code> in deinem Terminal ausgegeben hat,
+      oder führe <code>harvey dashboard --url</code> aus, um ihn noch einmal anzuzeigen. Du kannst auch
+      das Token aus <code>data/dashboard-token</code> einfügen:</p>
     <form onsubmit="unlockWithToken(event)" class="form-row">
       <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" for="lock-token">Dashboard token</label>
+        <label class="form-label" for="lock-token">Dashboard-Token</label>
         <input type="password" class="form-input" id="lock-token" autocomplete="off" spellcheck="false">
       </div>
-      <button class="btn btn-primary" type="submit">Unlock</button>
+      <button class="btn btn-primary" type="submit">Entsperren</button>
     </form>
   </div>
 </div>
@@ -67,41 +67,41 @@
     <div class="tagline">Always Be Closing</div>
   </div>
 
-  <nav aria-label="Sections">
+  <nav aria-label="Bereiche">
     <div class="nav-group">
-      <div class="nav-label">Work</div>
-      <button class="active" onclick="showTab('today', this)"><svg class="icon" aria-hidden="true"><use href="#i-today"/></svg><span class="label">Today</span><span class="nav-count" id="nav-today"></span></button>
-      <button onclick="showTab('outbox', this)"><svg class="icon" aria-hidden="true"><use href="#i-outbox"/></svg><span class="label">Outbox</span><span class="nav-count" id="nav-outbox"></span></button>
-      <button onclick="showTab('conversations', this)"><svg class="icon" aria-hidden="true"><use href="#i-conversations"/></svg><span class="label">Conversations</span><span class="nav-count" id="nav-conversations"></span></button>
+      <div class="nav-label">Arbeit</div>
+      <button class="active" onclick="showTab('today', this)"><svg class="icon" aria-hidden="true"><use href="#i-today"/></svg><span class="label">Heute</span><span class="nav-count" id="nav-today"></span></button>
+      <button onclick="showTab('outbox', this)"><svg class="icon" aria-hidden="true"><use href="#i-outbox"/></svg><span class="label">Postausgang</span><span class="nav-count" id="nav-outbox"></span></button>
+      <button onclick="showTab('conversations', this)"><svg class="icon" aria-hidden="true"><use href="#i-conversations"/></svg><span class="label">Gespräche</span><span class="nav-count" id="nav-conversations"></span></button>
     </div>
     <div class="nav-group">
       <div class="nav-label">Pipeline</div>
-      <button onclick="showTab('signals', this)"><svg class="icon" aria-hidden="true"><use href="#i-signals"/></svg><span class="label">Signals</span><span class="nav-count" id="nav-signals"></span></button>
-      <button onclick="showTab('discover', this)"><svg class="icon" aria-hidden="true"><use href="#i-discover"/></svg><span class="label">Discover</span></button>
-      <button onclick="showTab('companies', this)"><svg class="icon" aria-hidden="true"><use href="#i-companies"/></svg><span class="label">Companies</span></button>
-      <button onclick="showTab('prospects', this)"><svg class="icon" aria-hidden="true"><use href="#i-contacts"/></svg><span class="label">Contacts</span></button>
-      <button onclick="showTab('campaigns', this)"><svg class="icon" aria-hidden="true"><use href="#i-campaigns"/></svg><span class="label">Campaigns</span></button>
+      <button onclick="showTab('signals', this)"><svg class="icon" aria-hidden="true"><use href="#i-signals"/></svg><span class="label">Signale</span><span class="nav-count" id="nav-signals"></span></button>
+      <button onclick="showTab('discover', this)"><svg class="icon" aria-hidden="true"><use href="#i-discover"/></svg><span class="label">Entdecken</span></button>
+      <button onclick="showTab('companies', this)"><svg class="icon" aria-hidden="true"><use href="#i-companies"/></svg><span class="label">Firmen</span></button>
+      <button onclick="showTab('prospects', this)"><svg class="icon" aria-hidden="true"><use href="#i-contacts"/></svg><span class="label">Kontakte</span></button>
+      <button onclick="showTab('campaigns', this)"><svg class="icon" aria-hidden="true"><use href="#i-campaigns"/></svg><span class="label">Kampagnen</span></button>
     </div>
     <div class="nav-group">
       <div class="nav-label">System</div>
-      <button onclick="showTab('activity', this)"><svg class="icon" aria-hidden="true"><use href="#i-activity"/></svg><span class="label">Activity</span></button>
-      <button onclick="showTab('usage', this)"><svg class="icon" aria-hidden="true"><use href="#i-usage"/></svg><span class="label">Usage</span></button>
-      <button onclick="showTab('controls', this)"><svg class="icon" aria-hidden="true"><use href="#i-controls"/></svg><span class="label">Controls</span></button>
-      <button onclick="showTab('settings', this)"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Settings</span></button>
-      <button onclick="showTab('help', this)"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg><span class="label">Help</span></button>
+      <button onclick="showTab('activity', this)"><svg class="icon" aria-hidden="true"><use href="#i-activity"/></svg><span class="label">Aktivität</span></button>
+      <button onclick="showTab('usage', this)"><svg class="icon" aria-hidden="true"><use href="#i-usage"/></svg><span class="label">Nutzung</span></button>
+      <button onclick="showTab('controls', this)"><svg class="icon" aria-hidden="true"><use href="#i-controls"/></svg><span class="label">Steuerung</span></button>
+      <button onclick="showTab('settings', this)"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Einstellungen</span></button>
+      <button onclick="showTab('help', this)"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg><span class="label">Hilfe</span></button>
     </div>
   </nav>
 
   <div class="sidebar-foot">
     <div class="harvey-status" id="header-status">
       <span class="status-dot stopped" id="header-dot"></span>
-      <span id="header-status-text">Checking…</span>
+      <span id="header-status-text">Prüfe…</span>
     </div>
     <div class="foot-actions">
       <button class="icon-btn" id="theme-btn" onclick="cycleTheme()"
-              title="Appearance: follows your system until you pick one">auto</button>
-      <button class="refresh-btn" onclick="loadCurrentTab()" title="Refresh this page">
-        <svg class="icon" style="width:13px;height:13px"><use href="#i-refresh"/></svg>Refresh</button>
+              title="Darstellung: folgt deinem System, bis du eine wählst">Auto</button>
+      <button class="refresh-btn" onclick="loadCurrentTab()" title="Diese Seite neu laden">
+        <svg class="icon" style="width:13px;height:13px"><use href="#i-refresh"/></svg>Neu laden</button>
     </div>
   </div>
 </aside>
@@ -113,8 +113,8 @@
 <div id="today" class="section active">
   <div class="section-head">
     <div>
-      <h2>Today</h2>
-      <p>What's waiting on you, and how the pipeline is moving.</p>
+      <h2>Heute</h2>
+      <p>Was auf dich wartet und wie sich die Pipeline bewegt.</p>
     </div>
   </div>
 
@@ -124,22 +124,22 @@
 
   <div class="grid-main">
     <div>
-      <div class="subhead">Needs you</div>
+      <div class="subhead">Braucht dich</div>
       <div id="today-queue"></div>
 
-      <div class="subhead">Pipeline right now</div>
+      <div class="subhead">Pipeline gerade</div>
       <div class="card" id="live-status"></div>
 
-      <div class="subhead">Recent activity <span class="hint"><a href="#" onclick="goTab('activity');return false">See all</a></span></div>
+      <div class="subhead">Letzte Aktivität <span class="hint"><a href="#" onclick="goTab('activity');return false">Alle ansehen</a></span></div>
       <div class="card" id="today-activity"></div>
     </div>
 
     <aside>
-      <div class="subhead">Contacts by stage</div>
+      <div class="subhead">Kontakte nach Phase</div>
       <div class="card" id="today-figures"></div>
       <div class="facts" id="today-facts"></div>
       <div id="today-runs-block">
-        <div class="subhead">Collector runs</div>
+        <div class="subhead">Sammelläufe</div>
         <div class="card" id="today-runs" style="padding-top:8px;padding-bottom:8px"></div>
       </div>
     </aside>
@@ -150,19 +150,19 @@
 <div id="signals" class="section">
   <div class="section-head">
     <div>
-      <h2>Signals</h2>
-      <p>Harvey proposes what it knows how to look for. You decide what actually
-         defines a good prospect &mdash; nothing is collected until you confirm it.</p>
+      <h2>Signale</h2>
+      <p>Harvey schlägt vor, wonach er suchen kann. Du entscheidest, was einen guten
+         Kontakt wirklich ausmacht. Erfasst wird erst, was du bestätigst.</p>
     </div>
   </div>
   <div id="signals-summary"></div>
   <div id="signals-groups"></div>
 
-  <div class="subhead">Cohort builder</div>
+  <div class="subhead">Kohorten-Baukasten</div>
   <div class="card">
-    <p class="lede">A prospect list is a query, not a file. Pick the signals a
-      good prospect must have &mdash; and any that disqualify them &mdash; and see
-      how many companies match right now.</p>
+    <p class="lede">Eine Kontaktliste ist eine Abfrage, keine Datei. Wähle die Signale,
+      die ein guter Kontakt haben muss, und die, die ihn ausschließen. Dann siehst du,
+      wie viele Firmen gerade passen.</p>
     <div id="cohort-builder"></div>
     <div id="cohort-result"></div>
   </div>
@@ -172,53 +172,53 @@
 <div id="discover" class="section">
   <div class="section-head">
     <div>
-      <h2>Discover</h2>
-      <p>Find businesses matching your ICP. Pick a source, see what it will cost,
-         then run it &mdash; nothing is called until you press the button.</p>
+      <h2>Entdecken</h2>
+      <p>Finde Firmen, die zu deinem ICP passen. Wähle eine Quelle, sieh dir die Kosten an
+         und starte dann. Abgerufen wird erst, wenn du den Knopf drückst.</p>
     </div>
   </div>
   <div id="discover-profile"></div>
 
-  <div class="subhead">Source</div>
+  <div class="subhead">Quelle</div>
   <div id="discover-providers"></div>
 
-  <div class="subhead">Run</div>
+  <div class="subhead">Lauf</div>
   <div class="card">
     <div class="form-row" style="margin-bottom:4px">
       <div class="form-group">
-        <label class="form-label" for="disc-preset">Look for</label>
-        <select class="form-input" id="disc-preset" title="Startup and hiring searches, run by web search (TinyFish, Serper or DataForSEO SERP). YC startups and Accelerator startups: companies whose own site says Y Combinator or another accelerator (Techstars, Antler, Entrepreneur First and others) backed them; turn on YC_BACKED or ACCELERATOR to tag them. Recently funded: companies announcing their own raise in the last 18 months; turn on FUNDING_ROUND to record the round, amount and date. Hiring for your roles: companies whose own careers pages list one of your hiring_signals roles (or ICP titles); turn on HIRING_ROLE and profiling reads the job board their site links to.">
-          <option value="">Your ICP's industries</option>
-          <option value="yc">YC startups</option>
-          <option value="accelerator">Accelerator startups</option>
-          <option value="funding">Recently funded</option>
-          <option value="hiring">Companies hiring for your roles</option>
+        <label class="form-label" for="disc-preset">Suche nach</label>
+        <select class="form-input" id="disc-preset" title="Startup- und Stellen-Suchen laufen über Websuche (TinyFish, Serper oder DataForSEO SERP). YC-Startups und Accelerator-Startups: Firmen, deren eigene Website sagt, dass Y Combinator oder ein anderer Accelerator (Techstars, Antler, Entrepreneur First und andere) sie unterstützt hat; schalte YC_BACKED oder ACCELERATOR ein, um sie zu markieren. Kürzlich finanziert: Firmen, die in den letzten 18 Monaten ihre eigene Finanzierungsrunde bekanntgegeben haben; schalte FUNDING_ROUND ein, um Runde, Betrag und Datum zu erfassen. Stellen für deine Rollen: Firmen, deren eigene Karriereseiten eine deiner hiring_signals-Rollen (oder ICP-Titel) listen; schalte HIRING_ROLE ein, dann liest die Profilierung die Jobbörse, auf die ihre Website verlinkt.">
+          <option value="">Branchen aus deinem ICP</option>
+          <option value="yc">YC-Startups</option>
+          <option value="accelerator">Accelerator-Startups</option>
+          <option value="funding">Kürzlich finanziert</option>
+          <option value="hiring">Firmen, die für deine Rollen einstellen</option>
         </select>
       </div>
       <div class="form-group" style="flex:2">
-        <label class="form-label" for="disc-cities">Cities</label>
-        <input class="form-input" id="disc-cities" placeholder="From your ICP, or override: Denver, CO; Boulder, CO">
+        <label class="form-label" for="disc-cities">Städte</label>
+        <input class="form-input" id="disc-cities" placeholder="Aus deinem ICP, oder überschreiben: Berlin; München; Wien">
       </div>
       <div class="form-group">
-        <label class="form-label" for="disc-limit">Results per query</label>
+        <label class="form-label" for="disc-limit">Ergebnisse pro Suchanfrage</label>
         <input class="form-input" id="disc-limit" type="number" value="100" min="1" max="1000">
       </div>
       <div class="form-group">
-        <label class="form-label" for="disc-depth">Search depth</label>
+        <label class="form-label" for="disc-depth">Suchtiefe</label>
         <input class="form-input" id="disc-depth" type="number" value="30" min="10" max="100" step="10">
       </div>
       <div class="form-group">
-        <label class="form-label" for="disc-cap">Spend cap ($)</label>
+        <label class="form-label" for="disc-cap">Ausgabelimit ($)</label>
         <input class="form-input" id="disc-cap" type="number" value="1.00" min="0" step="0.25">
       </div>
     </div>
     <div id="discover-estimate"></div>
     <div class="btn-group">
-      <button class="btn btn-secondary" onclick="estimateDiscovery()">Estimate cost</button>
+      <button class="btn btn-secondary" onclick="estimateDiscovery()">Kosten schätzen</button>
       <button class="btn btn-primary" id="disc-run" onclick="runDiscovery()" disabled>
-        Estimate first</button>
+        Erst Kosten schätzen</button>
       <button class="btn btn-danger" id="disc-stop" onclick="stopDiscovery()" style="display:none">
-        Stop</button>
+        Stoppen</button>
     </div>
   </div>
   <div id="discover-result"></div>
@@ -226,18 +226,18 @@
 
 <!-- Companies -->
 <div id="companies" class="section">
-  <div class="section-head"><div><h2>Companies</h2><p>Organizations Harvey has researched, best fit first. Click a row to see its contacts.</p></div>
-    <div><button class="btn btn-secondary btn-sm" onclick="downloadCsv('/api/export/companies.csv', 'company-register.csv', this)"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Export register</button></div></div>
+  <div class="section-head"><div><h2>Firmen</h2><p>Firmen, die Harvey recherchiert hat, beste Passung zuerst. Klick auf eine Zeile, um ihre Kontakte zu sehen.</p></div>
+    <div><button class="btn btn-secondary btn-sm" onclick="downloadCsv('/api/export/companies.csv', 'company-register.csv', this)"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Register exportieren</button></div></div>
   <div id="companies-list"></div>
 </div>
 
 <!-- Contacts -->
 <div id="prospects" class="section">
   <div class="section-head">
-    <div><h2>Contacts</h2><p>People Harvey has found, how sure it is of their address, and where each one stands.</p></div>
+    <div><h2>Kontakte</h2><p>Leute, die Harvey gefunden hat, wie sicher er sich bei ihrer Adresse ist und wo jede Person steht.</p></div>
     <div class="page-actions">
-      <button class="btn btn-secondary btn-sm" onclick="downloadCsv('/api/export/prospects.csv', 'prospects.csv', this)"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Export deliverable</button>
-      <button class="btn btn-ghost btn-sm" onclick="downloadCsv('/api/export/prospects.csv?all=true', 'prospects-all.csv', this)">Export all</button>
+      <button class="btn btn-secondary btn-sm" onclick="downloadCsv('/api/export/prospects.csv', 'prospects.csv', this)"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Zustellbare exportieren</button>
+      <button class="btn btn-ghost btn-sm" onclick="downloadCsv('/api/export/prospects.csv?all=true', 'prospects-all.csv', this)">Alle exportieren</button>
     </div>
   </div>
   <div id="prospects-table"></div>
@@ -245,7 +245,7 @@
 
 <!-- Campaigns -->
 <div id="campaigns" class="section">
-  <div class="section-head"><div><h2>Campaigns</h2><p>Email sequences Harvey has written, and how far each one has got.</p></div></div>
+  <div class="section-head"><div><h2>Kampagnen</h2><p>E-Mail-Sequenzen, die Harvey geschrieben hat, und wie weit jede gekommen ist.</p></div></div>
   <div id="campaigns-list"></div>
 </div>
 
@@ -253,9 +253,9 @@
 <div id="outbox" class="section">
   <div class="section-head">
     <div>
-      <h2>Outbox</h2>
-      <p>Emails waiting for you. Read one, decide, move on &mdash;
-         <kbd>A</kbd> approve, <kbd>R</kbd> reject, <kbd>E</kbd> edit, <kbd>J</kbd>/<kbd>K</kbd> to move.</p>
+      <h2>Postausgang</h2>
+      <p>E-Mails, die auf dich warten. Lies eine, entscheide, mach weiter.
+         <kbd>F</kbd> Freigeben, <kbd>X</kbd> Ablehnen, <kbd>B</kbd> Bearbeiten, <kbd>J</kbd>/<kbd>K</kbd> zum Blättern.</p>
     </div>
     <div class="page-actions" id="outbox-actions"></div>
   </div>
@@ -266,19 +266,19 @@
 
 <!-- Conversations -->
 <div id="conversations" class="section">
-  <div class="section-head"><div><h2>Conversations</h2><p>Every reply, and how Harvey handled it.</p></div></div>
+  <div class="section-head"><div><h2>Gespräche</h2><p>Jede Antwort und wie Harvey damit umgegangen ist.</p></div></div>
   <div id="conversations-list"></div>
 </div>
 
 <!-- Activity -->
 <div id="activity" class="section">
-  <div class="section-head"><div><h2>Activity</h2><p>A running log of every action Harvey's agents have taken.</p></div></div>
+  <div class="section-head"><div><h2>Aktivität</h2><p>Ein laufendes Protokoll jeder Aktion von Harveys Agenten.</p></div></div>
   <div id="activity-list"></div>
 </div>
 
 <!-- Usage -->
 <div id="usage" class="section">
-  <div class="section-head"><div><h2>Usage</h2><p>Model usage on your subscription (Claude or Codex): calls and tokens by provider, agent and task. Subscription plans aren't billed per token, so there are no dollar costs here.</p></div></div>
+  <div class="section-head"><div><h2>Nutzung</h2><p>Modellnutzung in deinem Abo (Claude oder Codex): Aufrufe und Tokens nach Anbieter, Agent und Aufgabe. Abos werden nicht pro Token abgerechnet, deshalb stehen hier keine Dollarkosten.</p></div></div>
   <div id="usage-quota" class="card" style="display:none"></div>
   <div class="stats-grid" id="usage-stats"></div>
   <div class="card" id="usage-daily" style="display:none"></div>
@@ -287,110 +287,110 @@
 
 <!-- Settings -->
 <div id="settings" class="section">
-  <div class="section-head"><div><h2>Settings</h2><p>Credentials are stored locally in <code>.env</code> and never sent anywhere except the services themselves.</p></div></div>
+  <div class="section-head"><div><h2>Einstellungen</h2><p>Zugangsdaten werden lokal in <code>.env</code> gespeichert und nur an die jeweiligen Dienste selbst gesendet.</p></div></div>
 
-  <div class="subhead">Sending</div>
+  <div class="subhead">Versand</div>
   <div id="sending-mode-card"></div>
 
-  <div class="subhead">Email provider <span class="hint">Active: <b id="active-provider">…</b> &middot; set <code>channels.email.provider</code> in <code>harvey.yaml</code> to gmail, microsoft, smtp or instantly</span></div>
+  <div class="subhead">E-Mail-Anbieter <span class="hint">Aktiv: <b id="active-provider">…</b> &middot; setze <code>channels.email.provider</code> in <code>harvey.yaml</code> auf gmail, microsoft, smtp oder instantly</span></div>
   <div class="card">
     <div class="settings-row">
       <div>
-        <h3>Gmail / Google Workspace <span class="tag accent">Recommended</span> <span id="gmail-status" class="email-tag"></span></h3>
-        <p class="desc">Use a mailbox on a dedicated secondary domain. Create an OAuth client (type "Desktop app") in Google Cloud Console → Gmail API, paste the id and secret, save, then run <code>harvey gmail auth</code>.</p>
+        <h3>Gmail / Google Workspace <span class="tag accent">Empfohlen</span> <span id="gmail-status" class="email-tag"></span></h3>
+        <p class="desc">Nutze ein Postfach auf einer eigenen Zweitdomain. Leg in der Google Cloud Console unter Gmail API einen OAuth-Client an (Typ „Desktop-App“), füge ID und Secret ein, speichere und führe dann <code>harvey gmail auth</code> aus.</p>
       </div>
       <div class="fields">
-        <div class="form-group"><label class="form-label" for="gmail-id">Client ID</label>
+        <div class="form-group"><label class="form-label" for="gmail-id">Client-ID</label>
           <input type="text" class="form-input" id="gmail-id" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off"></div>
-        <div class="form-group"><label class="form-label" for="gmail-secret">Client secret</label>
-          <div class="with-btn"><input type="password" class="form-input" id="gmail-secret" placeholder="Enter client secret" autocomplete="off">
-            <button class="btn btn-secondary" onclick="toggleVisibility('gmail-secret')">Show</button></div></div>
-        <button class="btn btn-primary btn-sm" onclick="saveGmail()">Save Gmail</button>
+        <div class="form-group"><label class="form-label" for="gmail-secret">Client-Secret</label>
+          <div class="with-btn"><input type="password" class="form-input" id="gmail-secret" placeholder="Client-Secret eingeben" autocomplete="off">
+            <button class="btn btn-secondary" onclick="toggleVisibility('gmail-secret')">Anzeigen</button></div></div>
+        <button class="btn btn-primary btn-sm" onclick="saveGmail()">Gmail speichern</button>
       </div>
     </div>
 
     <div class="settings-row">
       <div>
-        <h3>SMTP + IMAP mailbox</h3>
-        <p class="desc">Any real mailbox (AgentMail, Fastmail, a Workspace app password). IMAP defaults to the SMTP host and login if left blank.</p>
+        <h3>SMTP- und IMAP-Postfach</h3>
+        <p class="desc">Jedes echte Postfach (AgentMail, Fastmail, ein Workspace-App-Passwort). Leer gelassen nutzt IMAP den SMTP-Host und dieselbe Anmeldung.</p>
       </div>
       <div class="fields">
         <div class="form-row">
-          <div class="form-group"><label class="form-label" for="smtp-host">SMTP host</label>
+          <div class="form-group"><label class="form-label" for="smtp-host">SMTP-Host</label>
             <input type="text" class="form-input" id="smtp-host" placeholder="smtp.example.com" autocomplete="off"></div>
           <div class="form-group" style="max-width:120px"><label class="form-label" for="smtp-port">Port</label>
             <input type="text" class="form-input" id="smtp-port" placeholder="587" autocomplete="off"></div>
         </div>
-        <div class="form-group"><label class="form-label" for="smtp-user">Username</label>
-          <input type="text" class="form-input" id="smtp-user" placeholder="you@example.com" autocomplete="off"></div>
-        <div class="form-group"><label class="form-label" for="smtp-pass">Password</label>
-          <div class="with-btn"><input type="password" class="form-input" id="smtp-pass" placeholder="Enter password / app password" autocomplete="off">
-            <button class="btn btn-secondary" onclick="toggleVisibility('smtp-pass')">Show</button></div></div>
+        <div class="form-group"><label class="form-label" for="smtp-user">Benutzername</label>
+          <input type="text" class="form-input" id="smtp-user" placeholder="du@example.com" autocomplete="off"></div>
+        <div class="form-group"><label class="form-label" for="smtp-pass">Passwort</label>
+          <div class="with-btn"><input type="password" class="form-input" id="smtp-pass" placeholder="Passwort oder App-Passwort eingeben" autocomplete="off">
+            <button class="btn btn-secondary" onclick="toggleVisibility('smtp-pass')">Anzeigen</button></div></div>
         <details class="more-fields">
-          <summary>Reading replies from a different IMAP server or login</summary>
+          <summary>Antworten von einem anderen IMAP-Server oder Login lesen</summary>
           <div class="form-row">
-            <div class="form-group"><label class="form-label" for="imap-host">IMAP host</label>
-              <input type="text" class="form-input" id="imap-host" placeholder="Same as SMTP host" autocomplete="off"></div>
+            <div class="form-group"><label class="form-label" for="imap-host">IMAP-Host</label>
+              <input type="text" class="form-input" id="imap-host" placeholder="Wie der SMTP-Host" autocomplete="off"></div>
             <div class="form-group" style="max-width:120px"><label class="form-label" for="imap-port">Port</label>
               <input type="text" class="form-input" id="imap-port" placeholder="993" autocomplete="off"></div>
           </div>
-          <div class="form-group"><label class="form-label" for="imap-user">IMAP username</label>
-            <input type="text" class="form-input" id="imap-user" placeholder="Same as SMTP username" autocomplete="off"></div>
-          <div class="form-group"><label class="form-label" for="imap-pass">IMAP password</label>
-            <div class="with-btn"><input type="password" class="form-input" id="imap-pass" placeholder="Same as SMTP password" autocomplete="off" oninput="if (this.value) document.getElementById('imap-same-pass').checked = false">
-              <button class="btn btn-secondary" onclick="toggleVisibility('imap-pass')">Show</button></div></div>
-          <label class="check-line"><input type="checkbox" id="imap-same-pass"> Use the SMTP password for IMAP</label>
+          <div class="form-group"><label class="form-label" for="imap-user">IMAP-Benutzername</label>
+            <input type="text" class="form-input" id="imap-user" placeholder="Wie der SMTP-Benutzername" autocomplete="off"></div>
+          <div class="form-group"><label class="form-label" for="imap-pass">IMAP-Passwort</label>
+            <div class="with-btn"><input type="password" class="form-input" id="imap-pass" placeholder="Wie das SMTP-Passwort" autocomplete="off" oninput="if (this.value) document.getElementById('imap-same-pass').checked = false">
+              <button class="btn btn-secondary" onclick="toggleVisibility('imap-pass')">Anzeigen</button></div></div>
+          <label class="check-line"><input type="checkbox" id="imap-same-pass"> Das SMTP-Passwort für IMAP nutzen</label>
         </details>
-        <button class="btn btn-primary btn-sm" onclick="saveSmtp()">Save SMTP</button>
+        <button class="btn btn-primary btn-sm" onclick="saveSmtp()">SMTP speichern</button>
       </div>
     </div>
 
     <div class="settings-row">
       <div>
         <h3>Microsoft 365 / Outlook <span id="m365-status" class="email-tag"></span></h3>
-        <p class="desc">Microsoft turned off password sign-in for IMAP, so Outlook mailboxes connect with OAuth. In <a href="https://entra.microsoft.com" target="_blank" rel="noopener noreferrer">Entra</a> → App registrations, register an app for your organization only and add the redirect URI <code>http://localhost:8766</code> as "Public client/native". Paste both IDs here, save, then run <code>harvey microsoft auth</code>. No client secret is needed.</p>
+        <p class="desc">Microsoft hat die Passwort-Anmeldung für IMAP abgeschaltet, deshalb verbinden sich Outlook-Postfächer per OAuth. Registriere in <a href="https://entra.microsoft.com" target="_blank" rel="noopener noreferrer">Entra</a> unter App-Registrierungen eine App nur für deine Organisation und füge die Umleitungs-URI <code>http://localhost:8766</code> als „Öffentlicher Client/nativ“ hinzu. Füge beide IDs hier ein, speichere und führe dann <code>harvey microsoft auth</code> aus. Ein Client-Secret brauchst du nicht.</p>
       </div>
       <div class="fields">
-        <div class="form-group"><label class="form-label" for="m365-client">Application (client) ID</label>
+        <div class="form-group"><label class="form-label" for="m365-client">Anwendungs-ID (Client)</label>
           <input type="text" class="form-input" id="m365-client" placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off"></div>
-        <div class="form-group"><label class="form-label" for="m365-tenant">Directory (tenant) ID</label>
+        <div class="form-group"><label class="form-label" for="m365-tenant">Verzeichnis-ID (Mandant)</label>
           <input type="text" class="form-input" id="m365-tenant" placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off"></div>
-        <button class="btn btn-primary btn-sm" onclick="saveMicrosoft()">Save Microsoft 365</button>
+        <button class="btn btn-primary btn-sm" onclick="saveMicrosoft()">Microsoft 365 speichern</button>
       </div>
     </div>
 
     <div class="settings-row">
       <div>
-        <h3>Instantly <span class="tag">Legacy</span></h3>
-        <p class="desc">Get your API key from <a href="https://app.instantly.ai/app/settings/integrations" target="_blank" rel="noopener">Instantly Settings → Integrations</a> (Growth plan or higher for API).</p>
+        <h3>Instantly <span class="tag">Veraltet</span></h3>
+        <p class="desc">Deinen API-Schlüssel findest du unter <a href="https://app.instantly.ai/app/settings/integrations" target="_blank" rel="noopener">Instantly Settings, Integrations</a> (für die API brauchst du mindestens den Growth-Plan).</p>
       </div>
       <div class="fields">
-        <div class="form-group"><label class="form-label" for="instantly-key">API key</label>
-          <div class="with-btn"><input type="password" class="form-input" id="instantly-key" placeholder="Enter your Instantly API key" autocomplete="off">
-            <button class="btn btn-secondary" onclick="toggleVisibility('instantly-key')">Show</button>
-            <button class="btn btn-secondary" onclick="testInstantly()">Test</button></div>
+        <div class="form-group"><label class="form-label" for="instantly-key">API-Schlüssel</label>
+          <div class="with-btn"><input type="password" class="form-input" id="instantly-key" placeholder="Deinen Instantly-API-Schlüssel eingeben" autocomplete="off">
+            <button class="btn btn-secondary" onclick="toggleVisibility('instantly-key')">Anzeigen</button>
+            <button class="btn btn-secondary" onclick="testInstantly()">Testen</button></div>
           <div id="instantly-test-result"></div></div>
-        <button class="btn btn-primary btn-sm" onclick="saveInstantly()">Save Instantly</button>
+        <button class="btn btn-primary btn-sm" onclick="saveInstantly()">Instantly speichern</button>
       </div>
     </div>
   </div>
 
-  <div class="subhead">Email verification <span class="hint">Strongly recommended</span></div>
+  <div class="subhead">E-Mail-Prüfung <span class="hint">Dringend empfohlen</span></div>
   <div class="card">
     <div class="settings-row">
       <div>
-        <h3>Verifiers</h3>
-        <p class="desc">Add at least one so found emails get verified. Without any, addresses stay <span class="email-tag guess" style="margin:0">guess</span> and are never sent. Reoon has the best free tier (600 a month).</p>
+        <h3>Prüfdienste</h3>
+        <p class="desc">Füge mindestens einen hinzu, damit gefundene E-Mails geprüft werden. Ohne bleiben Adressen <span class="email-tag guess" style="margin:0">nicht geprüft</span> und werden nie gesendet. Reoon hat das beste Gratiskontingent (600 im Monat).</p>
       </div>
       <div class="fields">
-        <div class="form-group"><label class="form-label" for="reoon-key">Reoon API key <span id="reoon-status" class="email-tag"></span></label>
-          <div class="with-btn"><input type="password" class="form-input" id="reoon-key" placeholder="600 free/mo — reoon.com/email-verifier" autocomplete="off">
-            <button class="btn btn-secondary" onclick="toggleVisibility('reoon-key')">Show</button></div></div>
-        <div class="form-group"><label class="form-label" for="zerobounce-key">ZeroBounce API key <span id="zerobounce-status" class="email-tag"></span></label>
-          <input type="password" class="form-input" id="zerobounce-key" placeholder="100 free/mo — best for M365/Workspace catch-alls" autocomplete="off"></div>
-        <div class="form-group"><label class="form-label" for="hunter-key">Hunter API key <span id="hunter-status" class="email-tag"></span></label>
-          <input type="password" class="form-input" id="hunter-key" placeholder="50 free/mo + email-pattern lookup" autocomplete="off"></div>
-        <button class="btn btn-primary btn-sm" onclick="saveVerifiers()">Save verification keys</button>
+        <div class="form-group"><label class="form-label" for="reoon-key">Reoon-API-Schlüssel <span id="reoon-status" class="email-tag"></span></label>
+          <div class="with-btn"><input type="password" class="form-input" id="reoon-key" placeholder="600 gratis pro Monat · reoon.com/email-verifier" autocomplete="off">
+            <button class="btn btn-secondary" onclick="toggleVisibility('reoon-key')">Anzeigen</button></div></div>
+        <div class="form-group"><label class="form-label" for="zerobounce-key">ZeroBounce-API-Schlüssel <span id="zerobounce-status" class="email-tag"></span></label>
+          <input type="password" class="form-input" id="zerobounce-key" placeholder="100 gratis pro Monat · am besten für Catch-alls bei M365/Workspace" autocomplete="off"></div>
+        <div class="form-group"><label class="form-label" for="hunter-key">Hunter-API-Schlüssel <span id="hunter-status" class="email-tag"></span></label>
+          <input type="password" class="form-input" id="hunter-key" placeholder="50 gratis pro Monat + Suche nach E-Mail-Mustern" autocomplete="off"></div>
+        <button class="btn btn-primary btn-sm" onclick="saveVerifiers()">Prüfschlüssel speichern</button>
       </div>
     </div>
   </div>
@@ -400,35 +400,35 @@
     <div class="settings-row">
       <div>
         <h3>LinkedIn</h3>
-        <p class="desc">For automated LinkedIn prospecting. Harvey logs in and searches like a human.</p>
+        <p class="desc">Für automatische Kontaktsuche auf LinkedIn. Harvey meldet sich an und sucht wie ein Mensch.</p>
       </div>
       <div class="fields">
         <div class="form-group">
-          <label class="form-label" for="linkedin-email">Email or username</label>
-          <input type="text" class="form-input" id="linkedin-email" placeholder="your@email.com" autocomplete="off">
+          <label class="form-label" for="linkedin-email">E-Mail oder Benutzername</label>
+          <input type="text" class="form-input" id="linkedin-email" placeholder="du@email.de" autocomplete="off">
         </div>
         <div class="form-group">
-          <label class="form-label" for="linkedin-password">Password</label>
-          <input type="password" class="form-input" id="linkedin-password" placeholder="Enter password" autocomplete="new-password">
+          <label class="form-label" for="linkedin-password">Passwort</label>
+          <input type="password" class="form-input" id="linkedin-password" placeholder="Passwort eingeben" autocomplete="new-password">
         </div>
-        <button class="btn btn-primary btn-sm" onclick="saveLinkedIn()">Save LinkedIn</button>
+        <button class="btn btn-primary btn-sm" onclick="saveLinkedIn()">LinkedIn speichern</button>
       </div>
     </div>
     <div class="settings-row">
       <div>
         <h3>Cloudflare</h3>
-        <p class="desc">Deep website crawling with JavaScript rendering during product training. About $5 a month.</p>
+        <p class="desc">Tiefes Crawlen von Websites mit JavaScript beim Produkttraining. Etwa 5 $ im Monat.</p>
       </div>
       <div class="fields">
         <div class="form-group">
-          <label class="form-label" for="cf-account-id">Account ID</label>
-          <input type="text" class="form-input" id="cf-account-id" placeholder="Your Cloudflare Account ID" autocomplete="off">
+          <label class="form-label" for="cf-account-id">Konto-ID</label>
+          <input type="text" class="form-input" id="cf-account-id" placeholder="Deine Cloudflare-Konto-ID" autocomplete="off">
         </div>
         <div class="form-group">
-          <label class="form-label" for="cf-api-token">API token</label>
-          <input type="password" class="form-input" id="cf-api-token" placeholder="Your Cloudflare API Token" autocomplete="off">
+          <label class="form-label" for="cf-api-token">API-Token</label>
+          <input type="password" class="form-input" id="cf-api-token" placeholder="Dein Cloudflare-API-Token" autocomplete="off">
         </div>
-        <button class="btn btn-primary btn-sm" onclick="saveCloudflare()">Save Cloudflare</button>
+        <button class="btn btn-primary btn-sm" onclick="saveCloudflare()">Cloudflare speichern</button>
       </div>
     </div>
   </div>
@@ -436,123 +436,123 @@
 
 <!-- Controls -->
 <div id="controls" class="section">
-  <div class="section-head"><div><h2>Controls</h2><p>Start and stop Harvey's heartbeat loop, and watch what it's doing.</p></div></div>
+  <div class="section-head"><div><h2>Steuerung</h2><p>Starte und stoppe Harveys Herzschlag-Schleife und sieh zu, was er tut.</p></div></div>
   <div class="control-panel">
     <div class="card">
       <h2>Agent</h2>
       <div class="status-big" id="control-status">
         <div class="dot stopped" id="control-dot"></div>
-        <span class="label stopped" id="control-label">Stopped</span>
+        <span class="label stopped" id="control-label">Gestoppt</span>
       </div>
       <div class="status-meta" id="control-meta"></div>
       <div class="btn-group">
-        <button class="btn btn-primary" id="btn-start" onclick="startHarvey()">Start Harvey</button>
-        <button class="btn btn-danger" id="btn-stop" onclick="stopHarvey()" style="display:none">Stop Harvey</button>
+        <button class="btn btn-primary" id="btn-start" onclick="startHarvey()">Harvey starten</button>
+        <button class="btn btn-danger" id="btn-stop" onclick="stopHarvey()" style="display:none">Harvey stoppen</button>
       </div>
     </div>
     <div class="card">
-      <h2>Recent logs <button class="btn btn-ghost btn-sm" onclick="loadLogs()" style="margin-left:auto"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>Refresh</button></h2>
-      <div class="log-viewer" id="log-viewer">No logs yet. Start Harvey to see activity.</div>
+      <h2>Letzte Logs <button class="btn btn-ghost btn-sm" onclick="loadLogs()" style="margin-left:auto"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>Neu laden</button></h2>
+      <div class="log-viewer" id="log-viewer">Noch keine Logs. Starte Harvey, um Aktivität zu sehen.</div>
     </div>
   </div>
 </div>
 
 <!-- Help -->
 <div id="help" class="section">
-  <div class="section-head"><div><h2>Help</h2><p>What Harvey is, how it works, and how to fix the usual problems.</p></div></div>
+  <div class="section-head"><div><h2>Hilfe</h2><p>Was Harvey ist, wie er arbeitet und wie du die üblichen Probleme löst.</p></div></div>
 
   <div class="help-section">
-    <h2>What is Harvey?</h2>
-    <p>Harvey is an autonomous AI sales agent. Once set up, Harvey runs on its own: finds people who match your ideal customer, writes personalized cold emails, sends them through your email platform, reads every reply, handles objections, and works toward booking a meeting. You review everything through this dashboard.</p>
-    <p>Harvey runs on your Claude Max subscription (or, if you opt in, your ChatGPT plan through Codex), so there are no extra AI costs. Everything stays on your machine in one folder.</p>
+    <h2>Was ist Harvey?</h2>
+    <p>Harvey ist ein autonomer KI-Vertriebsagent. Einmal eingerichtet, arbeitet Harvey selbstständig: Er findet Leute, die zu deinem Idealkunden passen, schreibt persönliche Cold E-Mails, versendet sie über deine E-Mail-Plattform, liest jede Antwort, geht auf Einwände ein und arbeitet auf einen Termin hin. Du prüfst alles über dieses Dashboard.</p>
+    <p>Harvey läuft über dein Claude-Max-Abo (oder, wenn du es einschaltest, über deinen ChatGPT-Plan mit Codex), es entstehen also keine zusätzlichen KI-Kosten. Alles bleibt auf deinem Rechner in einem Ordner.</p>
   </div>
 
   <div class="help-section">
-    <h2>Getting started</h2>
-    <p>There are three things to do:</p>
-    <pre>1. Go to the Settings tab and connect an email provider (Gmail recommended)
-2. Train Harvey on your product (through Claude or the command line)
-3. Go to the Controls tab and click Start</pre>
-    <p>Today shows exactly what's done and what still needs to happen.</p>
+    <h2>Erste Schritte</h2>
+    <p>Es gibt drei Dinge zu tun:</p>
+    <pre>1. Geh in den Tab Einstellungen und verbinde einen E-Mail-Anbieter (Gmail empfohlen)
+2. Trainiere Harvey auf dein Produkt (über Claude oder die Kommandozeile)
+3. Geh in den Tab Steuerung und klick auf Harvey starten</pre>
+    <p>Unter Heute siehst du genau, was erledigt ist und was noch fehlt.</p>
   </div>
 
   <div class="help-section">
-    <h2>Where everything lives</h2>
-    <p>Everything Harvey needs is inside this one project folder. Nothing is stored elsewhere.</p>
+    <h2>Wo alles liegt</h2>
+    <p>Alles, was Harvey braucht, liegt in diesem einen Projektordner. Nichts wird woanders gespeichert.</p>
     <div class="table-card">
     <table class="file-table">
-      <tr><td>.env</td><td>Your API keys and credentials (never shared or committed)</td></tr>
-      <tr><td>harvey.yaml</td><td>Your product info, target customers, and behavior settings</td></tr>
-      <tr><td>skills/</td><td>Sales knowledge files. Edit these to change how Harvey writes and sells.</td></tr>
-      <tr><td>skills/product_knowledge.md</td><td>Everything Harvey knows about your product (auto-generated from training)</td></tr>
-      <tr><td>prompts/</td><td>Prompt templates for each agent. Advanced customization.</td></tr>
-      <tr><td>data/harvey.db</td><td>Database with all prospects, campaigns, and conversations</td></tr>
-      <tr><td>data/harvey.log</td><td>Log file showing what Harvey is doing</td></tr>
+      <tr><td>.env</td><td>Deine API-Schlüssel und Zugangsdaten (werden nie geteilt oder committet)</td></tr>
+      <tr><td>harvey.yaml</td><td>Deine Produktinfos, Zielkunden und Verhaltenseinstellungen</td></tr>
+      <tr><td>skills/</td><td>Dateien mit Vertriebswissen. Bearbeite sie, um zu ändern, wie Harvey schreibt und verkauft.</td></tr>
+      <tr><td>skills/product_knowledge.md</td><td>Alles, was Harvey über dein Produkt weiß (automatisch beim Training erzeugt)</td></tr>
+      <tr><td>prompts/</td><td>Prompt-Vorlagen für jeden Agenten. Für fortgeschrittene Anpassungen.</td></tr>
+      <tr><td>data/harvey.db</td><td>Datenbank mit allen Kontakten, Kampagnen und Gesprächen</td></tr>
+      <tr><td>data/harvey.log</td><td>Logdatei, die zeigt, was Harvey tut</td></tr>
     </table>
     </div>
   </div>
 
   <div class="help-section">
-    <h2>Getting your API keys</h2>
+    <h2>So bekommst du deine API-Schlüssel</h2>
 
     <details>
-      <summary>Instantly API key (legacy)</summary>
+      <summary>Instantly-API-Schlüssel (veraltet)</summary>
       <div class="faq-body">
-        <p>Instantly is the legacy sending option; Gmail or SMTP is recommended.</p>
-        <p>1. Sign up at <a href="https://instantly.ai" target="_blank" rel="noopener">instantly.ai</a> (you need the Growth plan for API access)</p>
-        <p>2. Go to Settings &gt; Integrations</p>
-        <p>3. Copy your API key</p>
-        <p>4. Paste it in the Settings tab here</p>
+        <p>Instantly ist die alte Versandoption; empfohlen sind Gmail oder SMTP.</p>
+        <p>1. Registriere dich auf <a href="https://instantly.ai" target="_blank" rel="noopener">instantly.ai</a> (für den API-Zugang brauchst du den Growth-Plan)</p>
+        <p>2. Geh zu Settings &gt; Integrations</p>
+        <p>3. Kopiere deinen API-Schlüssel</p>
+        <p>4. Füge ihn hier im Tab Einstellungen ein</p>
       </div>
     </details>
 
     <details>
-      <summary>LinkedIn credentials (optional)</summary>
+      <summary>LinkedIn-Zugangsdaten (optional)</summary>
       <div class="faq-body">
-        <p>If you want Harvey to find prospects on LinkedIn, enter your LinkedIn email and password. Harvey uses a real browser to search LinkedIn like a human would, with random delays and rate limits to avoid detection.</p>
-        <p>If you skip this, Harvey will find prospects through Google searches and company website scraping instead.</p>
+        <p>Wenn Harvey Kontakte auf LinkedIn finden soll, gib deine LinkedIn-E-Mail und dein Passwort ein. Harvey sucht mit einem echten Browser wie ein Mensch, mit zufälligen Pausen und Limits, damit er nicht auffällt.</p>
+        <p>Wenn du das auslässt, findet Harvey Kontakte stattdessen über Google-Suchen und das Auslesen von Firmenwebsites.</p>
       </div>
     </details>
 
     <details>
       <summary>Cloudflare Browser Rendering (optional)</summary>
       <div class="faq-body">
-        <p>This is only used during product training (when Harvey crawls your website to learn about your product). It handles JavaScript-heavy websites that a basic crawler can't read.</p>
-        <p>1. Sign up at <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">Cloudflare</a> (paid Workers plan, ~$5/month)</p>
-        <p>2. Go to Workers &amp; Pages &gt; Browser Rendering</p>
-        <p>3. Create an API token with Browser Rendering Edit permissions</p>
-        <p>4. Enter your Account ID and API Token in the Settings tab</p>
-        <p>Without this, Harvey uses a built-in crawler that works fine for most websites but can't render JavaScript.</p>
+        <p>Das wird nur beim Produkttraining genutzt (wenn Harvey deine Website crawlt, um dein Produkt kennenzulernen). Es kommt mit Websites voller JavaScript klar, die ein einfacher Crawler nicht lesen kann.</p>
+        <p>1. Registriere dich bei <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">Cloudflare</a> (bezahlter Workers-Plan, etwa 5 $ im Monat)</p>
+        <p>2. Geh zu Workers &amp; Pages &gt; Browser Rendering</p>
+        <p>3. Erstelle ein API-Token mit der Berechtigung Browser Rendering Edit</p>
+        <p>4. Trag Konto-ID und API-Token im Tab Einstellungen ein</p>
+        <p>Ohne das nutzt Harvey einen eingebauten Crawler, der für die meisten Websites gut funktioniert, aber kein JavaScript ausführen kann.</p>
       </div>
     </details>
   </div>
 
   <div class="help-section">
-    <h2>Common issues</h2>
+    <h2>Häufige Probleme</h2>
 
     <details>
-      <summary>"command not found: harvey"</summary>
-      <div class="faq-body">You need to activate the virtual environment first: <code>source .venv/bin/activate</code></div>
+      <summary>„command not found: harvey“</summary>
+      <div class="faq-body">Du musst zuerst die virtuelle Umgebung aktivieren: <code>source .venv/bin/activate</code></div>
     </details>
 
     <details>
-      <summary>Instantly API returns 401</summary>
-      <div class="faq-body">Your API key is wrong, or you need the Growth plan (the free plan doesn't include API access). Double-check the key in Settings &gt; Integrations in your Instantly dashboard.</div>
+      <summary>Instantly-API antwortet mit 401</summary>
+      <div class="faq-body">Dein API-Schlüssel ist falsch, oder du brauchst den Growth-Plan (im Gratisplan ist kein API-Zugang enthalten). Prüf den Schlüssel in deinem Instantly-Dashboard unter Settings &gt; Integrations.</div>
     </details>
 
     <details>
-      <summary>Claude headless mode fails</summary>
-      <div class="faq-body">Make sure you've run <code>claude login</code> in your terminal and have an active Claude Max subscription. Harvey uses your existing subscription, not a separate API key.</div>
+      <summary>Claude im Headless-Modus schlägt fehl</summary>
+      <div class="faq-body">Stell sicher, dass du <code>claude login</code> im Terminal ausgeführt hast und ein aktives Claude-Max-Abo hast. Harvey nutzt dein bestehendes Abo, keinen separaten API-Schlüssel.</div>
     </details>
 
     <details>
-      <summary>Codex calls fail</summary>
-      <div class="faq-body">With <code>brain.provider: codex</code>, set <code>brain.model</code> to an available model ID, including Luna, Sol, or Terra (for example <code>gpt-6.1-sol</code>), or leave it blank to select a listed model. Harvey runs these models without tools; <code>gpt-5.5</code> also remains supported when present in your account's catalog. Run <code>codex login</code> and choose "Sign in with ChatGPT" (API-key logins are refused). Harvey never renews your Codex login: if the log says it has expired or is due for renewal, use Codex once or run <code>codex login</code>. Harvey needs Codex CLI 0.159.3 on macOS or Linux (Codex isn't supported on Windows; use Claude there) and refuses other versions. While Codex can't be used, Harvey pauses (Today shows "Codex is paused" and why), leaves replies and queued emails untouched, and resumes once it's fixed; <code>harvey status --check</code> checks on demand. If the log says isolation could not be verified, a Codex config layer is forcing a tool, hook, MCP server or custom endpoint back on — Harvey refuses to send prompts until it is removed. Harvey never falls back to Claude on its own.</div>
+      <summary>Codex-Aufrufe schlagen fehl</summary>
+      <div class="faq-body">Setze mit <code>brain.provider: codex</code> den Wert <code>brain.model</code> auf eine verfügbare Modell-ID, etwa Luna, Sol oder Terra (zum Beispiel <code>gpt-6.1-sol</code>), oder lass ihn leer, um ein gelistetes Modell zu wählen. Harvey nutzt diese Modelle ohne Tools; <code>gpt-5.5</code> wird weiter unterstützt, wenn es im Katalog deines Kontos steht. Führe <code>codex login</code> aus und wähle „Sign in with ChatGPT“ (Anmeldungen per API-Schlüssel werden abgelehnt). Harvey erneuert deinen Codex-Login nie: Wenn das Log sagt, dass er abgelaufen ist oder erneuert werden muss, nutze Codex einmal selbst oder führe <code>codex login</code> aus. Harvey braucht Codex CLI 0.159.3 auf macOS oder Linux (unter Windows wird Codex nicht unterstützt; nutze dort Claude) und lehnt andere Versionen ab. Solange Codex nicht nutzbar ist, pausiert Harvey (Heute zeigt „Codex ist pausiert“ und warum), lässt Antworten und eingereihte E-Mails unberührt und macht weiter, sobald es behoben ist; <code>harvey status --check</code> prüft das auf Abruf. Wenn das Log sagt, dass die Isolation nicht geprüft werden konnte, schaltet eine Codex-Konfigurationsebene ein Tool, einen Hook, einen MCP-Server oder einen eigenen Endpunkt wieder ein. Harvey sendet dann keine Prompts, bis das entfernt ist. Harvey wechselt nie von selbst zu Claude.</div>
     </details>
 
     <details>
-      <summary>Harvey isn't finding prospects</summary>
-      <div class="faq-body">Check that your ICP (ideal customer profile) in harvey.yaml has realistic titles, industries, and geography. If LinkedIn is set up, check that the credentials are correct. Check the Activity tab to see what Harvey has been trying to do.</div>
+      <summary>Harvey findet keine Kontakte</summary>
+      <div class="faq-body">Prüfe, ob dein ICP (Idealkundenprofil) in harvey.yaml realistische Titel, Branchen und Regionen hat. Wenn LinkedIn eingerichtet ist, prüfe, ob die Zugangsdaten stimmen. Im Tab Aktivität siehst du, was Harvey versucht hat.</div>
     </details>
   </div>
 </div>

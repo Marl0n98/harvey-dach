@@ -87,7 +87,7 @@ def test_a_hand_built_tuple_is_normalised_too():
 def test_the_gate_blocks_a_listed_recipient():
     result = _check("jane@acme.example", ["acme.example"])
     assert not result
-    assert any("do-not-contact" in r for r in result.reasons)
+    assert any("Sperrliste" in r for r in result.reasons)
 
 
 def test_the_gate_passes_an_unlisted_recipient():
@@ -122,7 +122,7 @@ async def test_an_approved_email_to_a_listed_domain_never_leaves(state):
     assert provider.sent == [], "an email went to a do-not-contact domain"
     item = await state.get_outbox_item(item_id)
     assert item["status"] == "failed"
-    assert "do-not-contact" in item["error"]
+    assert "Sperrliste" in item["error"]
 
 
 @pytest.mark.asyncio
@@ -186,7 +186,7 @@ async def test_an_instantly_reply_to_a_listed_address_goes_to_you(state):
     cfg.compliance = ComplianceConfig(do_not_contact=["acme.example"])
     handler = Handler(brain=None, state=state, config=cfg, env=Env())
     held = handler._instantly_reply_held(_prospect("jane@acme.example"), BODY)
-    assert any("do-not-contact" in r for r in held)
+    assert any("Sperrliste" in r for r in held)
 
 
 # ── Review round: the list must hold however it is written and whenever ──
@@ -265,7 +265,7 @@ async def test_an_approved_cold_email_to_a_listed_domain_never_leaves(state):
     sender.config.compliance = ComplianceConfig(do_not_contact=["acme.example"])
     await sender._drain_due()
     assert provider.sent == []
-    assert "do-not-contact" in (await state.get_outbox_item(item_id))["error"]
+    assert "Sperrliste" in (await state.get_outbox_item(item_id))["error"]
 
 
 @pytest.mark.asyncio

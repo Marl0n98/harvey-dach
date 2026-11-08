@@ -272,8 +272,8 @@ def test_an_unusable_logo_is_explained_on_today():
     from harvey.sending_mode import held_message
     title, detail = held_message(
         {"reason": "email signature: logo file not found: logo.png", "since": "2026-10-31T10:00:00"}, 2)
-    assert "logo" in title and "inbox" not in title
-    assert "logo file not found" in detail and "2 emails" in detail
+    assert "Logo" in title and "Postfach" not in title
+    assert "logo file not found" in detail and "2 E-Mails" in detail
 
 
 # ── Review follow-ups ──

@@ -66,16 +66,16 @@ def test_companies_carry_fit_and_status_best_fit_first(client):
     assert [r["id"] for r in rows] == ["c1", "c2", "c3"]
     acme = rows[0]
     assert acme["fit"] == 100
-    assert "hiring: forklift operator" in acme["fit_reasons"]
-    assert acme["register_status"] == "Ready"
-    assert rows[2]["register_status"] == "Excluded" and rows[2]["fit"] == 0
+    assert "sucht: forklift operator" in acme["fit_reasons"]
+    assert acme["register_status"] == "Bereit"
+    assert rows[2]["register_status"] == "Ausgeschlossen" and rows[2]["fit"] == 0
 
 
 def test_profile_has_register_row_and_observations(client):
     data = client.get("/api/companies/c1/profile").json()
     assert data["company"]["domain"] == "acme.example"
-    assert data["register"]["status"] == "Ready"
-    assert data["register"]["why_selected"].startswith("Found via discover:test; sector: forging company")
+    assert data["register"]["status"] == "Bereit"
+    assert data["register"]["why_selected"].startswith("Gefunden über discover:test; Branche: forging company")
     assert [o["signal_code"] for o in data["observations"]] == ["HIRING_ROLE"]
     assert client.get("/api/companies/nope/profile").status_code == 404
 
@@ -87,7 +87,7 @@ def test_register_csv_lists_every_company(client):
     lines = resp.text.lstrip("﻿").splitlines()
     assert lines[0].startswith("company,website,sector,area,fit,why_selected,status")
     assert len(lines) == 4
-    assert "Quiet Mill" in resp.text and "Not processed yet" in resp.text
+    assert "Quiet Mill" in resp.text and "Noch nicht bearbeitet" in resp.text
 
 
 def test_best_fit_first_across_more_than_the_page_cap(client, monkeypatch):

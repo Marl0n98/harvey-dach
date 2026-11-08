@@ -443,7 +443,7 @@ Conversation stages: `initial_outreach → engaged → qualifying → presenting
 
 By default **every outgoing email waits for your approval.** Harvey is a copilot until you decide otherwise.
 
-The dashboard's Outbox is a decisions desk: one email fills the pane, the rest wait in a rail, and you work the queue with `A` approve, `R` reject, `J`/`K` to move. That shape is deliberate — a wall of stacked drafts invites a single approve-all reflex, which is exactly the review the approval ladder exists to force.
+The dashboard's Outbox is a decisions desk: one email fills the pane, the rest wait in a rail, and you work the queue with `F` approve (Freigeben), `X` reject, `J`/`K` to move. That shape is deliberate — a wall of stacked drafts invites a single approve-all reflex, which is exactly the review the approval ladder exists to force.
 
 ```bash
 harvey outbox                 # review from the terminal
@@ -553,7 +553,7 @@ The sidebar is grouped by what you're doing: **Work** (what needs you), **Pipeli
 
 **Work**
 - **Today** — four headline figures with 14-day trends (contacts found, emails sent, conversations, waiting on you), then everything that needs a decision, contacts by stage, collector runs and what the pipeline is doing right now. Setup shows here until it's finished, then disappears.
-- **Outbox** — the decisions desk. Each email sits next to what Harvey knew when it wrote it: the company, how the address was found and verified, and the signals the email draws on. `J`/`K` to move, `A` approve, `E` edit, `R` reject.
+- **Outbox** — the decisions desk. Each email sits next to what Harvey knew when it wrote it: the company, how the address was found and verified, and the signals the email draws on. `J`/`K` to move, `F` approve, `B` edit, `X` reject.
 - **Conversations** — every reply in the context of the emails that led to it. Threads Harvey handed to you (a contract request, a reply it had no safe answer for) come first, with **Hand back to Harvey**, **Close** and **Reopen**.
 
 **Pipeline**
