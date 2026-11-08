@@ -692,7 +692,22 @@ def review_removed(lead: dict, country: str = "") -> dict:
     contacts = set(rm.get("contacts") or []) | ({rm["contact"]} if rm.get("contact") else set())
     phones = {phone_key(p, country) for p in rm.get("phones") or []} - {""}
     return {"emails": emails, "contacts": contacts, "phones": phones,
-            "description": bool(rm.get("description"))}
+            "description": bool(rm.get("description") or rm.get("site")), "site": bool(rm.get("site")),
+            "map_phone": bool(rm.get("map_phone"))}
+
+
+async def removed_for_company(state, company_id: str) -> dict:
+    """review_removed for one company's stored lead (nothing removed when there is none)."""
+    empty = review_removed({})
+    if not company_id:
+        return empty
+    try:
+        async with state._connect() as db:
+            async with db.execute("SELECT data FROM leads WHERE company_id = ?", (company_id,)) as cur:
+                row = await cur.fetchone()
+        return review_removed(json.loads(row[0] or "{}")) if row else empty
+    except Exception:
+        return empty
 
 
 def review_people(lead: dict, as_dicts: bool = False) -> list:
@@ -735,9 +750,9 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     if contact and contact["name"] in removed["contacts"]:
         contact = None
     site_phones = [p for p in lead.get("site_phones") or [] if phone_key(p, country) not in removed["phones"]]
-    map_phone = company.get("phone", "")
-    if map_phone and phone_key(map_phone, country) in removed["phones"]:
-        map_phone = ""
+    # The map's number comes with the company's own map entry: only a decision
+    # about that number itself removes it, not a site number that happens to match.
+    map_phone = "" if removed["map_phone"] else company.get("phone", "")
     others = [f"{e['email']} ({e['source']}, {e['check']})" for e in emails
               if not best or e["email"] != best["email"]]
     catch_all = lead.get("catch_all")

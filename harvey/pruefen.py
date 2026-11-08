@@ -49,15 +49,16 @@ def _host(url: str) -> str:
 
 
 def _empty() -> dict:
-    return {"notes": [], "remove": {"emails": [], "contacts": [], "phones": [], "description": False}}
+    return {"notes": [], "remove": {"emails": [], "contacts": [], "phones": [], "description": False,
+                                    "site": False, "map_phone": False}}
 
 
 def _add(item: dict, note: str, **remove):
     if note and note not in item["notes"]:
         item["notes"].append(note)
     for key, value in remove.items():
-        if key == "description":
-            item["remove"]["description"] = item["remove"]["description"] or bool(value)
+        if key in ("description", "site", "map_phone"):
+            item["remove"][key] = item["remove"][key] or bool(value)
         else:
             for v in value if isinstance(value, list) else [value]:
                 if v and v not in item["remove"][key]:
@@ -79,6 +80,8 @@ def _merge_remove(a: dict, b: dict) -> dict:
         "contacts": sorted(set(as_list(a, "contacts", "contact") + as_list(b, "contacts", "contact"))),
         "phones": sorted(set((a.get("phones") or []) + (b.get("phones") or []))),
         "description": bool(a.get("description") or b.get("description")),
+        "site": bool(a.get("site") or b.get("site")),
+        "map_phone": bool(a.get("map_phone") or b.get("map_phone")),
     }
 
 
@@ -154,7 +157,7 @@ def rule_findings(records: list[dict]) -> dict[str, dict]:
                               if same_site(e["email"].rpartition("@")[2].lower(), domain)]
                     _add(item, f"Website {domain} ist ein Portal oder Verband, nicht die Seite der Firma",
                          description=True, emails=theirs, contacts=L.review_people(lead),
-                         phones=list(lead.get("site_phones") or []))
+                         phones=list(lead.get("site_phones") or []), site=True)
             for note in (lead.get("review") or {}).get("notes") or []:
                 # An address that moved up after the agents removed the one before:
                 # a case again until someone has checked it.
@@ -229,7 +232,7 @@ async def live_findings(records: list[dict], concurrency: int = 6, progress=None
                 # It now lands on another business: nothing read from it is this company's.
                 _add(item, f"Website leitet auf {foreign} weiter", emails=site_emails,
                      contacts=L.review_people(shown), phones=list(lead.get("site_phones") or []),
-                     description=True)
+                     description=True, site=True)
                 return
             if len(pages) < 1:
                 _add(item, "Website ließ sich nicht erneut lesen")
@@ -278,7 +281,7 @@ def merge(*findings: dict[str, dict]) -> dict[str, dict]:
 
 def _has_removals(rm: dict) -> bool:
     return bool(rm.get("emails") or rm.get("contacts") or rm.get("phones") or rm.get("description")
-                or rm.get("email") or rm.get("contact"))
+                or rm.get("site") or rm.get("map_phone") or rm.get("email") or rm.get("contact"))
 
 
 async def load_records(state, limit: int = 0) -> list[dict]:
@@ -350,7 +353,7 @@ def _validate(decisions) -> list[dict]:
     for i, d in enumerate(decisions, start=1):
         if not isinstance(d, dict) or not isinstance(d.get("company_id"), str):
             raise ValueError(f"Eintrag {i}: braucht ein Objekt mit company_id (Text).")
-        for key in ("email", "ansprechpartner"):
+        for key in ("email", "ansprechpartner", "website"):
             if d.get(key) is not None and (not isinstance(d[key], str) or d[key] not in _VERDICTS):
                 raise ValueError(f"Eintrag {i}: {key} muss 'behalten' oder 'entfernen' sein.")
         phones = d.get("telefon") or {}
@@ -369,7 +372,7 @@ async def apply_decisions(state, path: Path) -> dict:
     by_id: dict[str, dict] = {}
     for d in decisions:          # several entries for one company add up
         m = by_id.setdefault(d["company_id"], {"company_id": d["company_id"], "telefon": {}, "begruendung": ""})
-        for key in ("email", "ansprechpartner"):
+        for key in ("email", "ansprechpartner", "website"):
             if d.get(key) == "entfernen" or (d.get(key) and not m.get(key)):
                 m[key] = d[key]
         m["telefon"].update({k: v for k, v in (d.get("telefon") or {}).items() if v == "entfernen" or k not in m["telefon"]})
@@ -388,7 +391,24 @@ async def apply_decisions(state, path: Path) -> dict:
             new["emails"] = [row["Beste E-Mail"].lower()]
         if d.get("ansprechpartner") == "entfernen" and row["Ansprechpartner"]:
             new["contacts"] = [row["Ansprechpartner"]]
-        new["phones"] = [p for p, verdict in (d.get("telefon") or {}).items() if verdict == "entfernen"]
+        country = L.company_country(r, lead)
+        map_key = L.phone_key(r.get("phone") or "", country)
+        for number, verdict in (d.get("telefon") or {}).items():
+            if verdict != "entfernen":
+                continue
+            if map_key and L.phone_key(number, country) == map_key:
+                new["map_phone"] = True      # the agents decided about the map's own number
+            else:
+                new["phones"].append(number)
+        if d.get("website") == "entfernen":
+            # The website isn't this company's (a sister practice, a successor):
+            # nothing read from it stays, only what the map says about the company.
+            new["emails"] = sorted({e["email"].lower() for e in lead.get("emails") or []
+                                    if e["source"] != L.SOURCE_MAP} | set(new["emails"]))
+            new["contacts"] = sorted(set(new["contacts"]) | set(L.review_people(lead)))
+            new["phones"] = sorted(set(new["phones"]) | set(lead.get("site_phones") or []))
+            new["description"] = True
+            new["site"] = True
         old = lead.get("review") or {}
         remove = _merge_remove(old.get("remove") or {}, new)
         notes = list(old.get("notes") or [])

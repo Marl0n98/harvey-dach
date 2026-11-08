@@ -9,12 +9,13 @@ Prüfe die Lead-Liste von Harvey so, dass am Ende keine E-Mail, keine Ansprechpe
 3. **Zusammenführen:** Jeder Fall hat bei E-Mail und Telefon eine Quelle (`email_quelle`, `telefon_karte` / `telefon_website`).
    - **Werte von der Website** (Quelle Website, Muster, geraten, `telefon_website`): Beide sagen „gehoert“, dann **behalten**. Sagt einer „gehoert_nicht“ oder „unklar“, dann **entfernen**. Lieber ein leeres Feld als ein falsches.
    - **Werte aus der Karte** (Quelle Karte, `telefon_karte`): Sie stammen aus demselben Karteneintrag wie die Firma selbst. **Entfernen** nur, wenn mindestens ein Prüfer „gehoert_nicht“ mit Beleg sagt. „unklar“ (etwa weil die Website nicht lädt) heißt **behalten**.
+   - **Website:** Sagt mindestens ein Prüfer mit Beleg „gehoert_nicht“ (die Seite gehört einer anderen Firma), dann **entfernen**. Harvey nimmt dann nichts von dieser Website, nur die Angaben aus der Karte bleiben.
    - **Ansprechperson:** Es zählt nur, ob die Person zu dieser Firma gehört. Wie die Rolle heißt (Inhaberin, Medieninhaberin, Diensteanbieterin, Geschäftsführer, Physiotherapeutin), ist egal. Entfernen nur bei „gehoert_nicht“ oder wenn beide „unklar“ sagen.
-   Schreib die Entscheidungen als JSON nach `data/exports/entscheidungen-<Datum>.json`:
+   Schreib die Entscheidungen als JSON nach `data/exports/entscheidungen-<Datum>-runde<N>.json` (eine eigene Datei pro Runde, damit nichts überschrieben wird):
    ```json
-   [{"company_id": "...", "email": "behalten|entfernen", "ansprechpartner": "behalten|entfernen", "telefon": {"<nummer>": "behalten|entfernen"}, "begruendung": "ein Satz mit Beleg"}]
+   [{"company_id": "...", "website": "behalten|entfernen", "email": "behalten|entfernen", "ansprechpartner": "behalten|entfernen", "telefon": {"<nummer>": "behalten|entfernen"}, "begruendung": "ein Satz mit Beleg"}]
    ```
-4. **Übernehmen:** Führe `.venv/bin/harvey pruefen --anwenden data/exports/entscheidungen-<Datum>.json` aus. Wurde dabei eine beste Adresse entfernt, rückt die nächste nach und gilt als neuer Fall: Führe danach `.venv/bin/harvey pruefen` (ohne `--live`) noch einmal aus und prüf neue Fälle wie in Schritt 2 und 3, höchstens zwei Runden. Am Ende steht die geprüfte Liste in `data/exports/leads-<Datum>-geprueft.xlsx`.
+4. **Übernehmen:** Führe `.venv/bin/harvey pruefen --anwenden data/exports/entscheidungen-<Datum>-runde<N>.json` aus. Wurde dabei eine beste Adresse entfernt, rückt die nächste nach und gilt als neuer Fall: Führe danach `.venv/bin/harvey pruefen` (ohne `--live`) noch einmal aus und prüf neue Fälle wie in Schritt 2 und 3, höchstens zwei Runden. Am Ende steht die geprüfte Liste in `data/exports/leads-<Datum>-geprueft.xlsx`.
 5. **Bericht:** Sag kurz, wie viele Firmen geprüft wurden, wie viele Werte entfernt wurden und warum (die häufigsten Gründe), und nenne die Datei. Zeig keine Namen oder Adressen im Chat, die nicht nötig sind.
 
 Regeln: Ändere keine Dateien außer den beiden JSON-Dateien. Schick keine Mails, gib nichts frei, ändere nichts an der Konfiguration.

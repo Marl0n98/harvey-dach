@@ -296,3 +296,82 @@ async def test_settled_doubts_are_no_cases_and_association_addresses_go(state, t
     records = await P.load_records(state)
     found = P.rule_findings(records)
     assert any("office@physio.at" in found[r["id"]]["remove"]["emails"] for r in records)
+
+
+@pytest.mark.asyncio
+async def test_a_website_of_another_business_leaves_only_the_map_data(state, tmp_path):
+    cid = await add(state, "Praxis Nord", "schwester.at",
+                    {"site": "https://schwester.at", "description": "Schwesterpraxis",
+                     "people": [{"name": "Karl Fremd", "title": "Inhaber"}],
+                     "emails": [email("therapie@praxis-nord.at", source=L.SOURCE_MAP),
+                                email("buero@schwester.at"), email("k.fremd@schwester.at", person="Karl Fremd")],
+                     "site_phones": ["0316 777777"]}, phone="0316 111111")
+    d = tmp_path / "d.json"
+    d.write_text(json.dumps([{"company_id": cid, "website": "entfernen", "begruendung": "gehört der Schwesterpraxis"}]))
+    await P.apply_decisions(state, d)
+    [record] = await P.load_records(state)
+    lead = json.loads(record["lead"])
+    row, sheet = L.rows_for(record, lead)
+    assert row["Beste E-Mail"] == "therapie@praxis-nord.at" and row["Weitere E-Mails"] == ""
+    assert row["Ansprechpartner"] == "" and row["Telefon (Website)"] == "" and row["Telefon (Karte)"] == "0316 111111"
+    assert row["Was sie machen (Website)"] == "" and {e["E-Mail"] for e in sheet} == {"therapie@praxis-nord.at"}
+
+    from harvey.agents.scout import Scout
+    s = Scout.__new__(Scout)
+    s.state = state
+    assert (await s._lead_removed(cid))["site"] is True
+
+
+@pytest.mark.asyncio
+async def test_map_phone_survives_when_the_site_shows_the_same_number(state, tmp_path):
+    cid = await add(state, "Praxis Nord", "schwester.at",
+                    {"site": "https://schwester.at", "people": [],
+                     "emails": [email("buero@schwester.at")], "site_phones": ["+43 316 111111"]},
+                    phone="0316 111111")
+    d = tmp_path / "d.json"
+    d.write_text(json.dumps([{"company_id": cid, "website": "entfernen"}]))
+    await P.apply_decisions(state, d)
+    [record] = await P.load_records(state)
+    row, _ = L.rows_for(record, json.loads(record["lead"]))
+    assert row["Telefon (Karte)"] == "0316 111111" and row["Telefon (Website)"] == ""
+    d.write_text(json.dumps([{"company_id": cid, "telefon": {"+43 316 111111": "entfernen"}}]))
+    await P.apply_decisions(state, d)
+    [record] = await P.load_records(state)
+    row, _ = L.rows_for(record, json.loads(record["lead"]))
+    assert row["Telefon (Karte)"] == ""        # a decision about the map's own number removes it
+
+
+@pytest.mark.asyncio
+async def test_writer_skips_contacts_a_check_removed(state, tmp_path):
+    from types import SimpleNamespace
+    from harvey.agents.writer import Writer
+    from harvey.models.prospect import Prospect
+    cid = await state.add_company(Company(name="Praxis Nord", domain="schwester.at",
+                                          website="https://schwester.at", email="therapie@praxis-nord.at"))
+    await L.save_lead(state, cid, {"site": "https://schwester.at", "people": [],
+                                   "emails": [email("therapie@praxis-nord.at", source=L.SOURCE_MAP),
+                                              email("buero@schwester.at")]})
+    for addr in ("buero@schwester.at", "therapie@praxis-nord.at"):
+        await state.add_prospect(Prospect(company="Praxis Nord", company_id=cid, email=addr,
+                                          email_status="verified", source="company_inbox", title="General inbox"))
+    d = tmp_path / "d.json"
+    d.write_text(json.dumps([{"company_id": cid, "website": "entfernen"}]))
+    await P.apply_decisions(state, d)
+
+    seen = []
+
+    class Brain:
+        def load_skills_for_agent(self, n): return ""
+        async def think_json(self, *a, **k): return None
+
+    w = Writer(Brain(), state, SimpleNamespace(
+        channels=SimpleNamespace(email=SimpleNamespace(provider="gmail", require_approval=True, first_touch="question")),
+        writer=SimpleNamespace(email_rules="")))
+
+    async def capture(batch):
+        seen.extend(p.email for p in batch)
+        return []
+    w._write_sequence = capture
+    w._group_prospects = lambda ps: {"x": ps}
+    await w.run()
+    assert seen == ["therapie@praxis-nord.at"]

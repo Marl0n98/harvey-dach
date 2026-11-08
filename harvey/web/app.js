@@ -842,7 +842,7 @@ function sigRow(sig) {
 
   return '<div class="sig-row ' + (sig.status === 'rejected' ? 'rejected' : '') + '">' +
     '<div class="sig-main">' +
-      '<div class="sig-label">' + escHtml(sig.label || sig.code) +
+      '<div class="sig-label">' + escHtml(sig.label || sig.code) + ' ' +
         '<span class="sig-code">' + escHtml(sig.code) + '</span></div>' +
       '<div class="sig-desc">' + escHtml(sig.description) + '</div>' +
       '<div class="sig-meta">' +

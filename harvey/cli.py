@@ -684,7 +684,7 @@ def cmd_stil(args):
         if not prospects:
             print("\n  Noch keine Kontakte. Erst harvey discover und harvey leads ausführen.\n")
             return
-        style = configured or "Harveys eingebautem Stil"
+        style = f"deinem Stil ({configured})" if configured else "Harveys eingebautem Stil"
         mode = getattr(config.channels.email, "first_touch", "sequence")
         print(f"\n  Vorschau in {style} (first_touch: {mode}). Nichts wird gespeichert oder gesendet.\n")
         for p in prospects:

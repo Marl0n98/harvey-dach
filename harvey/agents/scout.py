@@ -1299,19 +1299,10 @@ class Scout:
                 and e["email"].lower() not in doubted
                 and (e.get("person") or "") not in removed["contacts"]]
 
-    async def _lead_removed_contacts(self, company_id: str) -> set[str]:
-        """People `harvey pruefen` or the check agents found not to belong here."""
-        if not company_id:
-            return set()
-        try:
-            async with self.state._connect() as db:
-                async with db.execute("SELECT data FROM leads WHERE company_id = ?",
-                                      (company_id,)) as cur:
-                    row = await cur.fetchone()
-            from harvey.leads import review_removed
-            return review_removed(json.loads(row[0] or "{}"))["contacts"] if row else set()
-        except Exception:
-            return set()
+    async def _lead_removed(self, company_id: str) -> dict:
+        """What `harvey pruefen` or the check agents found not to belong here."""
+        from harvey.leads import removed_for_company
+        return await removed_for_company(self.state, company_id)
 
     async def _smtp_status(self, domain: str, email: str, status: str) -> str:
         """Ask the domain's mail server about an address no paid verifier checked.
@@ -1764,7 +1755,10 @@ Respond ONLY with the JSON array."""
         named_on_site = False
         considered = 0
         confirmed = await self._lead_confirmed(company_id)
-        not_theirs = await self._lead_removed_contacts(company_id)
+        removed = await self._lead_removed(company_id)
+        if removed["site"]:
+            return []           # a check found the website belongs to another business
+        not_theirs = removed["contacts"]
         ranked = sorted(team_members, key=lambda m: -(m.get("rank") or 0))
         for member in ranked:
             title = member.get("title", "")
@@ -1849,7 +1843,8 @@ Respond ONLY with the JSON array."""
                 )
             if inbox:
                 contacts.append(inbox)
-        return contacts
+        # Nothing a check removed comes back as a contact, by whatever path it was found.
+        return [c for c in contacts if (c.email or "").lower() not in removed["emails"]]
 
     async def _observe_likely_owner(self, company_id: str, member: dict):
         """Record LIKELY_OWNER for a company — only when the user confirmed

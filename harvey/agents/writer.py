@@ -217,6 +217,23 @@ class Writer:
             p for p in new_prospects
             if p.email and (p.email_status or "guess") in WRITABLE_EMAIL_STATUSES
         ]
+        # A check (harvey pruefen, the check agents) removed this address or person,
+        # or found the website belongs to another business: no email to them.
+        from harvey.leads import removed_for_company
+        kept = []
+        for p in prospects_with_email:
+            removed = await removed_for_company(self.state, p.company_id)
+            name = p.full_name() if not p.is_company_inbox else ""
+            if (p.email or "").lower() in removed["emails"] or (name and name in removed["contacts"]):
+                continue
+            if removed["site"]:
+                # Only what the map says is this company's; contacts read from its site aren't.
+                company = await self.state.get_company(p.company_id) if p.company_id else None
+                map_email = (getattr(company, "email", "") or "").lower()
+                if not map_email or (p.email or "").lower() != map_email:
+                    continue
+            kept.append(p)
+        prospects_with_email = kept
         # Someone at their company already replied: no cold email to write.
         prospects_with_email = [
             p for p in prospects_with_email
@@ -464,7 +481,9 @@ class Writer:
                 company = await self.state.get_company(prospect.company_id)
             except Exception:
                 company = None
-        if company:
+        from harvey.leads import removed_for_company
+        site_not_theirs = (await removed_for_company(self.state, prospect.company_id))["site"]
+        if company and not site_not_theirs:
             if company.description:
                 facts.append(f"- What the company says about itself: {company.description}")
             if company.tech_stack:
@@ -473,7 +492,7 @@ class Writer:
                 facts.append(
                     f"- Signal ({signal.get('type', 'signal')}): {signal.get('detail', '')}"
                 )
-        if prospect.company_id:
+        if prospect.company_id and not site_not_theirs:
             facts.extend(await self._observed_facts(prospect.company_id))
         if prospect.personalization_notes:
             facts.append(f"- Research notes: {prospect.personalization_notes}")
