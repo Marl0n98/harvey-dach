@@ -77,6 +77,9 @@ JUNK_DOMAIN_PATTERNS = tuple(re.compile(p, re.I) for p in (
     r"local|search|jameda|doctolib|docfinder|sanego|treatwell|provenexpert|werkenntdenbesten|"
     r"meinestadt|branchenbuch|wlw|kununu|stepstone|indeed|firmenabc|northdata|"
     r"facebook|instagram|linkedin|xing)\.(de|at|ch|com|net)$",
+    # professional associations and chambers whose site some businesses give as theirs
+    r"(^|\.)(physio|physioaustria|physio-deutschland|ergotherapie|logopaedieaustria|"
+    r"aerztekammer|zahnaerztekammer|apothekerkammer|wko|ihk|hwk|dachdecker|zvdh)\.(de|at|ch|org)$",
     r"(^|\.)(bund|bayern|berlin|hamburg|nrw|sachsen|hessen)\.de$",
     # Chambers, courts and justice: whole labels or clear prefixes, so a
     # "bayrak-transport.de" or a court interpreter's own site stays in.

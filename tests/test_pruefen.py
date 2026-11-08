@@ -159,17 +159,18 @@ async def test_agent_removals_survive_a_new_rule_run(state, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_removing_the_best_address_drops_the_unchecked_runner_up(state, tmp_path):
+async def test_removing_the_best_address_lets_the_next_move_up_as_a_new_case(state, tmp_path):
     cid = await add(state, "Praxis Ost", "praxis-ost.at",
                     {"people": [], "emails": [email("info@praxis-ost.at"),
-                                              email("office@praxis-ost.at", check=L.UNCHECKED),
-                                              email("praxis@praxis-ost.at", source=L.SOURCE_MAP, check=L.UNCHECKED)]})
+                                              email("office@praxis-ost.at", check=L.UNCHECKED)]})
     d = tmp_path / "d.json"
     d.write_text(json.dumps([{"company_id": cid, "email": "entfernen"}]))
     await P.apply_decisions(state, d)
     [record] = await P.load_records(state)
-    row, _ = L.rows_for(record, json.loads(record["lead"]))
-    assert row["Beste E-Mail"] == "praxis@praxis-ost.at"       # only the map's own address is left
+    lead = json.loads(record["lead"])
+    row, _ = L.rows_for(record, lead)
+    assert row["Beste E-Mail"] == "office@praxis-ost.at"
+    assert lead["review"]["status"] == "unsicher" and "Nachgerückt" in row["Prüfhinweis"]
 
 
 @pytest.mark.asyncio
@@ -233,10 +234,65 @@ def test_small_list_fixes():
 
 
 @pytest.mark.asyncio
-async def test_a_map_address_the_site_doesnt_list_is_a_doubt(state):
+async def test_a_map_address_on_another_domain_is_a_doubt_not_a_removal(state):
     await add(state, "Praxis Linde", "praxis-linde.at",
-              {"people": [], "emails": [email("sonja.della@gmx.at", source=L.SOURCE_MAP),
-                                        email("office@praxis-linde.at", check=L.UNCHECKED)]})
+              {"people": [], "emails": [email("therapie@praxis-linde-alt.at", source=L.SOURCE_MAP),
+                                        email("office@schwester.at")]})
     records = await P.load_records(state)
     item = next(iter(P.rule_findings(records).values()))
-    assert any("kommt aus der Karte" in n for n in item["notes"])
+    assert item["remove"]["emails"] == ["office@schwester.at"]          # from the site: removed
+    assert any("Adresse aus der Karte" in n for n in item["notes"])     # from the map: a doubt
+
+
+@pytest.mark.asyncio
+async def test_an_association_site_is_no_company_site(state):
+    await add(state, "Physio Wöhr", "physio.at",
+              {"site": "https://physio.at", "description": "Berufsverband", "people": [],
+               "emails": [email("therapie@physio.at")]})
+    records = await P.load_records(state)
+    found = P.rule_findings(records)
+    await P.store_reviews(state, records, found, "regeln")
+    from harvey.leads import sample_prospects
+    # The association's own address isn't the company's: no preview goes there at all.
+    assert await sample_prospects(state, 1) == []
+
+
+def test_theme_blurbs_and_per_address_mail_servers():
+    assert L.site_description('<meta name="description" content="Xenia – Medical WordPress Template">') == ""
+    _, sheet = L.rows_for({"name": "P", "domain": "p.at"},
+                          {"mail_host": "p-at.mail.protection.outlook.com", "provider": "microsoft",
+                           "emails": [email("a.b@aon.at"), email("office@p.at")]})
+    servers = {e["E-Mail"]: e["Mailserver"] for e in sheet}
+    assert servers["a.b@aon.at"] == "Freemail (aon.at)" and "Microsoft" in servers["office@p.at"]
+
+
+@pytest.mark.asyncio
+async def test_a_moved_up_address_is_a_case_on_the_next_run(state, tmp_path):
+    cid = await add(state, "Praxis Ost", "praxis-ost.at",
+                    {"people": [], "emails": [email("info@praxis-ost.at"),
+                                              email("office@praxis-ost.at", check=L.UNCHECKED)]})
+    d = tmp_path / "d.json"
+    d.write_text(json.dumps([{"company_id": cid, "email": "entfernen"}]))
+    await P.apply_decisions(state, d)
+    records = await P.load_records(state)
+    cases = P.open_cases(records, P.rule_findings(records))
+    assert [c["email"] for c in cases] == ["office@praxis-ost.at"]
+
+
+@pytest.mark.asyncio
+async def test_settled_doubts_are_no_cases_and_association_addresses_go(state, tmp_path):
+    cid = await add(state, "Praxis Ost", "praxis-ost.at",
+                    {"people": [], "emails": [email("info@praxis-ost.at"),
+                                              email("office@praxis-ost.at", check=L.UNCHECKED)]})
+    d = tmp_path / "d.json"
+    d.write_text(json.dumps([{"company_id": cid, "email": "entfernen"}]))
+    await P.apply_decisions(state, d)
+    d.write_text(json.dumps([{"company_id": cid, "email": "behalten"}]))
+    await P.apply_decisions(state, d)
+    records = await P.load_records(state)
+    assert P.open_cases(records, P.rule_findings(records)) == []
+    await add(state, "Physio Wöhr", "physio.at", {"site": "https://physio.at", "people": [],
+                                                   "emails": [email("office@physio.at")]})
+    records = await P.load_records(state)
+    found = P.rule_findings(records)
+    assert any("office@physio.at" in found[r["id"]]["remove"]["emails"] for r in records)

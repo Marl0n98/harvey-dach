@@ -113,12 +113,18 @@ def rule_findings(records: list[dict]) -> dict[str, dict]:
             email = (row["Beste E-Mail"] or "").lower()
             mail_domain = email.rpartition("@")[2]
             if domain:
-                foreign = [e["email"].lower() for e in lead.get("emails") or []
+                foreign = [e for e in lead.get("emails") or []
                            if e["email"].rpartition("@")[2] not in L.FREEMAIL
                            and not same_site(e["email"].rpartition("@")[2].lower(), domain)]
-                if foreign:
-                    _add(item, "Adresse gehört nicht zur Domain " + domain + ": " + ", ".join(foreign),
-                         emails=foreign)
+                from_site = [e["email"].lower() for e in foreign if e["source"] != L.SOURCE_MAP]
+                from_map = [e["email"].lower() for e in foreign if e["source"] == L.SOURCE_MAP]
+                if from_site:
+                    _add(item, "Adresse von der Website gehört nicht zur Domain " + domain + ": "
+                         + ", ".join(from_site), emails=from_site)
+                if from_map:
+                    # Same map entry as the company, but another domain than its website:
+                    # one of the two may be outdated. A doubt for the agents.
+                    _add(item, f"Adresse aus der Karte ({', '.join(from_map)}) passt nicht zur Website {domain}")
             if email and email not in item["remove"]["emails"] and len(by_email[email]) > 1:
                 # Shared by several companies: one of them may be right (a sister
                 # practice), so it is a doubt for the agents, not a removal.
@@ -135,15 +141,25 @@ def rule_findings(records: list[dict]) -> dict[str, dict]:
                       if p and len(by_phone[L.phone_key(p, country)]) > 1]
             if shared:
                 _add(item, "Telefon steht bei mehreren Firmen: " + ", ".join(shared))
-            if email and row["Quelle"] == L.SOURCE_MAP:
-                site_addrs = {e["email"].lower() for e in lead.get("emails") or [] if e["source"] == L.SOURCE_SITE}
-                if site_addrs and email not in site_addrs:
-                    _add(item, f"{email} kommt aus der Karte, die Website nennt andere Adressen")
             if email and not domain and mail_domain not in L.FREEMAIL:
                 words = {w for w in re.findall(r"[a-z]{4,}", L._clean_name_part(r.get("name", "")) + " "
                                                + " ".join(L._clean_name_part(x) for x in (r.get("name") or "").split()))}
                 if not any(w in mail_domain for w in words):
                     _add(item, f"Ohne Website: {email} passt nicht erkennbar zum Firmennamen")
+            if domain:
+                from harvey.collectors.discover import is_junk
+                if is_junk(domain):
+                    # The portal's or association's own addresses aren't the company's.
+                    theirs = [e["email"].lower() for e in lead.get("emails") or []
+                              if same_site(e["email"].rpartition("@")[2].lower(), domain)]
+                    _add(item, f"Website {domain} ist ein Portal oder Verband, nicht die Seite der Firma",
+                         description=True, emails=theirs, contacts=L.review_people(lead),
+                         phones=list(lead.get("site_phones") or []))
+            for note in (lead.get("review") or {}).get("notes") or []:
+                # An address that moved up after the agents removed the one before:
+                # a case again until someone has checked it.
+                if note.startswith("Nachgerückt, noch ungeprüft: ") and email and note.endswith(email):
+                    _add(item, note)
             if "leitet weiter" in (lead.get("site_note") or ""):
                 _add(item, lead["site_note"])
         if json.dumps(found, sort_keys=True) == before:
@@ -307,16 +323,19 @@ def open_cases(records: list[dict], findings: dict[str, dict]) -> list[dict]:
     cases = []
     for r in records:
         item = findings.get(r["id"]) or {}
-        if not item.get("notes"):
-            continue
         lead = json.loads(r.get("lead") or "{}")
+        settled = set((lead.get("review") or {}).get("settled") or [])
+        notes = [n for n in item.get("notes") or [] if n not in settled]
+        if not notes:
+            continue          # nothing new, or only doubts the agents already decided
         row, _ = L.rows_for(r, _with_removals(lead, item))
         cases.append({
             "company_id": r["id"], "firma": row["Firma"], "website": row["Website"],
-            "ort": row["Ort"], "email": row["Beste E-Mail"], "ansprechpartner": row["Ansprechpartner"],
+            "ort": row["Ort"], "email": row["Beste E-Mail"], "email_quelle": row["Quelle"],
+            "ansprechpartner": row["Ansprechpartner"],
             "rolle": row["Rolle"],
             "telefon_website": [p.strip() for p in row["Telefon (Website)"].split(",") if p.strip()],
-            "telefon_karte": row["Telefon (Karte)"], "hinweise": item["notes"],
+            "telefon_karte": row["Telefon (Karte)"], "hinweise": notes,
         })
     return cases
 
@@ -366,10 +385,7 @@ async def apply_decisions(state, path: Path) -> dict:
         row, _ = L.rows_for(r, lead)
         new = _empty()["remove"]
         if d.get("email") == "entfernen" and row["Beste E-Mail"]:
-            # Nobody checked the address that would move up next, so the site's
-            # other addresses go too; only the one from the map stays.
-            new["emails"] = sorted({e["email"].lower() for e in lead.get("emails") or []
-                                    if e["source"] != L.SOURCE_MAP} | {row["Beste E-Mail"].lower()})
+            new["emails"] = [row["Beste E-Mail"].lower()]
         if d.get("ansprechpartner") == "entfernen" and row["Ansprechpartner"]:
             new["contacts"] = [row["Ansprechpartner"]]
         new["phones"] = [p for p, verdict in (d.get("telefon") or {}).items() if verdict == "entfernen"]
@@ -379,7 +395,14 @@ async def apply_decisions(state, path: Path) -> dict:
         if d.get("begruendung"):
             notes.append(f"Agenten: {str(d['begruendung']).strip()}")
         settled = sorted(set(old.get("settled") or []) | set(old.get("notes") or []))
-        lead["review"] = {"status": FIXED if _has_removals(remove) else OK, "notes": notes,
+        status = FIXED if _has_removals(remove) else OK
+        if new["emails"]:
+            after, _ = L.rows_for(r, {**lead, "review": {"remove": remove}})
+            if after["Beste E-Mail"]:
+                # The next address moves up, and nobody has checked it yet.
+                notes.append(f"Nachgerückt, noch ungeprüft: {after['Beste E-Mail']}")
+                status = UNSURE
+        lead["review"] = {"status": status, "notes": notes,
                           "remove": remove, "by": "agenten", "settled": settled,
                           "on": date.today().isoformat()}
         counts["entfernt" if _has_removals(new) else "behalten"] += 1

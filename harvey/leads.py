@@ -125,7 +125,12 @@ def site_description(html: str) -> str:
     """What the site says the business does: its meta description, else its title.
     A theme's or builder's placeholder text is no description."""
     text = _site_description(html)
-    return "" if _PLACEHOLDER.search(text) else text
+    if _PLACEHOLDER.search(text):
+        return ""
+    # A short line naming a template or theme is the theme's own blurb ("Xenia, Template").
+    if re.search(r"(?i)\b(?:template|theme|vorlage)\b", text) and len(text.split()) <= 15:
+        return ""
+    return text
 
 
 def _site_description(html: str) -> str:
@@ -533,7 +538,7 @@ async def build_lead(scout, checker: MailboxChecker, company: dict) -> dict:
         elif site.get("redirected"):
             lead["site_note"] = f"leitet weiter auf {site['redirected']}, nicht übernommen"
         else:
-            lead["site_note"] = "Website nicht erreichbar"
+            lead["site_note"] = "Website nicht erreichbar oder blockt automatische Abrufe"
     # Check every address on the company's own domain in one session; a
     # freemail address is checked on its provider's server.
     by_domain: dict[str, list[str]] = {}
@@ -569,6 +574,10 @@ def _provider_label(lead: dict, best_email: str = "") -> str:
     mail_domain = (best_email or "").rpartition("@")[2].lower()
     if mail_domain in FREEMAIL:
         return f"Freemail ({mail_domain})"
+    own = (lead.get("site") or "").lower()
+    own = re.sub(r"^https?://(www\.)?", "", own).split("/")[0]
+    if best_email and own and mail_domain and mail_domain != own and not mail_domain.endswith("." + own):
+        return ""           # another domain than the site's: its server wasn't looked up
     host, provider = lead.get("mail_host") or "", lead.get("provider") or ""
     if not host:
         return ""
@@ -762,7 +771,7 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     }
     email_rows = [{"Firma": row["Firma"], "Website": row["Website"], "E-Mail": e["email"],
                    "Person": e.get("person", ""), "Quelle": e["source"], "Prüfung": e["check"],
-                   "Mailserver": row["Mailserver"]} for e in emails]
+                   "Mailserver": _provider_label(lead, e["email"])} for e in emails]
     return row, email_rows
 
 
@@ -943,13 +952,16 @@ async def sample_prospects(state, n: int) -> list:
                                                       record.get("name", ""))])
             if not email:
                 continue
-        notes = ["" if removed["description"] else (lead.get("description") or "")]
-        if lead.get("booking"):
-            notes.append(f"Online booking on their site: {lead['booking']}")
-        elif lead.get("site"):
-            notes.append("No online booking found on their site")
-        if lead.get("careers"):
-            notes.append("Their site has a jobs/careers section")
+        notes = []
+        own_site = lead.get("site") and not removed["description"]   # not a portal, no redirect
+        if own_site:
+            notes.append(lead.get("description") or "")
+            if lead.get("booking"):
+                notes.append(f"Online booking on their site: {lead['booking']}")
+            else:
+                notes.append("No online booking found on their site")
+            if lead.get("careers"):
+                notes.append("Their site has a jobs/careers section")
         common = dict(company=record["name"], company_id=record["id"],
                       industry=record.get("industry") or "", email=email["email"],
                       personalization_notes=". ".join(x for x in notes if x))

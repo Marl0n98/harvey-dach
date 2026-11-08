@@ -2536,7 +2536,7 @@ async function loadCampaigns() {
       '<div class="campaign-title"><h3>' + escHtml(campaignLabel(c.name) || 'Kampagne ohne Titel') + '</h3>' +
         '<button class="btn btn-ghost btn-sm" onclick="fbCampaign(' + i + ')">Feedback</button></div>' +
       '<div class="meta">' + badge(c.status) + '<span>' + pc + (pc !== 1 ? ' Kontakte' : ' Kontakt') + '</span>' +
-        '<span>' + (c.sequence || []).length + ' E-Mails</span><span>Erstellt ' + relTime(c.created_at) + '</span></div>' +
+        '<span>' + ((c.sequence || []).length === 1 ? '1 E-Mail' : (c.sequence || []).length + ' E-Mails') + '</span><span>Erstellt ' + relTime(c.created_at) + '</span></div>' +
       campaignProgress(c) + '</div>' +
       (c.first_email_personal && (c.sequence || []).length
         ? '<p class="muted" style="font-size:13px;margin:12px 0 0">Das hier ist die Vorlage (für Folge-Mails / Fallback). ' +

@@ -22,4 +22,6 @@ Antworte nur mit JSON, eine Zeile pro Firma:
 [{"company_id": "...", "email": "gehoert|gehoert_nicht|unklar", "ansprechpartner": "gehoert|gehoert_nicht|unklar", "telefon": {"<nummer>": "gehoert|gehoert_nicht|unklar"}, "beleg": "kurzes wörtliches Zitat oder URL, worauf du dich stützt"}]
 ```
 
-Leere Werte lässt du weg. Erfinde nichts, und ändere keine Dateien.
+Leere Werte lässt du weg. Bei der Ansprechperson zählt nur, ob sie zu dieser Firma gehört, nicht wie ihre Rolle heißt: „Inhaberin“, „Medieninhaberin“, „Diensteanbieterin“, „Geschäftsführer“ oder „Physiotherapeutin“ sind alle in Ordnung. Ein Wert, den du nur nicht prüfen kannst, ist „unklar“, nicht „gehoert_nicht“.
+
+Erfinde nichts, und ändere keine Dateien.

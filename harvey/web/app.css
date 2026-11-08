@@ -645,7 +645,7 @@ details[open] > summary::before { rotate: 45deg; }
 .sig-row.rejected .sig-main { opacity: 0.55; }
 .sig-row .sig-main { flex: 1; min-width: 0; }
 .sig-row .sig-label { font-size: var(--fs-body); font-weight: 500; }
-.sig-row .sig-code { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin-left: 8px; }
+.sig-row .sig-code, .sig-code { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin-left: 8px; display: inline-block; }
 .sig-row .sig-desc { font-size: var(--fs-ui); color: var(--text-2); margin-top: 2px; max-width: 72ch; text-wrap: pretty; }
 .sig-row .sig-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: var(--sp-2); align-items: center; }
 .sig-row .sig-decide { display: flex; gap: 6px; flex: none; }
