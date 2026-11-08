@@ -11,6 +11,62 @@ from pathlib import Path
 MIN_PYTHON = (3, 11)
 
 
+# argparse spricht von sich aus Englisch ("usage:", "options", "show this help
+# message and exit"). Diese beiden Klassen geben ihm deutsche Überschriften,
+# eine deutsche -h/--help-Zeile und deutsche Fehlermeldungen. Unterbefehle
+# erben die Klasse, weil add_subparsers type(parser) als parser_class nimmt.
+ARGPARSE_FEHLER = (
+    ("the following arguments are required:", "diese Angaben fehlen:"),
+    ("unrecognized arguments:", "unbekannte Angaben:"),
+    ("invalid choice:", "ungültige Auswahl:"),
+    ("(choose from", "(möglich:"),
+    ("invalid int value:", "keine ganze Zahl:"),
+    ("invalid float value:", "keine Zahl:"),
+    ("expected one argument", "erwartet einen Wert"),
+    ("not allowed with argument", "geht nicht zusammen mit"),
+    ("ambiguous option:", "mehrdeutige Option:"),
+    ("could match", "passt auf"),
+    ("argument ", "Argument "),
+)
+
+
+def _fehler_deutsch(message: str) -> str:
+    for en, de in ARGPARSE_FEHLER:
+        message = message.replace(en, de)
+    return message
+
+
+class DeutscheHilfe(argparse.HelpFormatter):
+    """Hilfe-Formatierer mit "Aufruf:" statt "usage:"."""
+
+    def add_usage(self, usage, actions, groups, prefix=None):
+        return super().add_usage(usage, actions, groups,
+                                 "Aufruf: " if prefix is None else prefix)
+
+
+class DeutscherParser(argparse.ArgumentParser):
+    """ArgumentParser mit deutscher Hilfe und deutschen Fehlermeldungen."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("formatter_class", DeutscheHilfe)
+        add_help = kwargs.pop("add_help", True)
+        super().__init__(*args, add_help=False, **kwargs)
+        self._positionals.title = "Argumente"
+        self._optionals.title = "Optionen"
+        if add_help:
+            self.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS,
+                              help="Diese Hilfe zeigen und beenden")
+
+    def add_subparsers(self, **kwargs):
+        kwargs.setdefault("title", "Befehle")
+        kwargs.setdefault("metavar", "BEFEHL")
+        return super().add_subparsers(**kwargs)
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: Fehler: {_fehler_deutsch(message)}\n")
+
+
 def _check_python_version():
     """Refuse to install on a Python that cannot run Harvey.
 
@@ -25,10 +81,10 @@ def _check_python_version():
 
     have = f"{sys.version_info.major}.{sys.version_info.minor}"
     want = f"{MIN_PYTHON[0]}.{MIN_PYTHON[1]}"
-    print(f"\n  Harvey needs Python {want} or newer. This is Python {have}.")
+    print(f"\n  Harvey braucht Python {want} oder neuer. Das hier ist Python {have}.")
     print(f"  ({sys.executable})\n")
-    print("  On macOS, `python3` is usually the system 3.9, so a venv built")
-    print("  with it is 3.9 too. Build the venv from a newer Python instead:\n")
+    print("  Auf macOS ist `python3` meist das System-Python 3.9, eine venv daraus")
+    print("  also auch. Bau die venv stattdessen mit einem neueren Python:\n")
     print("    brew install python@3.13")
     print("    rm -rf .venv")
     print("    $(brew --prefix)/bin/python3.13 -m venv .venv")
@@ -39,10 +95,10 @@ def _check_python_version():
 def cmd_install(args):
     """Install all dependencies including Playwright browsers."""
     _check_python_version()
-    print("\n  Installing Harvey dependencies...\n")
+    print("\n  Installiere, was Harvey braucht...\n")
 
     # Install Python packages
-    print("  [1/2] Installing Python packages...")
+    print("  [1/2] Python-Pakete installieren...")
     requirements = Path(args._project_root) / "requirements.txt"
     if requirements.exists():
         pip_args = ["-r", "requirements.txt"]
@@ -54,14 +110,14 @@ def cmd_install(args):
         cwd=args._project_root,
     )
     if result.returncode != 0:
-        print("\n  Failed to install Python packages.")
-        print("  Tip: make sure you're inside a virtualenv "
+        print("\n  Python-Pakete konnten nicht installiert werden.")
+        print("  Tipp: prüf, ob du in einer venv bist "
               "(python3 -m venv .venv && source .venv/bin/activate).")
         sys.exit(1)
-    print("  ✓ Python packages installed.\n")
+    print("  ✓ Python-Pakete installiert.\n")
 
     # Install Playwright browsers
-    print("  [2/2] Installing Playwright browsers...")
+    print("  [2/2] Playwright-Browser installieren...")
     try:
         result = subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium"],
@@ -71,12 +127,12 @@ def cmd_install(args):
     except (subprocess.TimeoutExpired, OSError):
         playwright_ok = False
     if not playwright_ok:
-        print("\n  Playwright browser install failed (optional — needed for LinkedIn).")
+        print("\n  Playwright-Browser konnte nicht installiert werden (optional, nur für LinkedIn nötig).")
     else:
-        print("  ✓ Playwright browsers installed.\n")
+        print("  ✓ Playwright-Browser installiert.\n")
 
     _ensure_importable(args._project_root)
-    print("  Harvey is installed. Run 'harvey setup' next.\n")
+    print("  Harvey ist installiert. Weiter mit: harvey setup\n")
 
 
 def _ensure_importable(project_root: str):
@@ -107,14 +163,14 @@ def _ensure_importable(project_root: str):
                 cwd="/", capture_output=True,
             )
             if recheck.returncode == 0:
-                print("  ✓ Fixed package visibility (editable .pth was being "
-                      "ignored; linked the package directly).\n")
+                print("  ✓ Paket sichtbar gemacht (die editierbare .pth wurde "
+                      "ignoriert, das Paket ist jetzt direkt verlinkt).\n")
                 return
     except OSError as e:
-        print(f"  Could not apply import fix: {e}")
+        print(f"  Import-Reparatur hat nicht geklappt: {e}")
 
-    print("\n  Warning: 'import harvey' fails outside the project directory.")
-    print("  Run harvey commands from the project root, or reinstall with:")
+    print("\n  Achtung: 'import harvey' klappt außerhalb des Projektordners nicht.")
+    print("  Führ harvey-Befehle im Projektordner aus oder installier neu mit:")
     print("    pip install -e . --config-settings editable_mode=compat\n")
 
 
@@ -139,10 +195,10 @@ def cmd_train(args):
     url = args.url.strip()
     if not url.startswith(("http://", "https://")):
         url = f"https://{url}"
-        print(f"  No scheme given — using {url}")
+        print(f"  Ohne http(s) angegeben, nehme {url}")
 
     if args.max_pages < 1:
-        print("  max_pages must be at least 1.")
+        print("  max_pages muss mindestens 1 sein.")
         sys.exit(2)
 
     from pydantic import ValidationError
@@ -177,7 +233,7 @@ def cmd_dashboard(args):
     from harvey.dashboard_auth import TokenError
 
     if not 1 <= args.port <= 65535:
-        print(f"  Invalid port: {args.port}. Must be 1-65535.")
+        print(f"  Ungültiger Port: {args.port}. Erlaubt ist 1 bis 65535.")
         sys.exit(2)
 
     try:
@@ -253,12 +309,12 @@ def cmd_status(args):
         precleared_hold = await current_hold(state, loaded)
         if precleared_hold:
             message = hold_message(precleared_hold)
-            print(f"  Precleared:           HOLDING COLD EMAIL since {precleared_hold.get('since', '?')}")
+            print(f"  Precleared:           KALTAKQUISE ANGEHALTEN seit {precleared_hold.get('since', '?')}")
             print(textwrap.fill(f"{message['title']}. {message['detail']}", width=72,
                                 initial_indent="                        ",
                                 subsequent_indent="                        "))
         if address_notice:
-            print("  Postal address:       MISSING" if "CAN-SPAM" in address_notice
+            print("  Postanschrift:        FEHLT" if "CAN-SPAM" in address_notice
                   else "  Absenderangaben:      FEHLEN")
             print(textwrap.fill(address_notice, width=72, initial_indent="                        ",
                                 subsequent_indent="                        "))
@@ -276,7 +332,7 @@ def cmd_status(args):
         healthy = True
         if getattr(args, "check", False):
             if brain_config is None:
-                print(f"  Brain:                config error: {config_error}")
+                print(f"  Modell-Abo:           Fehler in der Konfiguration: {config_error}")
                 healthy = False
             else:
                 brain = Brain(state, brain_config)
@@ -284,17 +340,17 @@ def cmd_status(args):
                 label = brain.provider_label + (f" ({brain.model})" if brain.model else "")
                 if problem:
                     healthy = False
-                    print(f"  Brain:                {label} NOT READY")
+                    print(f"  Modell-Abo:           {label} NICHT BEREIT")
                     print(f"                        {problem}")
                 elif brain.provider == "codex":
-                    print(f"  Brain:                {label} ready (CLI, isolation, login, "
-                          "model and account checked; no prompt sent)")
+                    print(f"  Modell-Abo:           {label} bereit (CLI, Isolation, Anmeldung, "
+                          "Modell und Konto geprüft; kein Prompt gesendet)")
                 else:
-                    print(f"  Brain:                {label} CLI isolation flags present "
-                          "(login not checked: Claude is checked by its first call)")
+                    print(f"  Modell-Abo:           {label}: Isolations-Flags der CLI vorhanden "
+                          "(Anmeldung nicht geprüft: Claude wird beim ersten Aufruf geprüft)")
         elif brain_status.get("status") == "paused":
             label = {"claude": "Claude", "codex": "Codex"}.get(brain_status.get("provider"), "Brain")
-            print(f"  Brain:                {label} PAUSED since {brain_status.get('since', '?')}")
+            print(f"  Modell-Abo:           {label} PAUSIERT seit {brain_status.get('since', '?')}")
             print(f"                        {brain_status.get('reason', '')}")
         print()
         return healthy
@@ -335,25 +391,25 @@ def cmd_usage(args):
         except Exception:
             pass
 
-        label = {"claude": "Claude", "codex": "Codex"}.get(provider, "Brain")
-        print(f"\n  {label} Usage")
+        label = {"claude": "Claude", "codex": "Codex"}.get(provider, "Modell-Abo")
+        print(f"\n  {label}: Verbrauch")
         print("  " + "=" * 52)
         if windows:
-            labels = {"five_hour": "5-hour window", "seven_day": "Weekly",
-                      "limit_reached": "Usage limit"}
+            labels = {"five_hour": "5-Stunden-Fenster", "seven_day": "Woche",
+                      "limit_reached": "Nutzungslimit"}
             for key, w in windows.items():
-                resets = f"  (resets {w['resets_at']})" if w.get("resets_at") else ""
-                print(f"  {labels.get(key, key):<16} {w['utilization']:5.1f}% used{resets}")
+                resets = f"  (neu ab {w['resets_at']})" if w.get("resets_at") else ""
+                print(f"  {labels.get(key, key):<17} {w['utilization']:5.1f} % genutzt{resets}")
         elif provider == "codex":
-            print("  Quota gauge unavailable (check 'codex login', the Codex CLI "
-                  "version, and network).")
+            print("  Kontingent nicht verfügbar (prüf 'codex login', die Version der Codex-CLI "
+                  "und das Netz).")
         elif provider == "claude":
-            print("  Quota gauge unavailable (run 'claude login' or check network).")
+            print("  Kontingent nicht verfügbar (führ 'claude login' aus oder prüf das Netz).")
 
         totals = await state.usage_totals()
         print()
-        print(f"  {'Period':<10} {'Calls':>7} {'Input':>12} {'Output':>10} {'Cache read':>12}")
-        for label, key in (("Today", "today"), ("7 days", "week"), ("30 days", "month")):
+        print(f"  {'Zeitraum':<10} {'Aufrufe':>7} {'Eingabe':>12} {'Ausgabe':>10} {'Cache':>12}")
+        for label, key in (("Heute", "today"), ("7 Tage", "week"), ("30 Tage", "month")):
             t = totals.get(key) or {}
             print(
                 f"  {label:<10} {t.get('calls', 0):>7} "
@@ -363,33 +419,33 @@ def cmd_usage(args):
 
         by_provider = await state.usage_by_provider(days=args.days)
         if len(by_provider) > 1 or (by_provider and by_provider[0]["provider"] != "claude"):
-            print(f"\n  By provider (last {args.days} days):")
+            print(f"\n  Nach Abo (letzte {args.days} Tage):")
             for row in by_provider:
                 print(
-                    f"    {row['provider']:<14} {row['calls']:>5} calls  "
-                    f"{row['output_tokens']:>10,} out tokens"
+                    f"    {row['provider']:<14} {row['calls']:>5} Aufrufe  "
+                    f"{row['output_tokens']:>10,} Ausgabe-Token"
                 )
 
         by_agent = await state.usage_by_agent(days=args.days)
         if by_agent:
-            print(f"\n  By agent (last {args.days} days):")
+            print(f"\n  Nach Agent (letzte {args.days} Tage):")
             for row in by_agent:
                 print(
-                    f"    {row['agent']:<14} {row['calls']:>5} calls  "
-                    f"{row['output_tokens']:>10,} out tokens"
+                    f"    {row['agent']:<14} {row['calls']:>5} Aufrufe  "
+                    f"{row['output_tokens']:>10,} Ausgabe-Token"
                 )
 
         by_task = await state.usage_by_task(days=args.days)
         if by_task:
-            print(f"\n  By task (last {args.days} days):")
+            print(f"\n  Nach Aufgabe (letzte {args.days} Tage):")
             for row in by_task[:10]:
                 print(
-                    f"    {row['task']:<22} {row['calls']:>5} calls  "
-                    f"{row['output_tokens']:>10,} out tokens"
+                    f"    {row['task']:<22} {row['calls']:>5} Aufrufe  "
+                    f"{row['output_tokens']:>10,} Ausgabe-Token"
                 )
         print(
-            "\n  Subscription plans aren't billed per token — these are usage"
-            "\n  counts, not costs.\n"
+            "\n  Abos werden nicht pro Token abgerechnet. Das sind Nutzungszahlen,"
+            "\n  keine Kosten.\n"
         )
 
     asyncio.run(_usage())
@@ -405,7 +461,7 @@ def cmd_companies(args):
     from harvey.state import DB_PATH
 
     if not DB_PATH.exists():
-        print("\n  No database yet: run 'harvey discover' or 'harvey run' first.\n")
+        print("\n  Noch keine Datenbank. Erst 'harvey discover' oder 'harvey run' ausführen.\n")
         return
     rows = asyncio.run(build_register(sqlite_query(DB_PATH), load_config()))
     out = Path(args.out) if args.out else (
@@ -443,16 +499,16 @@ def cmd_export(args):
             statuses=statuses,
             include_all=args.all,
         )
-        scope = "all prospects" if args.all else (
-            f"email status {email_statuses or ['verified', 'risky']}"
-            + (f", score >= {args.min_score}" if args.min_score else "")
+        scope = "alle Kontakte" if args.all else (
+            f"Adress-Status {', '.join(email_statuses or ['verified', 'risky'])}"
+            + (f", Passung ab {args.min_score}" if args.min_score else "")
         )
-        print(f"\n  Exported {count} prospect(s) to {args.out}  ({scope})")
+        print(f"\n  {count} {'Kontakt' if count == 1 else 'Kontakte'} nach {args.out} exportiert ({scope})")
         if count == 0 and not args.all:
-            print("  Tip: no deliverable emails yet? Add a REOON_API_KEY to .env so")
-            print("  Harvey can verify addresses, or use --all for the raw list.\n")
+            print("  Noch keine zustellbaren Adressen? Harvey prüft Adressen selbst beim Mailserver")
+            print("  (harvey leads). Für die Rohliste nimm --all.\n")
         else:
-            print("  The CSV imports directly into Instantly, Smartlead, or any sequencer.\n")
+            print("  Die CSV lässt sich direkt in Instantly, Smartlead oder ähnliche Tools importieren.\n")
 
     asyncio.run(_export())
 
@@ -568,11 +624,10 @@ def cmd_profile(args):
 
         pending = await state.count_companies_needing_profile(args.stale_days)
         if not pending:
-            print("\n  Nothing to profile. Every company with a website has "
-                  "been read recently.\n")
+            print("\n  Nichts zu lesen. Jede Firma mit Website wurde vor Kurzem gelesen.\n")
             return
 
-        print(f"\n  {pending} companies need profiling. Reading up to "
+        print(f"\n  {pending} Firmen warten aufs Lesen. Harvey liest bis zu "
               f"{args.limit}...\n")
         try:
             from harvey.config import load_config
@@ -581,8 +636,8 @@ def cmd_profile(args):
             config = None   # still profiles; no role is singled out as hiring intent
         companies, observations, _ = await run_profile_stage(
             state, limit=args.limit, stale_days=args.stale_days, config=config)
-        print(f"  Read {companies} sites → {observations} observations (free)")
-        print("\n  See what turned up: harvey dashboard → Signals\n")
+        print(f"  {companies} Websites gelesen, {observations} Beobachtungen (kostenlos)")
+        print("\n  Ergebnisse: harvey dashboard, Bereich Signale\n")
 
     asyncio.run(_profile())
 
@@ -810,24 +865,24 @@ def cmd_discover(args):
 
     async def _discover():
         if args.providers:
-            print("\n  Discovery providers")
+            print("\n  Quellen für die Firmensuche")
             print("  " + "=" * 68)
             for m in provider_menu(load_env().model_dump()):
-                mark = "ready" if m["configured"] else "needs setup"
+                mark = "bereit" if m["configured"] else "muss eingerichtet werden"
                 print(f"\n  {m['label']}  [{m['key']}]  ({mark})")
                 print(f"    {m['blurb']}")
-                print(f"    Cost: {m['cost_note']}")
-                print(f"    Free: {m['free_tier']}")
+                print(f"    Kosten: {m['cost_note']}")
+                print(f"    Gratis: {m['free_tier']}")
                 if m["env_keys"]:
-                    print(f"    Needs: {', '.join(m['env_keys'])} in .env  —  {m['signup_url']}")
+                    print(f"    Braucht: {', '.join(m['env_keys'])} in .env ({m['signup_url']})")
                 if m["caveat"]:
-                    print(f"    Note: {m['caveat']}")
-            print("\n  Run one with: harvey discover --provider <key> --estimate\n")
+                    print(f"    Hinweis: {m['caveat']}")
+            print("\n  Starten mit: harvey discover --provider <key> --estimate\n")
             return
 
         if args.provider not in PROVIDERS:
-            print(f"\n  Unknown provider {args.provider!r}. "
-                  f"See: harvey discover --providers\n")
+            print(f"\n  Unbekannte Quelle {args.provider!r}. "
+                  f"Alle Quellen: harvey discover --providers\n")
             return
 
         # Fail before collection; estimates need no credentials.
@@ -839,12 +894,12 @@ def cmd_discover(args):
         if missing and not args.estimate:
             names = ", ".join(k.upper() for k in missing)
             print("\n  " + "!" * 68)
-            print(f"  ERROR: provider skipped: missing key - "
-                  f"{provider.label} is not configured, 0 queries can run.")
-            print(f"  Missing or empty: {names}")
-            print("  Put a real value in .env (template placeholders don't"
-                  " count), then retry.")
-            print("  All providers and their keys: harvey discover --providers")
+            print(f"  FEHLER: Quelle übersprungen, Schlüssel fehlt. "
+                  f"{provider.label} ist nicht eingerichtet, keine Suchanfrage kann laufen.")
+            print(f"  Fehlt oder leer: {names}")
+            print("  Trag einen echten Wert in .env ein (Platzhalter aus der Vorlage"
+                  " zählen nicht) und starte neu.")
+            print("  Alle Quellen und ihre Schlüssel: harvey discover --providers")
             print("  " + "!" * 68 + "\n")
             raise SystemExit(1)
 
@@ -943,6 +998,7 @@ def cmd_signals(args):
                  if a.strip()]
         if codes:
             status = "confirmed" if args.confirm else "rejected"
+            getan = "bestätigt" if args.confirm else "ausgeschaltet"
             if codes == ["ALL"]:
                 codes = [c["code"] for c in await state.get_signal_codes()]
             elif codes == ["FREE"]:
@@ -955,7 +1011,7 @@ def cmd_signals(args):
             changed = sum(
                 [1 for c in codes if await state.set_signal_status(c, status)]
             )
-            print(f"\n  {changed} signal(s) {status}.\n")
+            print(f"\n  {changed} {'Signal' if changed == 1 else 'Signale'} {getan}.\n")
             return
 
         rows = await state.get_signal_codes()
@@ -964,25 +1020,25 @@ def cmd_signals(args):
         for r in rows:
             by_status[r["status"]] = by_status.get(r["status"], 0) + 1
 
-        print(f"\n  Signals — {by_status['confirmed']} confirmed, "
-              f"{by_status['proposed']} awaiting you, {by_status['rejected']} off")
+        print(f"\n  Signale: {by_status['confirmed']} bestätigt, "
+              f"{by_status['proposed']} warten auf dich, {by_status['rejected']} aus")
         print("  " + "=" * 66)
-        mark = {"confirmed": "[on] ", "proposed": "[ ? ]", "rejected": "[off]"}
+        mark = {"confirmed": "[an] ", "proposed": "[ ? ]", "rejected": "[aus]"}
         current = None
         for r in rows:
             if r["category"] != current:
                 current = r["category"]
                 print(f"\n  {current.upper()}")
             seen = counts.get(r["code"], {}).get("companies", 0)
-            seen_txt = f"  ({seen} companies)" if seen else ""
+            seen_txt = f"  ({seen} {'Firma' if seen == 1 else 'Firmen'})" if seen else ""
             print(f"    {mark.get(r['status'], '     ')} {r['code']:<22} "
                   f"{r['label']}{seen_txt}")
             print(f"          {r['cost_note']}")
 
         if by_status["proposed"]:
-            print("\n  Confirm with: harvey signals --confirm CODE[,CODE...]")
-            print("  Everything free: harvey signals --confirm free")
-            print("  Details and descriptions: harvey dashboard → Signals\n")
+            print("\n  Bestätigen: harvey signals --confirm CODE[,CODE...]")
+            print("  Alle kostenlosen: harvey signals --confirm free")
+            print("  Details und Beschreibungen: harvey dashboard, Bereich Signale\n")
         else:
             print("")
 
@@ -999,10 +1055,10 @@ def cmd_retry_writes(args):
         await state.init_db()
         count = await state.retry_write_failed()
         if count:
-            print(f"\n  {count} prospect(s) are back in line. The Writer will try each "
-                  f"up to {MAX_WRITE_ATTEMPTS} more times.\n")
+            print(f"\n  {count} {'Kontakt ist' if count == 1 else 'Kontakte sind'} wieder in der Reihe. "
+                  f"Harvey versucht jeden bis zu {MAX_WRITE_ATTEMPTS} weitere Male.\n")
         else:
-            print("\n  No prospects are waiting on a retry.\n")
+            print("\n  Kein Kontakt wartet auf einen neuen Versuch.\n")
 
     asyncio.run(_run())
 
@@ -1030,7 +1086,7 @@ def cmd_warmup(args):
     sender = smtp_user if "@" in smtp_user else config.persona.email
     domain = (args.domain or sender.rpartition("@")[2]).strip().lower().rstrip(".")
     if not d.DOMAIN_RE.match(domain):
-        print("\n  No valid sending domain found. Pass one: harvey warmup yourdomain.com\n")
+        print("\n  Keine gültige Absender-Domain gefunden. Gib eine an: harvey warmup deinedomain.de\n")
         raise SystemExit(1)
 
     async def _history():
@@ -1040,45 +1096,45 @@ def cmd_warmup(args):
                 int(await state.get_setting(BOUNCE_COUNT_KEY) or 0))
 
     smtp_host = os.getenv("SMTP_HOST", "").strip() if email.provider == "smtp" else ""
-    print(f"\n  Deliverability check - {domain}")
+    print(f"\n  Zustellbarkeit prüfen: {domain}")
     print("  " + "=" * 56)
     sections = [
-        ("Authentication", [d.check_mx(domain), d.check_spf(domain),
+        ("Authentifizierung", [d.check_mx(domain), d.check_spf(domain),
                             d.check_dkim(domain, email.warmup.dkim_selector),
                             d.check_dmarc(domain)]),
-        ("Reputation", [d.check_domain_age(domain), *d.check_domain_blocklists(domain)]
+        ("Ruf", [d.check_domain_age(domain), *d.check_domain_blocklists(domain)]
          + (d.check_ip_blocklists(smtp_host) if smtp_host else [])),
-        ("Warmup & sending", [d.check_warmup(email.warmup, email.max_daily_sends,
+        ("Aufwärmen und Versand", [d.check_warmup(email.warmup, email.max_daily_sends,
                                              provider=email.provider),
                               _warmup_service_check(sender, email.warmup),
                               d.check_send_history(*asyncio.run(_history()))]),
     ]
-    icons = {d.OK: "OK  ", d.WARN: "WARN", d.FAIL: "FAIL", d.INFO: "info"}
+    icons = {d.OK: "OK    ", d.WARN: "WARNUNG", d.FAIL: "FEHLER", d.INFO: "Info  "}
     failed = warned = unknown = 0
     for title, checks in sections:
         print(f"\n  {title}")
         for c in checks:
             failed += c.status == d.FAIL
             warned += c.status == d.WARN
-            unknown += c.unknown and title == "Authentication"
+            unknown += c.unknown and title == "Authentifizierung"
             print(f"    [{icons[c.status]}] {c.name:<26} {c.detail}")
 
     print("\n  " + "=" * 56)
     if failed:
-        print(f"  NOT READY - fix the {failed} FAIL item(s) before any cold email.")
+        print(f"  NICHT BEREIT. Behebe die {failed} FEHLER-Punkte vor der ersten Kaltakquise-Mail.")
     elif unknown:
-        print(f"  NOT CHECKED - {unknown} authentication lookup(s) failed; run again.")
+        print(f"  NICHT GEPRÜFT. {unknown} DNS-Abfragen zur Authentifizierung sind fehlgeschlagen, starte neu.")
     elif warned:
-        print(f"  READY WITH CAVEATS - {warned} warning(s); keep volume low.")
+        print(f"  BEREIT MIT EINSCHRÄNKUNGEN. {warned} Warnungen, halte die Menge klein.")
     else:
-        print("  READY - send within today's cap and watch bounces.")
-    print("\n  What DNS can't tell you (the real reputation signal):")
-    print("    - Google Postmaster Tools: https://postmaster.google.com - add the domain;")
-    print("      it shows Gmail's spam rate and domain reputation once you send volume.")
-    print("    - Inbox placement: send one email to a seed test (mail-tester.com is free)")
-    print("      and aim for 9/10+. TrulyInbox shows the warmup inbox rate, and with it")
-    print("      connected (harvey trulyinbox connect) Harvey reads it into this report.")
-    print("      Wait for ~95%+ inbox for a week before relying on cold sends.\n")
+        print("  BEREIT. Bleib unter dem Tageslimit und behalte Unzustellbare im Blick.")
+    print("\n  Was DNS nicht sagen kann (der echte Ruf):")
+    print("    * Google Postmaster Tools: https://postmaster.google.com. Füg die Domain hinzu,")
+    print("      dann siehst du Spamrate und Ruf bei Gmail, sobald du Menge sendest.")
+    print("    * Posteingang: schick eine Mail an einen Test wie mail-tester.com (kostenlos)")
+    print("      und zieh 9/10 oder mehr an. TrulyInbox zeigt die Posteingangsrate beim")
+    print("      Aufwärmen. Verbunden (harvey trulyinbox connect) liest Harvey sie hier ein.")
+    print("      Warte rund eine Woche mit 95 % Posteingang, bevor du dich auf Kaltakquise verlässt.\n")
     if failed or unknown:
         raise SystemExit(1)
 
@@ -1124,20 +1180,20 @@ def cmd_trulyinbox(args):
         await state.init_db()
         if args.trulyinbox_action == "other":
             await ti.set_choice(state, "other")
-            print("\n  Noted: you use another warmup service. Harvey won't ask about "
-                  "TrulyInbox again.\n")
+            print("\n  Notiert: du nutzt einen anderen Aufwärmdienst. Harvey fragt nicht mehr "
+                  "nach TrulyInbox.\n")
             return 0
         if args.trulyinbox_action == "connect":
-            print(f"\n  Connect TrulyInbox. Don't have it yet? {ti.AFFILIATE_URL} {ti.AFFILIATE_TAG}")
-            print("  You need Starter or higher. In TrulyInbox, open Settings > API keys and")
-            print("  create a workspace key with accounts:read, warmup:read, analytics:read")
-            print("  and workspace:read.\n")
+            print(f"\n  TrulyInbox verbinden. Noch kein Konto? {ti.AFFILIATE_URL} {ti.AFFILIATE_TAG}")
+            print("  Du brauchst mindestens Starter. Öffne in TrulyInbox Settings > API keys und")
+            print("  leg einen Workspace-Schlüssel mit accounts:read, warmup:read, analytics:read")
+            print("  und workspace:read an.\n")
             if not address:
                 print(f"\n  {ti.NO_ADDRESS}\n")
                 return 1
-            key = getpass.getpass("  TrulyInbox API key (hidden): ").strip()
+            key = getpass.getpass("  TrulyInbox-API-Schlüssel (unsichtbar): ").strip()
             if not key:
-                print("\n  No key entered.\n")
+                print("\n  Kein Schlüssel eingegeben.\n")
                 return 1
             workspace = ti.key_from_env()[1]
             ti.forget_rejected(key)
@@ -1154,10 +1210,10 @@ def cmd_trulyinbox(args):
             try:
                 _write_env_file(updates)
             except OSError as e:
-                print(f"\n  The key works, but Harvey couldn't save it to .env: {e}\n")
+                print(f"\n  Der Schlüssel funktioniert, aber Harvey konnte ihn nicht in .env speichern: {e}\n")
                 return 1
             await ti.set_choice(state, "connected")
-            print("\n  Connected. " + d.check_warmup_service(health, warmup).detail + "\n")
+            print("\n  Verbunden. " + d.check_warmup_service(health, warmup).detail + "\n")
             return 0
         choice = await ti.get_choice(state)
         health, error = await ti.current_health(address)
@@ -1179,14 +1235,14 @@ def cmd_sending(args):
         await state.init_db()
         if args.sending_action == "pause":
             await state.set_setting("sending_paused", "von Hand pausiert")
-            print("\n  Sending paused. Nothing will leave the outbox.\n")
+            print("\n  Versand pausiert. Aus dem Postausgang geht nichts mehr raus.\n")
         elif args.sending_action == "resume":
             await state.set_setting("sending_paused", "")
             await state.set_setting("bounce_count", "0")
-            print("\n  Sending resumed (bounce counter reset).\n")
+            print("\n  Versand läuft wieder (Zähler für Unzustellbare zurückgesetzt).\n")
         else:
             paused = await state.get_setting("sending_paused")
-            print(f"\n  Sending: {'PAUSED — ' + paused if paused else 'active'}\n")
+            print(f"\n  Versand: {'PAUSIERT (' + paused + ')' if paused else 'aktiv'}\n")
 
     asyncio.run(_run())
 
@@ -1197,7 +1253,7 @@ def main():
     from harvey.paths import PROJECT_ROOT
     project_root = str(PROJECT_ROOT)
 
-    parser = argparse.ArgumentParser(
+    parser = DeutscherParser(
         prog="harvey",
         description="Harvey DACH: findet Firmen, baut Lead-Listen und schreibt Mails in deinem Stil.",
     )
@@ -1217,41 +1273,41 @@ def main():
 
     # harvey train <url>
     sub = subparsers.add_parser("train", help="Harvey mit deiner Website trainieren")
-    sub.add_argument("url", help="Website URL to crawl and learn from")
+    sub.add_argument("url", help="Website, die Harvey lesen und lernen soll")
     sub.add_argument(
         "max_pages",
         nargs="?",
         type=int,
         default=100,
-        help="Max pages to crawl (default: 100)",
+        help="Höchstzahl Seiten (Standard: 100)",
     )
     sub.add_argument(
         "--provider", choices=["claude", "codex"], default=None,
-        help="Subscription to think with (default: the one in your config, else claude)",
+        help="Welches Abo denkt (Standard: das aus deiner Konfiguration, sonst claude)",
     )
-    sub.add_argument("--model", default=None, help="Model for this provider (default: provider default)")
+    sub.add_argument("--model", default=None, help="Modell für dieses Abo (Standard: das Modell des Anbieters)")
     sub.add_argument(
         "--reasoning-effort", default=None,
-        help="Codex reasoning effort (minimal/low/medium/high/xhigh)",
+        help="Denktiefe bei Codex (minimal/low/medium/high/xhigh)",
     )
     sub.set_defaults(func=cmd_train)
 
     # harvey dashboard
     sub = subparsers.add_parser("dashboard", help="Dashboard im Browser öffnen")
     sub.add_argument("--host", default="127.0.0.1",
-                     help="Loopback address to listen on (default: 127.0.0.1; "
-                          "other addresses are refused)")
-    sub.add_argument("--port", type=int, default=5555, help="Port (default: 5555)")
+                     help="Lokale Adresse, auf der das Dashboard läuft (Standard: 127.0.0.1; "
+                          "andere Adressen werden abgelehnt)")
+    sub.add_argument("--port", type=int, default=5555, help="Port (Standard: 5555)")
     sub.add_argument("--url", action="store_true",
-                     help="Print the unlock link (with its token) and exit")
+                     help="Nur den Link zum Entsperren (mit Token) ausgeben und beenden")
     sub.set_defaults(func=cmd_dashboard)
 
     # harvey status
     sub = subparsers.add_parser("status", help="Stand anzeigen")
     sub.add_argument(
         "--check", action="store_true",
-        help="Also check the configured brain now (Codex: CLI version, isolation "
-             "and login; Claude: CLI isolation flags; no model call)",
+        help="Auch das eingestellte Modell-Abo jetzt prüfen (Codex: CLI-Version, Isolation "
+             "und Anmeldung; Claude: Isolations-Flags der CLI; ohne Modellaufruf)",
     )
     sub.set_defaults(func=cmd_status)
 
@@ -1259,43 +1315,43 @@ def main():
     sub = subparsers.add_parser(
         "export", help="Kontakte als CSV für andere Versand-Tools exportieren"
     )
-    sub.add_argument("--out", default="prospects.csv", help="Output file (default: prospects.csv)")
+    sub.add_argument("--out", default="prospects.csv", help="Zieldatei (Standard: prospects.csv)")
     sub.add_argument(
         "--email-status", default="",
-        help="Comma-separated statuses to include (default: verified,risky)",
+        help="Adress-Status, kommagetrennt (Standard: verified,risky)",
     )
-    sub.add_argument("--min-score", type=int, default=0, help="Minimum ICP score")
-    sub.add_argument("--status", default="", help="Comma-separated pipeline statuses (e.g. new,queued); opted-out contacts stay excluded")
-    sub.add_argument("--all", action="store_true", help="Export the raw list without filters, including opted-out contacts (not for outreach)")
+    sub.add_argument("--min-score", type=int, default=0, help="Mindestpunktzahl für die Passung")
+    sub.add_argument("--status", default="", help="Kontakt-Status, kommagetrennt (z. B. new,queued); Abgemeldete bleiben draußen")
+    sub.add_argument("--all", action="store_true", help="Rohliste ohne Filter, auch mit Abgemeldeten (nicht zum Anschreiben)")
     sub.set_defaults(func=cmd_export)
 
     # harvey companies
     sub = subparsers.add_parser(
         "companies", help="Firmenliste exportieren: jede Firma, warum sie passt und warum sie nicht angeschrieben wurde"
     )
-    sub.add_argument("--out", default="", help="Output file (default: data/exports/company-register-<date>.csv)")
+    sub.add_argument("--out", default="", help="Zieldatei (Standard: data/exports/company-register-<Datum>.csv)")
     sub.set_defaults(func=cmd_companies)
 
     # harvey gmail auth|test
     sub = subparsers.add_parser("gmail", help="Gmail als Postfach einrichten")
     sub.add_argument("gmail_action", choices=["auth", "test"],
-                     help="auth: one-time OAuth; test: verify connection")
+                     help="auth: einmal anmelden (OAuth); test: Verbindung prüfen")
     sub.set_defaults(func=cmd_gmail)
 
     # harvey microsoft auth|test
     sub = subparsers.add_parser("microsoft", help="Microsoft 365 als Postfach einrichten")
     sub.add_argument("microsoft_action", choices=["auth", "test"],
-                     help="auth: one-time sign-in; test: verify connection")
+                     help="auth: einmal anmelden; test: Verbindung prüfen")
     sub.set_defaults(func=cmd_microsoft)
 
     # harvey outbox
     sub = subparsers.add_parser("outbox", help="Postausgang ansehen, Mails freigeben oder ablehnen")
-    sub.add_argument("--approve", metavar="ID", default="", help="Approve one item")
-    sub.add_argument("--approve-all", action="store_true", help="Approve all pending")
-    sub.add_argument("--reject", metavar="ID", default="", help="Reject one item")
+    sub.add_argument("--approve", metavar="ID", default="", help="Eine Mail freigeben")
+    sub.add_argument("--approve-all", action="store_true", help="Alle wartenden Mails freigeben")
+    sub.add_argument("--reject", metavar="ID", default="", help="Eine Mail ablehnen")
     sub.set_defaults(func=cmd_outbox)
 
-    # harvey sending pause|resume|status
+    # harvey discover
     sub = subparsers.add_parser("discover", help="Firmen finden, die zu deiner Zielgruppe passen")
     sub.add_argument("--provider", default="osm",
                      help="Quelle für die Suche (Standard: osm, kostenlos, ohne Konto)")
@@ -1304,23 +1360,24 @@ def main():
     sub.add_argument("--estimate", action="store_true",
                      help="Nur die Kosten schätzen, nichts abrufen")
     sub.add_argument("--city", default="",
-                     help='Semicolon-separated cities, e.g. "Denver, CO;Dallas, TX" '
-                          '(default: icp.geography)')
+                     help='Orte, mit Semikolon getrennt, z. B. "Berlin;Wien;Zürich" '
+                          '(Standard: icp.geography)')
     sub.add_argument("--depth", type=int, default=30,
-                     help="SERP depth (default: 30 — depth 100 costs 10x since Sept 2025)")
+                     help="Suchtiefe bei Suchergebnissen (Standard: 30; Tiefe 100 kostet seit Sept. 2025 das Zehnfache)")
     sub.add_argument("--limit", type=int, default=None,
                      help="Höchstzahl Treffer pro Suchanfrage (Standard: alle bei osm, 100 bei bezahlten Quellen)")
     sub.add_argument("--max-spend", type=float, default=1.0,
                      help="Kostenobergrenze in Dollar (Standard: 1.00)")
     sub.add_argument("--preset", default="", choices=["", "yc", "hiring", "accelerator", "funding"],
-                     help="A built-in search instead of your ICP's industries "
-                          "(each needs a search provider like tinyfish, serper or dataforseo_serp). "
-                          "yc: startups whose own site says they're YC-backed; "
-                          "hiring: companies whose own careers pages list one of "
-                          "your hiring_signals roles (else ICP titles); "
-                          "accelerator: ones backed by Techstars, Antler, EF, SPC, 500 Global, "
-                          "Neo, AI Grant, a16z speedrun or Plug and Play; "
-                          "funding: companies announcing a raise on their own site in the last 18 months")
+                     help="Eine fertige Suche statt der Branchen aus deiner Zielgruppe "
+                          "(jede braucht einen Suchanbieter wie tinyfish, serper oder dataforseo_serp). "
+                          "yc: Startups, deren Website sagt, dass Y Combinator dahintersteht; "
+                          "hiring: Firmen, deren Karriereseite eine deiner hiring_signals-Rollen "
+                          "ausschreibt (sonst die Titel aus der Zielgruppe); "
+                          "accelerator: Firmen mit Techstars, Antler, EF, SPC, 500 Global, "
+                          "Neo, AI Grant, a16z speedrun oder Plug and Play im Rücken; "
+                          "funding: Firmen, die in den letzten 18 Monaten auf ihrer Website "
+                          "eine Finanzierung melden")
     sub.add_argument("--no-profile", action="store_true",
                      help="Websites der Treffer nicht lesen (schneller)")
     sub.set_defaults(func=cmd_discover)
@@ -1366,17 +1423,17 @@ def main():
     sub = subparsers.add_parser(
         "profile", help="Websites der gefundenen Firmen lesen (kostenlos, ohne Claude)")
     sub.add_argument("--limit", type=int, default=200,
-                     help="Max sites to read (default: 200)")
+                     help="Höchstzahl Websites (Standard: 200)")
     sub.add_argument("--stale-days", type=int, default=90,
-                     help="Re-read a site after this many days (default: 90)")
+                     help="Website nach so vielen Tagen neu lesen (Standard: 90)")
     sub.set_defaults(func=cmd_profile)
 
     sub = subparsers.add_parser(
         "signals", help="Signale prüfen und bestätigen, nach denen Harvey sucht")
     sub.add_argument("--confirm", metavar="CODES", default="",
-                     help="Comma-separated codes to confirm ('all' or 'free' accepted)")
+                     help="Codes zum Bestätigen, kommagetrennt (auch 'all' für alle oder 'free' für alle kostenlosen)")
     sub.add_argument("--reject", metavar="CODES", default="",
-                     help="Comma-separated codes to turn off")
+                     help="Codes zum Ausschalten, kommagetrennt")
     sub.set_defaults(func=cmd_signals)
 
     sub = subparsers.add_parser(
@@ -1385,26 +1442,27 @@ def main():
 
     sub = subparsers.add_parser("sending", help="Not-Aus: Versand pausieren oder fortsetzen")
     sub.add_argument("sending_action", nargs="?", default="status",
-                     choices=["pause", "resume", "status"])
+                     choices=["pause", "resume", "status"],
+                     help="pause: Versand anhalten; resume: fortsetzen; status: Stand zeigen (Standard)")
     sub.set_defaults(func=cmd_sending)
 
     sub = subparsers.add_parser(
         "warmup", help="Prüfen, ob deine Absender-Domain eingerichtet und aufgewärmt ist")
     sub.add_argument("domain", nargs="?", default="",
-                     help="Domain to check (default: your sending mailbox's domain)")
+                     help="Domain, die geprüft wird (Standard: die Domain deines Absender-Postfachs)")
     sub.set_defaults(func=cmd_warmup)
 
     sub = subparsers.add_parser(
         "trulyinbox", help="Aufwärmdienst TrulyInbox verbinden, damit Harvey die Zustellrate liest")
     sub.add_argument("trulyinbox_action", nargs="?", default="status",
                      choices=["status", "connect", "other"],
-                     help="connect a key, 'other' if you use another warmup service, "
-                          "or show the status (default)")
+                     help="connect: Schlüssel verbinden; other: du nutzt einen anderen Aufwärmdienst; "
+                          "status: Stand zeigen (Standard)")
     sub.set_defaults(func=cmd_trulyinbox)
 
     # harvey usage
     sub = subparsers.add_parser("usage", help="Verbrauch und Kontingent zeigen (Claude oder Codex)")
-    sub.add_argument("--days", type=int, default=30, help="Breakdown window (default: 30)")
+    sub.add_argument("--days", type=int, default=30, help="Zeitraum der Aufschlüsselung in Tagen (Standard: 30)")
     sub.set_defaults(func=cmd_usage)
 
     args = parser.parse_args()
@@ -1412,18 +1470,18 @@ def main():
 
     if args.command is None:
         parser.print_help()
-        print("\n  Quick start:")
-        print("    harvey install   — Install dependencies")
-        print("    harvey setup     — Configure Harvey (first time)")
-        print("    harvey run       — Start closing deals")
-        print("    harvey dashboard — Open the web dashboard")
+        print("\n  Schnellstart:")
+        print("    harvey install    Abhängigkeiten installieren")
+        print("    harvey setup      Harvey einrichten (beim ersten Mal)")
+        print("    harvey run        Harvey laufen lassen")
+        print("    harvey dashboard  Dashboard im Browser öffnen")
         print()
         sys.exit(0)
 
     try:
         args.func(args)
     except KeyboardInterrupt:
-        print("\n  Interrupted. Goodbye.")
+        print("\n  Abgebrochen. Tschüss.")
         sys.exit(130)
     except Exception as e:
         # ConfigError and friends carry actionable messages — show them
@@ -1431,9 +1489,9 @@ def main():
         from harvey.config import ConfigError
 
         if isinstance(e, ConfigError):
-            print(f"\n  Configuration problem:\n  {e}\n")
+            print(f"\n  Problem in der Konfiguration:\n  {e}\n")
         else:
-            print(f"\n  Error running 'harvey {args.command}': {e}\n")
+            print(f"\n  Fehler bei 'harvey {args.command}': {e}\n")
         sys.exit(1)
 
 

@@ -474,6 +474,7 @@ const el = {innerHTML: 'previous export button'}, pending = [];
 global.document = {getElementById: () => el};
 global.api = (path, opts) => new Promise(resolve => pending.push({resolve, body: JSON.parse(opts.body)}));
 global.escHtml = s => s || '';
+global.industryLabel = s => s || '';
 vm.runInThisContext("const _cohort = {require: new Set(['A']), exclude: new Set()};" +
  "let _cohortOffset = 0, _cohortGeneration = 0; const COHORT_PAGE = 50;" +
  app.slice(app.indexOf('async function runCohort('), app.indexOf('async function exportCohort(')));

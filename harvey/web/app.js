@@ -231,14 +231,50 @@ function meterHtml(pct, segments) {
 const SOURCE_LABELS = {
   company_website: 'Teamseite', known_company_backfill: 'Teamseite',
   scraped_mailto: 'Veröffentlichte Adresse', hunter_domain_search: 'Hunter', linkedin_search: 'LinkedIn',
-  job_board: 'Jobbörse', web_search: 'Websuche', company_inbox: 'Firmenpostfach',
+  job_board: 'Jobbörse', web_search: 'Websuche', company_inbox: 'Allgemeines Postfach der Firma',
   osm: 'OpenStreetMap', dataforseo_listings: 'DataForSEO', dataforseo_serp: 'DataForSEO SERP', dataforseo_maps: 'DataForSEO Maps',
   serper: 'Serper', tinyfish: 'TinyFish', scavio_maps: 'Scavio Maps', scavio_search: 'Scavio Search',
 };
 function sourceLabel(s) {
   if (!s) return '';
-  return escHtml(Object.prototype.hasOwnProperty.call(SOURCE_LABELS, s) ? SOURCE_LABELS[s]
-    : String(s).replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()));
+  // "discover:osm" is a company found by the discover stage through OSM.
+  const key = String(s).replace(/^discover:/, '');
+  return escHtml(Object.prototype.hasOwnProperty.call(SOURCE_LABELS, key) ? SOURCE_LABELS[key]
+    : key.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()));
+}
+
+// A company inbox is stored with the English title "General inbox".
+function titleLabel(t) {
+  return t === 'General inbox' ? 'Allgemeines Postfach' : (t || '');
+}
+
+// Raw OSM values and old English industries, readable in German
+// (mirrors harvey.collectors.discover.OSM_VALUE_LABELS for the common ones).
+const INDUSTRY_LABELS = {
+  yes: '', no: '', general: 'Allgemein', healthcare: 'Gesundheit', medical: 'Gesundheit',
+  therapist: 'Therapeut', physiotherapist: 'Physiotherapie', psychotherapist: 'Psychotherapie',
+  doctor: 'Arztpraxis', doctors: 'Arztpraxis', physician: 'Arztpraxis', dentist: 'Zahnarzt',
+  alternative: 'Heilpraktiker', clinic: 'Klinik', pharmacy: 'Apotheke', veterinary: 'Tierarzt',
+  craft: 'Handwerk', office: 'Dienstleistung', shop: 'Einzelhandel',
+  roofer: 'Dachdecker', roofing: 'Dachdecker', plumber: 'Sanitär', hvac: 'Heizung und Klima',
+  electrician: 'Elektriker', carpenter: 'Tischler', painter: 'Maler', gardener: 'Gärtner',
+  builder: 'Bau', lawyer: 'Rechtsanwalt', tax_advisor: 'Steuerberatung', accountant: 'Buchhaltung',
+  advertising_agency: 'Werbeagentur', estate_agent: 'Immobilien', insurance: 'Versicherung',
+  construction_company: 'Bauunternehmen', hairdresser: 'Friseur', beauty: 'Kosmetik',
+  bakery: 'Bäckerei', car_repair: 'Autowerkstatt', company: 'Firma', consulting: 'Beratung',
+};
+function industryLabel(v) {
+  const raw = String(v || '').split(';')[0].trim();
+  const low = raw.toLowerCase();
+  return Object.prototype.hasOwnProperty.call(INDUSTRY_LABELS, low) ? INDUSTRY_LABELS[low]
+    : raw.replace(/_/g, ' ');
+}
+
+// Campaigns from before the German names were "healthcare-inbox-outreach".
+function campaignLabel(name) {
+  const m = /^(.*?)-(inbox-outreach|outreach)$/.exec(String(name || ''));
+  if (!m) return name || '';
+  return (industryLabel(m[1]) || 'Allgemein') + ' · ' + (m[2] === 'inbox-outreach' ? 'Postfach' : 'Kontakte');
 }
 
 const AGENT_ICONS = {scout: 'discover', writer: 'pen', sender: 'campaigns', handler: 'message',
@@ -247,7 +283,7 @@ const AGENT_ICONS = {scout: 'discover', writer: 'pen', sender: 'campaigns', hand
 function actionText(a) {
   const d = a.details || {};
   const who = escHtml(d.prospect_email || d.prospect || d.to || '');
-  const camp = escHtml(d.campaign_name || d.campaign || '');
+  const camp = escHtml(campaignLabel(d.campaign_name || d.campaign || ''));
   const intent = d.intent ? ' · ' + escHtml(statusMeta(d.intent).label) : '';
   const n = (v, one, many) => (Number(v) || 0) + ' ' + ((Number(v) || 0) === 1 ? one : many);
   switch (a.action_type) {
@@ -596,7 +632,7 @@ async function loadFunnel() {
     '<div class="legend-rows">' + stages.map(s =>
       '<div class="legend-row"><span class="legend-key"><i class="' + s[2] + '"></i>' + s[0] + '</span>' +
       '<span class="legend-val">' + s[1] + '</span>' +
-      '<span class="legend-pct">' + Math.round(100 * s[1] / total) + '%</span></div>'
+      '<span class="legend-pct">' + Math.round(100 * s[1] / total) + ' %</span></div>'
     ).join('') + '</div>';
 }
 
@@ -755,7 +791,7 @@ async function loadSignals() {
     parts.filter(p => p[1]).map(p => '<span class="seg ' + p[2] + '" style="flex:' + p[1] + '"></span>').join('') +
     '</div><div class="funnel-legend">' + parts.map(p =>
       '<div class="legend-item"><span class="legend-key"><i class="' + p[2] + '"></i>' + p[0] + '</span>' +
-      '<span class="legend-val">' + p[1] + '<small>' + Math.round(100 * p[1] / all) + '%</small></span></div>'
+      '<span class="legend-val">' + p[1] + '<small> · ' + Math.round(100 * p[1] / all) + ' %</small></span></div>'
     ).join('') + '</div></div>';
 
   grpEl.innerHTML = (data.groups || []).map(g => {
@@ -1146,7 +1182,7 @@ async function runCohort() {
       '</tr></thead><tbody>' +
       data.companies.map(c =>
         '<tr><td>' + escHtml(c.name) + '</td><td class="muted">' + escHtml(c.domain) + '</td>' +
-        '<td class="muted">' + escHtml(c.industry) + '</td>' +
+        '<td class="muted">' + escHtml(industryLabel(c.industry)) + '</td>' +
         '<td class="muted">' + escHtml(c.location) + '</td></tr>'
       ).join('') + '</tbody></table></div>';
 
@@ -1692,6 +1728,7 @@ const CONTACT_SOURCES = {
   hunter_domain_search: 'Hunter-Domainsuche',
   job_board: 'Jobbörse',
   web_search: 'Websuche',
+  company_inbox: 'Allgemeines Postfach der Firma',
 };
 
 // What the draft is built on, so every claim can be checked against it.
@@ -1703,7 +1740,7 @@ function renderDeskContext(ctx) {
     ? '<a href="' + href + '" target="_blank" rel="noopener noreferrer">' +
         escHtml(ctx.website.replace(/^https?:\/\//i, '')) + ' &#8599;</a>'
     : '';
-  const who = [ctx.contact, ctx.contact_title].filter(Boolean).map(escHtml).join(' &middot; ');
+  const who = [ctx.contact, titleLabel(ctx.contact_title)].filter(Boolean).map(escHtml).join(' &middot; ');
   const email = [ctx.email_status ? statusMeta(ctx.email_status).label : '', ctx.score ? 'Score ' + ctx.score : '']
     .filter(Boolean).map(escHtml).join(' &middot; ');
   const signals = Object.entries(ctx.signals || {})
@@ -1717,7 +1754,7 @@ function renderDeskContext(ctx) {
       ? CONTACT_SOURCES[ctx.contact_source] : ctx.contact_source)) +
     row('E-Mail', email) +
     row('Signale', signals) +
-    row('Kampagne', ctx.campaign ? escHtml(ctx.campaign) +
+    row('Kampagne', ctx.campaign ? escHtml(campaignLabel(ctx.campaign)) +
       ' <span class="muted">(wie sie gefunden wurden, keine Aussage über sie)</span>' : '') +
     row('Notizen des Writers', escHtml(ctx.notes)) +
   '</div>';
@@ -2044,7 +2081,7 @@ function renderCompaniesPage(page) {
       '<td title="' + escHtml((c.fit_reasons || []).join(' · ')) + '">' +
         (typeof c.fit === 'number' ? meterHtml(c.fit) : '') + '</td>' +
       '<td title="' + escHtml(c.register_why || '') + '">' + escHtml(c.register_status || '') + '</td>' +
-      '<td>' + (c.industry ? '<span class="tag">' + escHtml(c.industry) + '</span>' : '') + '</td>' +
+      '<td>' + (industryLabel(c.industry) ? '<span class="tag">' + escHtml(industryLabel(c.industry)) + '</span>' : '') + '</td>' +
       '<td>' + escHtml(c.location) + '</td>' +
       '<td class="num">' + (c.contact_count || 0) + '</td>' +
       '<td class="muted">' + relTime(c.created_at) + '</td></tr>';
@@ -2090,7 +2127,7 @@ function companyInfoCard(company, profile) {
     '<span class="meta">' + (typeof company.fit === 'number' ? 'Passung ' + company.fit + ' / 100' : '') + '</span></div>' +
     '<table><tbody>' +
     row('Website', link(website, c.domain || website)) +
-    row('Branche', escHtml(c.industry)) +
+    row('Branche', escHtml(industryLabel(c.industry))) +
     row('Region', escHtml(c.location)) +
     row('Warum ausgewählt', escHtml(reg.why_selected || (company.fit_reasons || []).join(' · '))) +
     row('Status', '<b>' + escHtml(reg.status || company.register_status || '') + '</b>' +
@@ -2101,7 +2138,7 @@ function companyInfoCard(company, profile) {
     row('Technik der Website', escHtml(by('TECH_STACK').map(o => o.value_text).slice(0, 1).join(''))) +
     row('Weitere Signale', other.slice(0, 8).map(o => escHtml(o.label) + ': ' +
       escHtml(o.value_text || String(o.value_num))).join('<br>')) +
-    row('Gefunden über', c.source_url ? link(c.source_url, 'Suchergebnis') + ' · ' + escHtml(c.source || '') : escHtml(c.source || '')) +
+    row('Gefunden über', c.source_url ? link(c.source_url, 'Suchergebnis') + ' · ' + sourceLabel(c.source) : sourceLabel(c.source)) +
     row('Zuerst gefunden', escHtml((c.created_at || '').slice(0, 10))) +
     '</tbody></table></div>';
   return html;
@@ -2119,7 +2156,7 @@ async function showCompanyContacts(index) {
   let html = '<button class="btn btn-ghost btn-sm" onclick="loadCompanies()" style="margin-bottom:12px">' +
     '&larr; Alle Firmen</button>' + companyInfoCard(company, profile) +
     '<div class="card flush"><div class="card-head"><h3>Kontakte</h3>' +
-    '<span class="meta">' + escHtml([company.industry, company.location].filter(Boolean).join(' · ')) + '</span></div>';
+    '<span class="meta">' + escHtml([industryLabel(company.industry), company.location].filter(Boolean).join(' · ')) + '</span></div>';
   if (!data || !data.length) {
     html += '<div class="empty"><div class="copy">Bei dieser Firma noch keine Kontakte gefunden.</div></div></div>';
   } else {
@@ -2128,7 +2165,7 @@ async function showCompanyContacts(index) {
       const phoneIcon = p.phone_verified ? ' <span class="muted">&#10003;</span>' : '';
       html += '<tr><td><div class="cell-row"><span class="avatar">' + initials(p.first_name, p.last_name) + '</span>' +
           '<div class="cell-stack"><span class="cell-main">' + escHtml(p.first_name) + ' ' + escHtml(p.last_name) + '</span>' +
-          '<span class="cell-sub">' + escHtml(p.title === 'General inbox' ? 'Allgemeines Postfach' : p.title) + '</span></div></div></td>' +
+          '<span class="cell-sub">' + escHtml(titleLabel(p.title)) + '</span></div></div></td>' +
         '<td>' + escHtml(p.email) + emailTag(p) + '</td>' +
         '<td>' + escHtml(p.phone) + phoneIcon + '</td>' +
         '<td>' + (safeHref(p.linkedin_url) ? '<a href="' + safeHref(p.linkedin_url) + '" target="_blank" rel="noopener noreferrer">Profil</a>' : '') + '</td>' +
@@ -2228,7 +2265,7 @@ function renderContacts() {
   for (const [p, i] of rows) {
     html += '<tr><td><div class="cell-row"><span class="avatar">' + initials(p.first_name, p.last_name) + '</span>' +
         '<div class="cell-stack"><span class="cell-main">' + escHtml(p.first_name) + ' ' + escHtml(p.last_name) + '</span>' +
-        '<span class="cell-sub">' + escHtml(p.title === 'General inbox' ? 'Allgemeines Postfach' : p.title) + '</span></div></div></td>' +
+        '<span class="cell-sub">' + escHtml(titleLabel(p.title)) + '</span></div></div></td>' +
       '<td>' + escHtml(p.company) + '</td>' +
       '<td><div class="cell-stack"><span>' + escHtml(p.email) + '</span>' +
         '<span class="cell-sub">' + [emailTag(p).trim(), p.phone ? escHtml(p.phone) +
@@ -2485,7 +2522,9 @@ async function loadCampaigns() {
           '<label><input type="checkbox" onchange="markSent(' + i + ',' + ri + ',this.checked)"> Als gesendet markieren</label>'
       }).filter(Boolean).map(x => '<div class="rcpt">' + x + '</div>').join('');
       stepsHtml += '<div class="email-step"><span class="step-dot">' + escHtml(String(step.step || '?')) + '</span>' +
-        '<div><div class="step-num">' + (s === 0 ? 'Erste E-Mail' : 'Follow-up') +
+        '<div><div class="step-num">' + (s === 0
+          ? (c.first_email_personal ? 'Erste E-Mail · Vorlage (für Folge-Mails / Fallback)' : 'Erste E-Mail')
+          : 'Follow-up') +
         (step.delay_days ? ' &middot; ' + escHtml(String(step.delay_days)) + ' Tage nach der letzten' : '') + '</div>' +
         '<div class="subject">' + escHtml(step.subject) + '</div>' +
         '<div class="body">' + escHtml(step.body) + '</div>' +
@@ -2494,11 +2533,16 @@ async function loadCampaigns() {
     });
     const pc = (c.prospect_ids || []).length;
     html += '<div class="campaign-card"><div class="campaign-top">' +
-      '<div class="campaign-title"><h3>' + escHtml(c.name || 'Kampagne ohne Titel') + '</h3>' +
+      '<div class="campaign-title"><h3>' + escHtml(campaignLabel(c.name) || 'Kampagne ohne Titel') + '</h3>' +
         '<button class="btn btn-ghost btn-sm" onclick="fbCampaign(' + i + ')">Feedback</button></div>' +
       '<div class="meta">' + badge(c.status) + '<span>' + pc + (pc !== 1 ? ' Kontakte' : ' Kontakt') + '</span>' +
         '<span>' + (c.sequence || []).length + ' E-Mails</span><span>Erstellt ' + relTime(c.created_at) + '</span></div>' +
       campaignProgress(c) + '</div>' +
+      (c.first_email_personal && (c.sequence || []).length
+        ? '<p class="muted" style="font-size:13px;margin:12px 0 0">Das hier ist die Vorlage (für Folge-Mails / Fallback). ' +
+          'Die erste Mail schreibt Harvey für jede Person einzeln. Du findest sie im ' +
+          '<a href="#" onclick="goTab(\'outbox\');return false">Postausgang</a>.</p>'
+        : '') +
       '<div class="sequence">' +
       (stepsHtml || '<p class="muted" style="font-size:13px;padding-top:16px">Diese Kampagne hat keine E-Mail-Schritte.</p>') + '</div></div>';
   });

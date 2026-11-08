@@ -1254,6 +1254,7 @@ class OpenStreetMap(DiscoveryProvider):
             raise RuntimeError("Kein Overpass-Spiegel war erreichbar.")
         r.raise_for_status()
 
+        searched = self._tags(query.term)
         out = []
         for el in r.json().get("elements") or []:
             tags = el.get("tags") or {}
@@ -1279,13 +1280,127 @@ class OpenStreetMap(DiscoveryProvider):
                 email=(tags.get("email") or tags.get("contact:email") or "").strip().lower(),
                 address=", ".join(x for x in (street, town) if x),
                 location=city or query.location,
-                category=tags.get("craft") or tags.get("shop") or tags.get("office") or "",
+                category=osm_category(tags, searched),
                 has_website=bool(site),
                 external_id=f"osm:{el.get('type')}/{el.get('id')}",
                 source_url=f"https://www.openstreetmap.org/{el.get('type')}/{el.get('id')}",
                 provider=self.key,
             ))
         return out
+
+
+# OSM-Tags wie craft=roofer oder healthcare=physiotherapist auf Deutsch, für
+# die Spalte "Branche". Ein Wert "yes" (office=yes, healthcare=yes) sagt nur,
+# dass es ein Büro oder etwas mit Gesundheit ist: dann zählt die Bedeutung des
+# Schlüssels. "yes" wird nie gespeichert.
+OSM_CATEGORY_KEYS = ("healthcare", "craft", "shop", "office", "amenity", "leisure", "tourism")
+OSM_KEY_LABELS = {
+    "healthcare": "Gesundheit",
+    "craft": "Handwerk",
+    "shop": "Einzelhandel",
+    "office": "Dienstleistung",
+    "amenity": "",
+    "leisure": "Freizeit",
+    "tourism": "Tourismus",
+}
+OSM_VALUE_LABELS = {
+    # Gesundheit
+    "physiotherapist": "Physiotherapie", "physiotherapy": "Physiotherapie",
+    "doctor": "Arztpraxis", "doctors": "Arztpraxis", "physician": "Arztpraxis",
+    "general_practitioner": "Arztpraxis",
+    "dentist": "Zahnarzt", "orthodontist": "Kieferorthopädie",
+    "therapist": "Therapeut", "psychotherapist": "Psychotherapie",
+    "psychologist": "Psychologie", "occupational_therapist": "Ergotherapie",
+    "speech_therapist": "Logopädie", "podiatrist": "Podologie",
+    "alternative": "Heilpraktiker", "optometrist": "Optiker",
+    "audiologist": "Hörakustik", "midwife": "Hebamme", "nurse": "Pflege",
+    "pharmacy": "Apotheke", "clinic": "Klinik", "hospital": "Krankenhaus",
+    "laboratory": "Labor", "sample_collection": "Labor",
+    "rehabilitation": "Reha", "centre": "Gesundheitszentrum",
+    "counselling": "Beratung", "veterinary": "Tierarzt",
+    "healthcare": "Gesundheit", "medical": "Gesundheit",
+    "massage": "Massage", "nursing_home": "Pflegeheim",
+    # Handwerk
+    "roofer": "Dachdecker", "roofing": "Dachdecker", "plumber": "Sanitär",
+    "hvac": "Heizung und Klima", "heating_engineer": "Heizung und Klima",
+    "electrician": "Elektriker", "carpenter": "Tischler", "joiner": "Tischler",
+    "painter": "Maler", "gardener": "Gärtner", "builder": "Bau",
+    "tiler": "Fliesenleger", "glaziery": "Glaser", "metal_construction": "Metallbau",
+    "locksmith": "Schlüsseldienst", "stonemason": "Steinmetz",
+    "plasterer": "Stuckateur", "floorer": "Bodenleger", "insulation": "Dämmung",
+    "chimney_sweeper": "Schornsteinfeger", "photographer": "Fotograf",
+    "tailor": "Schneider", "shoemaker": "Schuhmacher", "upholsterer": "Polsterer",
+    "window_construction": "Fensterbau", "scaffolder": "Gerüstbau",
+    "electronics_repair": "Elektronikreparatur", "sanitary": "Sanitär",
+    "handicraft": "Handwerk", "craft": "Handwerk",
+    # Geschäfte
+    "hairdresser": "Friseur", "beauty": "Kosmetik", "bakery": "Bäckerei",
+    "car_repair": "Autowerkstatt", "garden_centre": "Gartencenter",
+    "hardware": "Baumarkt", "doityourself": "Baumarkt", "supermarket": "Supermarkt",
+    "optician": "Optiker", "hearing_aids": "Hörakustik",
+    "medical_supply": "Sanitätshaus", "car": "Autohaus", "car_parts": "Autoteile",
+    "clothes": "Mode", "florist": "Blumen", "butcher": "Metzgerei",
+    "wholesale": "Großhandel", "electronics": "Elektronik", "furniture": "Möbel",
+    "convenience": "Lebensmittel", "appliance": "Haushaltsgeräte",
+    "shop": "Einzelhandel",
+    # Büros und Dienstleister
+    "lawyer": "Rechtsanwalt", "attorney": "Rechtsanwalt", "notary": "Notar",
+    "tax_advisor": "Steuerberatung", "accountant": "Buchhaltung",
+    "advertising_agency": "Werbeagentur", "estate_agent": "Immobilien",
+    "insurance": "Versicherung", "construction_company": "Bauunternehmen",
+    "company": "Firma", "consulting": "Beratung", "it": "IT",
+    "architect": "Architektur", "financial": "Finanzen",
+    "financial_advisor": "Finanzberatung", "employment_agency": "Personalvermittlung",
+    "engineer": "Ingenieurbüro", "graphic_design": "Grafikdesign",
+    "logistics": "Logistik", "travel_agent": "Reisebüro",
+    "property_management": "Hausverwaltung", "surveyor": "Vermessung",
+    "association": "Verein", "educational_institution": "Bildung",
+    "coworking": "Coworking", "office": "Dienstleistung",
+    # Sonstiges
+    "restaurant": "Restaurant", "cafe": "Café", "fitness_centre": "Fitnessstudio",
+    "hotel": "Hotel", "general": "Allgemein",
+}
+
+
+def osm_branche(value: str) -> str:
+    """Ein OSM-Wert oder ein alter, englischer Branchenwert auf Deutsch.
+
+    Unbekannte Werte bleiben, wie sie sind, nur ohne Unterstriche. "yes",
+    "no" und Leeres werden zu "".
+    """
+    raw = (value or "").split(";")[0].strip()
+    low = raw.lower()
+    if low in ("", "yes", "no"):
+        return ""
+    if low in OSM_VALUE_LABELS:
+        return OSM_VALUE_LABELS[low]
+    if low in OSM_KEY_LABELS:
+        return OSM_KEY_LABELS[low]
+    return raw.replace("_", " ")
+
+
+def osm_category(tags: dict, searched: list[str] | tuple = ()) -> str:
+    """Die Branche eines OSM-Treffers auf Deutsch, nie "yes".
+
+    Zuerst der Tag, nach dem gesucht wurde (healthcare=physiotherapist bei
+    "Physiotherapie"), dann die üblichen Schlüssel der Reihe nach. Bei
+    "yes" steht der Schlüssel für die Branche (office=yes wird
+    "Dienstleistung").
+    """
+    keys = [t.split("=", 1)[0] for t in searched if "=" in t]
+    keys += [k for k in OSM_CATEGORY_KEYS if k not in keys]
+    fallback = ""
+    for key in keys:
+        value = (tags.get(key) or "").split(";")[0].strip()
+        if not value or value.lower() == "no":
+            continue
+        if value.lower() == "yes":
+            fallback = fallback or OSM_KEY_LABELS.get(key, "")
+            continue
+        label = osm_branche(value)
+        if label:
+            return label
+    return fallback
 
 
 class ScavioProvider(DiscoveryProvider):

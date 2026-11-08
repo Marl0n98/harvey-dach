@@ -114,8 +114,21 @@ def _text(value: str, limit: int = 300) -> str:
     return value[:limit]
 
 
+_PLACEHOLDER = re.compile(
+    r"(?i)\b(?:just another wordpress site|eine weitere wordpress-website|"
+    r"(?:a|an|the)\s+(?:\w+\s+){0,3}(?:wordpress\s+)?(?:template|theme)\b|"
+    r"lorem ipsum|coming soon|under construction|wartungsmodus|seite im aufbau|"
+    r"website (?:ist )?im aufbau|default site)")
+
+
 def site_description(html: str) -> str:
-    """What the site says the business does: its meta description, else its title."""
+    """What the site says the business does: its meta description, else its title.
+    A theme's or builder's placeholder text is no description."""
+    text = _site_description(html)
+    return "" if _PLACEHOLDER.search(text) else text
+
+
+def _site_description(html: str) -> str:
     for pattern in (r'<meta[^>]+name\s*=\s*["\']description["\'][^>]*content\s*=\s*["\']([^"\']+)',
                     r'<meta[^>]+content\s*=\s*["\']([^"\']+)["\'][^>]*name\s*=\s*["\']description',
                     r'<meta[^>]+property\s*=\s*["\']og:description["\'][^>]*content\s*=\s*["\']([^"\']+)'):
@@ -128,6 +141,7 @@ def site_description(html: str) -> str:
 
 def _clean_phone(raw: str) -> str:
     raw = re.sub(r"\s+", " ", raw.replace(" ", " ")).strip(" .-/")
+    raw = re.sub(r"(?i)^(?:telefon|telefax|tel|fon|phone|mobil)(?![a-z])\s*[:.]?\s*", "", raw).strip(" .-/")
     return raw if len(re.sub(r"\D", "", raw)) >= 7 else ""
 
 
@@ -549,7 +563,12 @@ COMPANY_COLUMNS = [
 EMAIL_COLUMNS = ["Firma", "Website", "E-Mail", "Person", "Quelle", "Prüfung", "Mailserver"]
 
 
-def _provider_label(lead: dict) -> str:
+def _provider_label(lead: dict, best_email: str = "") -> str:
+    """Who runs the mail for the best address: the freemail provider for a gmx or
+    aon address, otherwise the company domain's server."""
+    mail_domain = (best_email or "").rpartition("@")[2].lower()
+    if mail_domain in FREEMAIL:
+        return f"Freemail ({mail_domain})"
     host, provider = lead.get("mail_host") or "", lead.get("provider") or ""
     if not host:
         return ""
@@ -729,7 +748,7 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
         "Quelle": best["source"] if best else "",
         "Prüfung": best["check"] if best else "",
         "Weitere E-Mails": "; ".join(others),
-        "Mailserver": _provider_label(lead),
+        "Mailserver": _provider_label(lead, best["email"] if best else ""),
         "Catch-all": "" if catch_all is None else ("ja" if catch_all else "nein"),
         "Personen auf Website": len(people) or "",
         "Online-Buchung": lead.get("booking", ""),

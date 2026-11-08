@@ -1289,9 +1289,14 @@ class Scout:
             return []
         from harvey.leads import review_removed
         removed = review_removed(lead)
+        review = lead.get("review") or {}
+        # An address a check is still unsure about (shared with another company)
+        # isn't handed out until the agents have decided.
+        doubted = " ".join(review.get("notes") or []).lower() if review.get("status") == "unsicher" else ""
         return [e for e in lead.get("emails") or []
                 if e.get("check") == "bestätigt" and e.get("email")
                 and e["email"].lower() not in removed["emails"]
+                and e["email"].lower() not in doubted
                 and (e.get("person") or "") not in removed["contacts"]]
 
     async def _lead_removed_contacts(self, company_id: str) -> set[str]:

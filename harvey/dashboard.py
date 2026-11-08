@@ -238,15 +238,18 @@ async def get_setup_status():
         "help": provider_help,
     })
 
-    # 4. Email verification (needed for addresses to be sendable, not 'guess')
+    # 4. Email verification. Harvey asks the mail server itself (free SMTP
+    # check, HARVEY_SMTP_CHECK), so a paid verifier key is optional.
     verifier_set = _has("REOON_API_KEY") or _has("ZEROBOUNCE_API_KEY") or _has("HUNTER_API_KEY")
     checks.append({
         "id": "verifier", "label": "Schlüssel für die E-Mail-Prüfung",
         "done": verifier_set,
-        "required": True,
-        "help": "Füge in den Einstellungen einen Schlüssel von Reoon (600 gratis pro Monat), "
-                "ZeroBounce oder Hunter hinzu. Ohne Schlüssel bleiben gefundene E-Mails "
-                "„nicht geprüft“ und werden nie gesendet.",
+        "required": False,
+        "help": "Harvey prüft gefundene Adressen selbst kostenlos beim Mailserver "
+                "(HARVEY_SMTP_CHECK). Am besten klappt das von einer festen IP, etwa einem "
+                "Server, weil viele Mailserver Anfragen aus privaten Anschlüssen blocken. "
+                "Ein Schlüssel von Reoon (600 gratis pro Monat), ZeroBounce oder Hunter ist "
+                "optional und hilft, wo der Mailserver nicht antwortet.",
     })
 
     # 5. Config valid
@@ -1235,6 +1238,17 @@ HAND_SENDABLE_STATUSES = ("new", "queued")
 HAND_SENDABLE_EMAIL = ("verified", "risky")
 
 
+def _first_email_personal() -> bool:
+    """Does the Writer draft email 1 per person (gmail, microsoft, smtp)?"""
+    try:
+        from harvey.config import load_config
+        from harvey.integrations.mail_provider import NATIVE_PROVIDERS
+        provider = (load_config().channels.email.provider or "").strip().lower()
+        return provider in NATIVE_PROVIDERS
+    except Exception:
+        return False
+
+
 def _harvey_can_send() -> bool:
     """Can Harvey send email itself (a connected mailbox, or Instantly)?
 
@@ -1471,7 +1485,11 @@ async def get_campaigns():
     footer = _compliance_view()["footer"]
     committed = await _harvey_committed_ids()
     hand_sent = await _hand_sent_ids()
+    personal_first = _first_email_personal()
     for row in rows:
+        # With a connected mailbox the Writer drafts email 1 per person (it
+        # waits in the outbox); the stored sequence is the shared template.
+        row["first_email_personal"] = personal_first
         try:
             row["sequence"] = json.loads(row.get("sequence_json", "[]"))
         except (json.JSONDecodeError, TypeError):

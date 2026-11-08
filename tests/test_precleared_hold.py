@@ -283,7 +283,7 @@ def test_cli_status_shows_the_hold(monkeypatch, tmp_path, capsys):
     cli.cmd_status(type("A", (), {"check": False})())
 
     out = capsys.readouterr().out
-    assert f"Precleared:           HOLDING COLD EMAIL since {since}" in out
+    assert f"Precleared:           KALTAKQUISE ANGEHALTEN seit {since}" in out
     assert "2 Kaltakquise-Mails warten" in out
     assert "PRECLEARED_API_KEY" in out
 

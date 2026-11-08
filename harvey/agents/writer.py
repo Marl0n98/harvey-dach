@@ -447,7 +447,8 @@ class Writer:
             inbox_rule = (
                 "\n- This goes to the company's general inbox, most likely read by the owner"
                 "\n  or the office manager. Use no first name; open with 'Hi there' or"
-                "\n  address the company's team.")
+                "\n  address the company's team. Never write about a person from their site"
+                "\n  in the third person: the reader may be that person.")
         else:
             facts = [
                 f"- Name: {prospect.full_name()}",
@@ -728,15 +729,19 @@ Return ONLY a JSON array (no markdown fences, no commentary):
 
     def _group_prospects(self, prospects: list) -> dict[str, list]:
         """Group prospects into campaign batches by industry/title combo."""
+        from harvey.collectors.discover import osm_branche
+
         batches: dict[str, list] = {}
 
         for prospect in prospects:
-            # Group by industry + rough title category
-            industry = prospect.industry or "general"
+            # Group by industry + rough title category. The key is also the
+            # campaign name the dashboard shows, so it reads as German:
+            # "Gesundheit · Postfach", "Dachdecker · Kontakte".
+            industry = osm_branche(prospect.industry or "") or "Allgemein"
             # Inbox prospects get their own campaign: their templates can't
             # greet anyone by name.
-            kind = "inbox-outreach" if prospect.is_company_inbox else "outreach"
-            key = f"{industry}-{kind}"
+            kind = "Postfach" if prospect.is_company_inbox else "Kontakte"
+            key = f"{industry} · {kind}"
 
             if key not in batches:
                 batches[key] = []

@@ -1358,9 +1358,9 @@ def test_missing_key_fails_loudly_at_startup(monkeypatch, capsys):
         cmd_discover(_cli_args())
     assert ei.value.code == 1
     out = capsys.readouterr().out
-    assert "provider skipped: missing key" in out
+    assert "Quelle übersprungen, Schlüssel fehlt" in out
     assert "SERPER_API_KEY" in out
-    assert "0 queries can run" in out
+    assert "keine Suchanfrage kann laufen" in out
     # The guard fires before the estimate is even attempted.
     assert "Estimated cost" not in out
 
@@ -1370,7 +1370,7 @@ def test_placeholder_key_is_treated_as_missing(monkeypatch, capsys):
     with pytest.raises(SystemExit) as ei:
         cmd_discover(_cli_args())
     assert ei.value.code == 1
-    assert "provider skipped: missing key" in capsys.readouterr().out
+    assert "Quelle übersprungen, Schlüssel fehlt" in capsys.readouterr().out
 
 
 def test_absent_key_is_treated_as_missing(monkeypatch, capsys):
@@ -1749,3 +1749,15 @@ async def test_osm_maps_spanish_business_terms():
     assert provider._tags("comercio al mayor") == ["shop=wholesale"]
     assert provider._tags("mayorista") == ["shop=wholesale"]
     assert provider._tags("mayor's office") == []
+
+
+def test_osm_category_is_german_and_never_yes():
+    """The "Branche" column showed raw OSM values: yes, therapist, healthcare."""
+    assert D.osm_category({"healthcare": "physiotherapist"}, ["healthcare=physiotherapist"]) == "Physiotherapie"
+    assert D.osm_category({"office": "therapist"}) == "Therapeut"
+    assert D.osm_category({"healthcare": "yes"}) == "Gesundheit"
+    assert D.osm_category({"office": "yes", "craft": "roofer"}) == "Dachdecker"
+    assert D.osm_category({"office": "yes"}) == "Dienstleistung"
+    assert D.osm_category({"amenity": "doctors"}) == "Arztpraxis"
+    assert D.osm_category({}) == ""
+    assert D.osm_branche("yes") == "" and D.osm_branche("healthcare") == "Gesundheit"

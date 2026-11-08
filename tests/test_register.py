@@ -143,5 +143,5 @@ def test_cli_without_a_database_says_so(tmp_path, monkeypatch, capsys):
 
     monkeypatch.setattr(harvey_state, "DB_PATH", tmp_path / "missing.db")
     cmd_companies(SimpleNamespace(out=str(tmp_path / "x.csv")))
-    assert "No database yet" in capsys.readouterr().out
+    assert "Noch keine Datenbank" in capsys.readouterr().out
     assert not (tmp_path / "x.csv").exists()

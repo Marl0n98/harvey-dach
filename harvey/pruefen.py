@@ -33,7 +33,7 @@ from urllib.parse import urlsplit
 
 from harvey import leads as L
 from harvey.collectors import people as people_mod
-from harvey.public_http import page_text, public_http_client, same_site
+from harvey.public_http import page_text, same_site
 
 OK, UNSURE, FIXED = "ok", "unsicher", "korrigiert"
 
@@ -120,7 +120,9 @@ def rule_findings(records: list[dict]) -> dict[str, dict]:
                     _add(item, "Adresse gehört nicht zur Domain " + domain + ": " + ", ".join(foreign),
                          emails=foreign)
             if email and email not in item["remove"]["emails"] and len(by_email[email]) > 1:
-                _add(item, f"Adresse {email} steht bei {len(by_email[email])} Firmen", emails=email)
+                # Shared by several companies: one of them may be right (a sister
+                # practice), so it is a doubt for the agents, not a removal.
+                _add(item, f"Adresse {email} steht bei {len(by_email[email])} Firmen")
             contact = row["Ansprechpartner"]
             if contact and email and email not in item["remove"]["emails"]:
                 people = L.review_people(_with_removals(lead, item), as_dicts=True)
@@ -128,11 +130,20 @@ def rule_findings(records: list[dict]) -> dict[str, dict]:
                         or L.is_business_inbox(email, people, r.get("name", ""), domain)):
                     _add(item, f"{contact} passt nicht sicher zu {email}", contacts=contact)
             if contact and len(by_person[contact.lower()]) > 1:
-                _add(item, f"{contact} steht bei {len(by_person[contact.lower()])} Firmen", contacts=contact)
+                _add(item, f"{contact} steht bei {len(by_person[contact.lower()])} Firmen")
             shared = [p for p in [row["Telefon (Karte)"]] + [x.strip() for x in row["Telefon (Website)"].split(",")]
                       if p and len(by_phone[L.phone_key(p, country)]) > 1]
             if shared:
-                _add(item, "Telefon steht bei mehreren Firmen: " + ", ".join(shared), phones=shared)
+                _add(item, "Telefon steht bei mehreren Firmen: " + ", ".join(shared))
+            if email and row["Quelle"] == L.SOURCE_MAP:
+                site_addrs = {e["email"].lower() for e in lead.get("emails") or [] if e["source"] == L.SOURCE_SITE}
+                if site_addrs and email not in site_addrs:
+                    _add(item, f"{email} kommt aus der Karte, die Website nennt andere Adressen")
+            if email and not domain and mail_domain not in L.FREEMAIL:
+                words = {w for w in re.findall(r"[a-z]{4,}", L._clean_name_part(r.get("name", "")) + " "
+                                               + " ".join(L._clean_name_part(x) for x in (r.get("name") or "").split()))}
+                if not any(w in mail_domain for w in words):
+                    _add(item, f"Ohne Website: {email} passt nicht erkennbar zum Firmennamen")
             if "leitet weiter" in (lead.get("site_note") or ""):
                 _add(item, lead["site_note"])
         if json.dumps(found, sort_keys=True) == before:
@@ -140,81 +151,101 @@ def rule_findings(records: list[dict]) -> dict[str, dict]:
     return found
 
 
-async def live_findings(records: list[dict], concurrency: int = 6, progress=None) -> dict[str, dict]:
-    """Read each company's own pages again; every value published there must still be there."""
+def _default_scout():
+    """A Scout to read sites exactly the way `harvey leads` read them."""
+    from harvey.agents.scout import Scout
+    from harvey.brain import Brain
+    from harvey.config import EnvConfig, load_config
+    from harvey.state import StateManager
+    config = load_config()
+    scout = Scout(Brain(StateManager(), config.brain), StateManager(), config, EnvConfig())
+    scout._site_reads, scout._site_evidence, scout._own_domains, scout._challenged = {}, {}, {}, set()
+    return scout
+
+
+async def _read_like_leads(scout, domain: str) -> tuple[list[str], str]:
+    """(page texts, foreign host): homepage, the menu pages (team, über uns,
+    kontakt) and Impressum, read the way the lead list was built."""
+    site = await scout._read_site(domain)
+    if site.get("redirected"):
+        return [], site["redirected"]
+    pages = [text for _, text in site["pages"]]
+    if site["base"] and pages:
+        seen = {people_mod._norm_url(u) for u, _ in site["pages"]} | set(site["tried"])
+        for url in L.imprint_links(pages[0], site["base"]):
+            if people_mod._norm_url(url) in seen:
+                continue
+            seen.add(people_mod._norm_url(url))
+            resp = await scout._site_fetch(site, url)
+            if resp is not None and same_site(_host(str(getattr(resp, "url", "") or url)), domain):
+                pages.append(page_text(resp))
+    return pages, ""
+
+
+async def live_findings(records: list[dict], concurrency: int = 6, progress=None,
+                        scout=None) -> dict[str, dict]:
+    """Read each company's own pages again, the same pages the lead list came from;
+    every value published there must still be there. A page that can't be read
+    proves nothing and removes nothing."""
+    scout = scout or _default_scout()
     gate = asyncio.Semaphore(max(1, concurrency))
     out: dict[str, dict] = {}
     done = 0
 
-    async with public_http_client(timeout=15.0) as client:
-        async def fetch(url: str, home: str, foreign: dict) -> str:
-            try:
-                resp = await client.get(url, follow_redirects=True)
-            except Exception:
-                return ""
-            landed = _host(str(getattr(resp, "url", "") or url))
-            if landed and not same_site(landed, home):
-                foreign["host"] = landed
-                return ""
-            return page_text(resp) if resp.status_code == 200 else ""
+    async def one(r: dict):
+        nonlocal done
+        lead = json.loads(r.get("lead") or "{}")
+        item = _empty()
+        out[r["id"]] = item
+        domain = _domain(r, lead)
+        try:
+            if not domain or not lead.get("site"):
+                return          # nothing was read from a site, so nothing to check there
+            async with gate:
+                try:
+                    pages, foreign = await _read_like_leads(scout, domain)
+                finally:
+                    scout._site_reads.pop(scout._host(domain), None)
+            shown = _with_removals(lead, None)
+            site_emails = [e["email"].lower() for e in lead.get("emails") or []
+                           if e["source"] in (L.SOURCE_SITE, L.SOURCE_PATTERN)]
+            if foreign:
+                # It now lands on another business: nothing read from it is this company's.
+                _add(item, f"Website leitet auf {foreign} weiter", emails=site_emails,
+                     contacts=L.review_people(shown), phones=list(lead.get("site_phones") or []),
+                     description=True)
+                return
+            if len(pages) < 1:
+                _add(item, "Website ließ sich nicht erneut lesen")
+                return
+            plain = L._text(" ".join(pages), 3_000_000).lower()
+            country = L.company_country(r, lead)
+            on_site = {e.lower() for page in pages for e in people_mod.emails_on_page(page)}
+            phones_now = {L.phone_key(p, country) for page in pages for p in L.phones_on_page(page)}
+            gone = [e for e in lead.get("emails") or []
+                    if e["source"] == L.SOURCE_SITE and e["email"].lower() not in on_site]
+            # Missing on a fresh read is a doubt, not proof (a page can time out):
+            # these rows go to the agents, nothing is removed here.
+            if gone:
+                _add(item, "Nicht auf den gelesenen Seiten gefunden: " + ", ".join(e["email"] for e in gone))
+            row, _ = L.rows_for(r, shown)
+            best = (row["Beste E-Mail"] or "").lower()
+            if best and row["Quelle"] == L.SOURCE_MAP and on_site and best not in on_site:
+                # The map's address isn't on the site, but others are: maybe a typo or an old one.
+                _add(item, f"{best} (aus der Karte) steht nicht auf der Website, dort stehen andere Adressen")
+            lost = [p for p in lead.get("site_phones") or [] if L.phone_key(p, country) not in phones_now]
+            if lost:
+                _add(item, "Telefon nicht auf den gelesenen Seiten gefunden: " + ", ".join(lost))
+            for name in L.review_people(shown):
+                last = name.split()[-1].lower()
+                if not re.search(rf"(?<![a-zäöüß]){re.escape(last)}(?![a-zäöüß])", plain):
+                    _add(item, f"{name} nicht auf den gelesenen Seiten gefunden")
+        finally:
+            done += 1
+            if progress and done % 25 == 0:
+                progress(done, len(records))
 
-        async def one(r: dict):
-            nonlocal done
-            lead = json.loads(r.get("lead") or "{}")
-            item = _empty()
-            out[r["id"]] = item
-            domain = _domain(r, lead)
-            try:
-                if not domain or not lead.get("site"):
-                    return          # nothing was read from a site, so nothing to check there
-                foreign: dict = {}
-                async with gate:
-                    home, base = "", ""
-                    for candidate in (f"https://{domain}", f"https://www.{domain}", f"http://{domain}"):
-                        home = await fetch(candidate, domain, foreign)
-                        if home:
-                            base = candidate
-                            break
-                    pages = [home] if home else []
-                    for url in (L.imprint_links(home, base)[:3] if home else []):
-                        text = await fetch(url, domain, {})
-                        if text:
-                            pages.append(text)
-                shown = _with_removals(lead, None)
-                row, _ = L.rows_for(r, shown)
-                site_emails = [e["email"].lower() for e in lead.get("emails") or []
-                               if e["source"] in (L.SOURCE_SITE, L.SOURCE_PATTERN)]
-                if not pages and foreign.get("host"):
-                    # It now lands on another business: nothing read from it is this company's.
-                    _add(item, f"Website leitet auf {foreign['host']} weiter", emails=site_emails,
-                         contacts=L.review_people(shown), phones=list(lead.get("site_phones") or []),
-                         description=True)
-                    return
-                if not pages:
-                    _add(item, "Website ließ sich nicht erneut lesen")
-                    return
-                plain = L._text(" ".join(pages), 3_000_000).lower()
-                country = L.company_country(r, lead)
-                on_site = {e.lower() for page in pages for e in people_mod.emails_on_page(page)}
-                phones_now = {L.phone_key(p, country) for page in pages for p in L.phones_on_page(page)}
-                gone = [e for e in lead.get("emails") or []
-                        if e["source"] == L.SOURCE_SITE and e["email"].lower() not in on_site]
-                if gone:
-                    _add(item, "Nicht mehr auf der Website: " + ", ".join(e["email"] for e in gone),
-                         emails=[e["email"].lower() for e in gone])
-                lost = [p for p in lead.get("site_phones") or [] if L.phone_key(p, country) not in phones_now]
-                if lost:
-                    _add(item, "Telefon nicht mehr auf der Website: " + ", ".join(lost), phones=lost)
-                for name in L.review_people(shown):
-                    last = name.split()[-1].lower()
-                    if not re.search(rf"(?<![a-zäöüß]){re.escape(last)}(?![a-zäöüß])", plain):
-                        _add(item, f"{name} steht nicht mehr auf der Website", contacts=name)
-            finally:
-                done += 1
-                if progress and done % 25 == 0:
-                    progress(done, len(records))
-
-        await asyncio.gather(*(one(r) for r in records))
+    await asyncio.gather(*(one(r) for r in records))
     return out
 
 
