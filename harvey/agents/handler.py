@@ -67,7 +67,8 @@ YOUR FIRST EMAIL ONLY ASKED A QUESTION AND OFFERED NOTHING.
 REPLY_RULES_NOTE = """
 - In this reply, follow the OPERATOR'S EMAIL RULES for wording, tone, greeting and sign-off,
   and their section on replies if they have one. If they show example emails, write like
-  them, but take every fact from this conversation, never from the examples."""
+  them, but take every fact from this conversation, never from the examples, and never
+  copy a sentence from them word for word."""
 
 AUTO_REPLY_INTENTS = {"interested", "objection", "question", "wrong_person"}
 # Replies that don't stop the cold email to the rest of their company.

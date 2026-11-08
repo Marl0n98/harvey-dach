@@ -692,7 +692,7 @@ def cmd_entwuerfe(args):
         for r in new:
             print(f"  --- {r.get('to_email', '')}\n  Betreff: {r.get('subject', '')}\n")
             print("\n".join("  " + line for line in (r.get("body") or "").splitlines()) + "\n")
-        print(f"  {len(new)} Entwurf/Entwürfe warten auf deine Freigabe: harvey outbox oder harvey dashboard.")
+        print(f"  {len(new)} {'Entwurf wartet' if len(new) == 1 else 'Entwürfe warten'} auf deine Freigabe: harvey outbox oder harvey dashboard.")
         if not new:
             print("  Noch kein Kontakt mit bestätigter Adresse? Erst harvey contacts, dann harvey status.")
         print()

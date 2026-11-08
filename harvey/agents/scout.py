@@ -53,9 +53,9 @@ from harvey.public_http import public_http_client, page_text
 from harvey.state import StateManager
 from harvey.untrusted import UNTRUSTED_RULE, fence
 
-def _is_role_address(email: str) -> bool:
+def _is_role_address(email: str, people: list[dict] | None = None) -> bool:
     from harvey.leads import is_role_address
-    return is_role_address(email)
+    return is_role_address(email, people)
 
 
 def _confirmed_for(confirmed: list[dict], name: str) -> str:
@@ -1782,7 +1782,9 @@ Respond ONLY with the JSON array."""
                 and await self._company_uncontacted(company_id):
             inbox = None
             known_inbox = next((e["email"] for e in confirmed
-                                if not e.get("person") and _is_role_address(e["email"])), "")
+                                if not e.get("person") and _is_role_address(
+                                    e["email"], [{"name": f"{m.get('first_name', '')} {m.get('last_name', '')}"}
+                                                 for m in team_members])), "")
             if known_inbox:
                 inbox = Prospect(
                     email=known_inbox, email_status="verified", email_verified=True,

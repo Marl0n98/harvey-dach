@@ -274,3 +274,16 @@ def test_outbox_times_are_local_and_labelled():
     from harvey.cli import _local_time
     out = _local_time("2026-11-08T14:42:00")
     assert out[:4] == "2026" and len(out) > 16
+
+
+def test_business_inboxes_beyond_the_role_list():
+    people = [{"name": "Carmen Brandstetter"}]
+    assert leads.is_role_address("therapie@physiozentrum-nord.at", people)
+    assert leads.is_role_address("graz@praxis-am-park.at", people)
+    assert not leads.is_role_address("carmen@praxis-am-park.at", people)
+    assert not leads.is_role_address("c.brandstetter@praxis-am-park.at", people)
+    assert not leads.is_role_address("petra.sommerfeld@gmail.com", people)
+    lead = {"people": [{"name": "Carmen Brandstetter", "title": ""}],
+            "emails": [{"email": "graz@praxis-am-park.at", "source": "Website", "person": "", "check": leads.OK}]}
+    row, _ = leads.rows_for({"name": "Auster"}, lead)
+    assert row["Ansprechpartner"] == "Carmen Brandstetter"

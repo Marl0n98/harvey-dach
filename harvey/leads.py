@@ -516,10 +516,22 @@ def _provider_label(lead: dict) -> str:
     return f"{names.get(provider, 'eigener')} ({host})"
 
 
-def is_role_address(email: str) -> bool:
-    """info@, office@, praxis@: an inbox for the business, not one person's mailbox."""
-    local = (email or "").partition("@")[0].lower()
-    return local in ROLE_LOCALS or local.split(".")[0] in ROLE_LOCALS
+def is_role_address(email: str, people: list[dict] | None = None) -> bool:
+    """An inbox for the business (info@, praxis@, therapie@, graz@), not one person's
+    mailbox. Personal: a freemail address (gmail, gmx), or one that spells a person's
+    name, first name alone included (carmen@ when the site names Carmen Brandstetter)."""
+    local, _, domain = (email or "").lower().partition("@")
+    if not local:
+        return False
+    if local in ROLE_LOCALS or local.split(".")[0] in ROLE_LOCALS:
+        return True
+    if domain in FREEMAIL:
+        return False
+    for p in people or []:
+        first = _clean_name_part((p.get("name") or "").split(" ")[0])
+        if (first and local.split(".")[0] == first) or _person_behind(email, [p]):
+            return False
+    return True
 
 
 def _person_behind(email: str, people: list[dict]) -> str:
@@ -550,7 +562,7 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     if owner:
         contact = next((p for p in people if p["name"] == owner), None) \
             or {"name": owner, "title": ""}
-    elif best and is_role_address(best["email"]):
+    elif best and is_role_address(best["email"], people):
         contact = people[0] if people else None
     else:
         contact = None      # a personal address of someone the site doesn't name
@@ -711,7 +723,7 @@ async def export_leads(state, out_base) -> dict:
         "with_website": sum(1 for r in company_rows if r["Website"]),
         "with_phone": sum(1 for r in company_rows if r["Telefon (Karte)"] or r["Telefon (Website)"]),
         "with_email": sum(1 for r in company_rows if r["Beste E-Mail"]),
-        "with_person": sum(1 for r in company_rows if r["Ansprechpartner"]),
+        "with_person": sum(1 for r in company_rows if r["Personen auf Website"]),
         "confirmed": count("Prüfung", OK),
         "catch_all": count("Prüfung", CATCH_ALL),
         "unknown": count("Prüfung", UNKNOWN) + count("Prüfung", UNCHECKED),
@@ -758,8 +770,7 @@ async def sample_prospects(state, n: int) -> list:
                 break
         if not person:
             email = best_email([e for e in emails if not e.get("person")
-                                and (is_role_address(e["email"])
-                                     or e["email"].rpartition("@")[2] not in FREEMAIL)])
+                                and is_role_address(e["email"], lead.get("people") or [])])
             if not email:
                 continue
         notes = [lead.get("description") or ""]

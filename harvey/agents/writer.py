@@ -71,7 +71,7 @@ QUESTION_WITH_RULES = QUESTION_CORE + """
 - For wording, length, greeting, opening, subject line and sign-off, follow the
   OPERATOR'S EMAIL RULES above. If they show example emails, write like those examples
   (tone, sentence length, how they open and close) but take every fact from the FACTS here,
-  never from the examples."""
+  never from the examples, and never copy a sentence from them word for word."""
 SEQUENCE_STYLE = """- Never be pushy or salesy. Be consultative and value-driven.
 - Subject lines: lowercase, 2-5 words."""
 # Why the Writer stopped: Today and `harvey status` show it.
