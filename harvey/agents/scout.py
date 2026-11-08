@@ -55,12 +55,10 @@ from harvey.untrusted import UNTRUSTED_RULE, fence
 
 # The free mail-server check for addresses no paid verifier looked at.
 SMTP_CHECK_ENV = "HARVEY_SMTP_CHECK"
-# What a mail server's answer means for sending (harvey.leads verdicts).
-# Microsoft accepts every address before checking, so that is only "risky".
+# What a mail server's answer means for sending (harvey.leads verdicts). A guess
+# that a catch-all or Microsoft server accepts proves nothing, so it stays a guess.
 SMTP_VERDICT_STATUS = {
     "bestätigt": "verified",
-    "Catch-all": "risky",
-    "angenommen (Microsoft, unsicher)": "risky",
     "ungültig": "invalid",
 }
 
@@ -1507,7 +1505,7 @@ Respond ONLY with the JSON array."""
         if not base or home is None:
             site["challenged"] = self.challenged(key)
             return site
-        home_text = getattr(home, "text", "") or ""
+        home_text = page_text(home) if home is not None else ""
         home_url = str(getattr(home, "url", "") or base)
         site["base"] = base
         site["pages"].append((home_url, home_text))

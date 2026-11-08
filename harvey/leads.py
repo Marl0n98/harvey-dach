@@ -24,6 +24,7 @@ import os
 import random
 import re
 import socket
+from urllib.parse import urljoin
 from datetime import date
 
 import aiosmtplib
@@ -64,6 +65,10 @@ hispeed.ch gmx.li
 PERSONS_PER_COMPANY = 2
 GUESSES_PER_PERSON = 4
 MAX_RCPT_PER_SESSION = 10
+MAX_SESSIONS_PER_DOMAIN = 2          # so a long candidate list is still checked to the end
+# This many connection failures in a row on different mail servers means port 25 is
+# blocked on this line: checking stops for the run instead of waiting on every domain.
+PORT25_FAILS_TO_STOP = 8
 SMTP_TIMEOUT = 15
 SESSIONS_PER_MAIL_HOST = 2
 
@@ -127,7 +132,11 @@ def imprint_links(html: str, base: str) -> list[str]:
     out = []
     for href, label in _IMPRINT_LINK.findall(html or ""):
         if re.search(r"(?i)impressum|imprint|kontakt|contact", href + " " + label):
-            url = href if href.startswith("http") else base.rstrip("/") + "/" + href.lstrip("/")
+            if re.match(r"(?i)(mailto|tel|javascript):", href.strip()):
+                continue
+            url = urljoin(base if base.endswith("/") else base + "/", href.strip())
+            if not url.startswith("http"):
+                continue
             if url not in out:
                 out.append(url)
     return out[:3]
@@ -171,6 +180,70 @@ def candidates_for(person: dict, domain: str, site_emails: list[str]) -> list[tu
     return out[:GUESSES_PER_PERSON + 2]
 
 
+def to_ascii_domain(domain: str) -> str:
+    """müller-bau.de -> xn--mller-bau-q9a.de, which mail servers and DNS understand."""
+    domain = (domain or "").strip().lower().rstrip(".")
+    try:
+        return domain.encode("idna").decode("ascii")
+    except UnicodeError:
+        return domain
+
+
+def to_ascii_address(email: str) -> str:
+    local, _, domain = (email or "").rpartition("@")
+    return f"{local}@{to_ascii_domain(domain)}" if local else email
+
+
+_ENHANCED = re.compile(r"\b([245])\.(\d{1,3})\.(\d{1,3})\b")
+
+
+def user_unknown(code: int, msg: str) -> bool:
+    """A 5xx that says this mailbox doesn't exist, not that we were refused.
+    The enhanced code decides when there is one (5.1.x unknown, 5.7.x policy);
+    a refusal that names a block never counts as "unknown user"."""
+    if not 500 <= code < 600:
+        return False
+    enhanced = _ENHANCED.search(msg or "")
+    if enhanced:
+        return enhanced.group(2) == "1" and enhanced.group(3) in ("0", "1", "2", "3", "6", "10")
+    if _BLOCKED.search(msg or ""):
+        return False
+    return bool(_USER_UNKNOWN.search(msg or ""))
+
+
+_mx_results: dict[str, tuple[str, str]] = {}
+
+
+async def mx_lookup(domain: str) -> tuple[str, str]:
+    """(mail host, "ok" | "none" | "error"). A domain without MX but with an
+    address record takes mail itself (RFC 5321). Only a clear "doesn't exist"
+    is "none"; a timeout or server failure is "error" and isn't remembered."""
+    import dns.asyncresolver
+    import dns.exception
+    import dns.resolver
+    if domain in _mx_results:
+        return _mx_results[domain]
+    result = ("", "error")
+    try:
+        answers = await dns.asyncresolver.resolve(domain, "MX", lifetime=10)
+        records = sorted(answers, key=lambda r: r.preference)
+        host = str(records[0].exchange).rstrip(".") if records else ""
+        result = (host, "ok") if host else ("", "none")
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+        try:
+            await dns.asyncresolver.resolve(domain, "A", lifetime=10)
+            result = (domain, "ok")
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+            result = ("", "none")
+        except Exception:
+            result = ("", "error")
+    except Exception as e:
+        logger.debug("MX lookup failed for %s: %s", domain, e)
+    if result[1] != "error":
+        _mx_results[domain] = result
+    return result
+
+
 class MailboxChecker:
     """Asks each domain's mail server whether addresses exist, one session per domain."""
 
@@ -181,15 +254,22 @@ class MailboxChecker:
         self.helo = os.environ.get("HARVEY_HELO") or (
             name if "." in name and not name.endswith(".arpa") else "localhost.localdomain")
         self._hosts: dict[str, asyncio.Semaphore] = {}
+        self._connect_fails = 0
+        self.stopped = ""        # why checking was switched off mid-run, or ""
 
     async def check(self, domain: str, emails: list[str]) -> dict:
         """{"mail_host", "provider", "catch_all", "results": {email: verdict}, "note"}."""
         out = {"mail_host": "", "provider": "", "catch_all": None,
                "results": {e: UNCHECKED for e in emails}, "note": ""}
-        mx = await get_mx_host(domain)
-        if not mx:
+        domain = to_ascii_domain(domain)
+        mx, dns_state = await mx_lookup(domain)
+        if dns_state == "none":
             out["note"] = "kein Mailserver"
             out["results"] = {e: BAD for e in emails}
+            return out
+        if not mx:
+            out["note"] = "DNS-Abfrage fehlgeschlagen"
+            out["results"] = {e: UNKNOWN for e in emails}
             return out
         out["mail_host"], out["provider"] = mx, classify_mx(mx)
         if not self.enabled or not emails:
@@ -199,9 +279,27 @@ class MailboxChecker:
                 out["results"][email] = await self._reacher(email)
             return out
         gate = self._hosts.setdefault(mx, asyncio.Semaphore(SESSIONS_PER_MAIL_HOST))
-        async with gate:
-            await self._smtp(mx, domain, emails[:MAX_RCPT_PER_SESSION], out)
+        chunks = [emails[i:i + MAX_RCPT_PER_SESSION]
+                  for i in range(0, len(emails), MAX_RCPT_PER_SESSION)][:MAX_SESSIONS_PER_DOMAIN]
+        for chunk in chunks:
+            async with gate:
+                await self._smtp(mx, domain, chunk, out)
+            if out["note"]:
+                break          # blocked or no answer: a second session won't do better
+        self._count_connection(out)
         return out
+
+    def _count_connection(self, out: dict):
+        if out["note"] in ("keine Verbindung", "keine Antwort"):
+            self._connect_fails += 1
+            if self._connect_fails >= PORT25_FAILS_TO_STOP and self.enabled:
+                self.enabled = False
+                self.stopped = ("Port 25 scheint an diesem Anschluss gesperrt: die Prüfung "
+                                "der Mailserver ist für diesen Lauf aus. Mit REACHER_URL oder "
+                                "auf einem Server mit fester IP geht sie.")
+                logger.warning(self.stopped)
+        elif out["mail_host"]:
+            self._connect_fails = 0
 
     @staticmethod
     async def _ask(call) -> tuple[int, str]:
@@ -229,7 +327,7 @@ class MailboxChecker:
             code, msg = await self._ask(smtp.rcpt(fake))
             if code < 300:
                 out["catch_all"] = True
-            elif 500 <= code < 600 and _USER_UNKNOWN.search(msg or ""):
+            elif user_unknown(code, msg):
                 out["catch_all"] = False
             else:
                 # The server will not say no to a made-up address either: its
@@ -240,7 +338,7 @@ class MailboxChecker:
                 return
             for email in emails:
                 await asyncio.sleep(0.3)
-                code, msg = await self._ask(smtp.rcpt(email))
+                code, msg = await self._ask(smtp.rcpt(to_ascii_address(email)))
                 if code < 300:
                     if out["catch_all"]:
                         verdict = CATCH_ALL
@@ -248,7 +346,7 @@ class MailboxChecker:
                         verdict = MS_UNSURE
                     else:
                         verdict = OK
-                elif 500 <= code < 600 and _USER_UNKNOWN.search(msg or ""):
+                elif user_unknown(code, msg):
                     verdict = BAD
                 else:
                     verdict = UNKNOWN
@@ -256,7 +354,7 @@ class MailboxChecker:
         except aiosmtplib.SMTPConnectError as e:
             out["note"] = "Server lehnt diese Verbindung ab" if "554" in str(e) else "keine Verbindung"
             out["results"] = {e2: UNKNOWN for e2 in emails}
-        except (aiosmtplib.SMTPException, OSError, asyncio.TimeoutError) as e:
+        except Exception as e:  # SMTP, network, timeouts, and anything odd a server sends
             logger.debug("smtp %s: %s", mx, e)
             out["note"] = out["note"] or "keine Antwort"
             out["results"] = {e2: (v if v != UNCHECKED else UNKNOWN)
@@ -407,8 +505,14 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     emails = [e for e in lead.get("emails") or []
               if not e.get("person") or e["person"] in names or e["source"] in (SOURCE_SITE, SOURCE_MAP)]
     best = best_email(emails)
-    contact = next((p for p in people if best and p["name"] == best.get("person")), None) \
-        or (people[0] if people else None)
+    # The contact is whoever the best address belongs to. Only a general inbox
+    # (no person on it) is shown with the first person named on the site.
+    owner = (best or {}).get("person") or ""
+    if owner:
+        contact = next((p for p in people if p["name"] == owner), None) \
+            or {"name": owner, "title": ""}
+    else:
+        contact = people[0] if people else None
     others = [f"{e['email']} ({e['source']}, {e['check']})" for e in emails
               if not best or e["email"] != best["email"]]
     catch_all = lead.get("catch_all")
@@ -449,8 +553,18 @@ def to_csv(rows: list[dict], columns: list[str]) -> str:
     writer = csv.DictWriter(buf, fieldnames=columns, delimiter=";", extrasaction="ignore")
     writer.writeheader()
     for row in rows:
-        writer.writerow(row)
+        writer.writerow({k: _cell(v) for k, v in row.items()})
     return buf.getvalue()
+
+
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _cell(value):
+    """CSV: text from websites and the map stays text, Excel never runs it as a formula."""
+    if isinstance(value, str) and value.startswith(_FORMULA_START):
+        return "'" + value
+    return value
 
 
 def to_xlsx(path, sheets: list[tuple[str, list[str], list[dict]]]):
@@ -466,6 +580,9 @@ def to_xlsx(path, sheets: list[tuple[str, list[str], list[dict]]]):
             cell.font = Font(bold=True)
         for row in rows:
             sheet.append([row.get(c, "") for c in columns])
+            for cell in sheet[sheet.max_row]:
+                if isinstance(cell.value, str) and cell.value.startswith(_FORMULA_START):
+                    cell.data_type = "s"     # shown as typed, never run as a formula
         sheet.freeze_panes = "B2"
         sheet.auto_filter.ref = sheet.dimensions
         for i, column in enumerate(columns, start=1):
@@ -511,9 +628,11 @@ async def collect_leads(state, scout, limit: int = 0, concurrency: int = 8,
             try:
                 lead = await asyncio.wait_for(build_lead(scout, checker, company), 240)
             except Exception as e:
+                # Not saved: the next run tries this company again.
                 logger.warning("lead %s: %s", company.get("domain") or company.get("name"), e)
-                lead = {"site_note": "Fehler beim Lesen", "emails": []}
-            await save_lead(state, company["id"], lead)
+                lead = None
+            if lead is not None:
+                await save_lead(state, company["id"], lead)
             scout._site_reads.pop(scout._host(company.get("domain") or "x"), None)
             done += 1
             if progress and done % 25 == 0:
@@ -522,6 +641,8 @@ async def collect_leads(state, scout, limit: int = 0, concurrency: int = 8,
     scout._site_reads, scout._site_evidence, scout._own_domains = {}, {}, {}
     scout._challenged = set()
     await asyncio.gather(*(one(c) for c in companies))
+    if checker.stopped:
+        print("\n  " + checker.stopped)
     return done
 
 

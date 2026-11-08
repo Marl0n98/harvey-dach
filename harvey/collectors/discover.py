@@ -73,7 +73,11 @@ JUNK_DOMAIN_PATTERNS = tuple(re.compile(p, re.I) for p in (
     r"(^|\.)(ag|ai|ar|be|bl|bs|fr|ge|gl|gr|ju|lu|ne|nw|ow|sg|sh|so|sz|tg|ti|ur|vd|vs|zg|zh)\.ch$",
     r"\.gv\.at$",
     r"(^|\.)(bund|bayern|berlin|hamburg|nrw|sachsen|hessen)\.de$",
-    r"(anwaltskammer|rakwien|rak-|staatsanwalt|justiz|gericht|handelskammer|ihk|wko)\w*\.",
+    # Chambers, courts and justice: whole labels or clear prefixes, so a
+    # "bayrak-transport.de" or a court interpreter's own site stays in.
+    r"(^|\.)(ihk|wko|rakwien|rak-[a-z]+|ihk-[a-z]+)\.",
+    r"(^|\.)(anwaltskammer|staatsanwaltschaft|justiz|handelskammer|amtsgericht|landgericht|"
+    r"oberlandesgericht|verwaltungsgericht|arbeitsgericht|sozialgericht)[a-z-]*\.",
     r"(hospital|healthsystem|medicalcenter)\.",
     r"health\.org$",
     # startup databases, launch sites and tech press (the YC preset's noise)

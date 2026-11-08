@@ -256,7 +256,8 @@ def cmd_status(args):
                                 initial_indent="                        ",
                                 subsequent_indent="                        "))
         if address_notice:
-            print("  Postal address:       MISSING")
+            print("  Postal address:       MISSING" if "CAN-SPAM" in address_notice
+                  else "  Absenderangaben:      FEHLEN")
             print(textwrap.fill(address_notice, width=72, initial_indent="                        ",
                                 subsequent_indent="                        "))
         from harvey.brain import BRAIN_STATUS_KEY, Brain, active_brain_status
@@ -635,6 +636,40 @@ def cmd_stil(args):
             print("\n".join("  " + line for line in draft["body"].splitlines()) + "\n")
 
     asyncio.run(_probe())
+
+
+def cmd_entwuerfe(args):
+    """Write first-email drafts for a few contacts and stop. Never sends."""
+    async def _drafts():
+        from harvey.agents.writer import Writer
+        from harvey.brain import Brain
+        from harvey.config import EnvConfig, load_config
+        from harvey.state import StateManager
+
+        config = load_config()
+        # Drafts from this command always wait for a person, whatever the config says.
+        config.channels.email.require_approval = True
+        state = StateManager()
+        await state.init_db()
+        writer = Writer(Brain(state, config.brain), state, config, EnvConfig())
+        if not writer.is_native:
+            print("\n  Drafts go to the outbox only with provider gmail, microsoft or smtp"
+                  " (channels.email.provider). Nothing written.\n")
+            return
+        writer.max_prospects = args.limit or None
+        before = {r["id"] for r in await state.get_outbox(status="pending_review")}
+        print(f"\n  Writing first emails for up to {args.limit or 'all'} contacts. Nothing is sent.\n")
+        await writer.run()
+        new = [r for r in await state.get_outbox(status="pending_review") if r["id"] not in before]
+        for r in new:
+            print(f"  --- {r.get('to_email', '')}\n  Betreff: {r.get('subject', '')}\n")
+            print("\n".join("  " + line for line in (r.get("body") or "").splitlines()) + "\n")
+        print(f"  {len(new)} draft(s) waiting for your approval: harvey outbox or harvey dashboard.")
+        if not new:
+            print("  No contact with a checked address yet? Run harvey contacts, then harvey status.")
+        print()
+
+    asyncio.run(_drafts())
 
 
 def cmd_leads(args):
@@ -1225,6 +1260,11 @@ def main():
     sub.add_argument("--export-only", action="store_true", help="Only write the file from what is stored")
     sub.add_argument("--out", default="", help="File name without extension (default: data/exports/leads-<date>)")
     sub.set_defaults(func=cmd_leads)
+
+    sub = subparsers.add_parser(
+        "entwuerfe", help="Write first-email drafts for a few contacts and stop (sends nothing)")
+    sub.add_argument("--limit", type=int, default=2, help="Max contacts to write for (default: 2, 0 = all)")
+    sub.set_defaults(func=cmd_entwuerfe)
 
     sub = subparsers.add_parser(
         "stil", help="Your own email style: create skills/email_rules.md, or preview emails in it")

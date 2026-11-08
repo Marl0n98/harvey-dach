@@ -84,8 +84,8 @@ class FakeSMTP:
 @pytest.mark.asyncio
 async def test_mailbox_check_tells_confirmed_from_catch_all(monkeypatch):
     async def mx(domain):
-        return "mx.praxis.test"
-    monkeypatch.setattr(L, "get_mx_host", mx)
+        return "mx.praxis.test", "ok"
+    monkeypatch.setattr(L, "mx_lookup", mx)
     monkeypatch.setattr(L.asyncio, "sleep", lambda s: _done())
     FakeSMTP.accepted = {"anna@praxis.test"}
     monkeypatch.setattr(L.aiosmtplib, "SMTP", FakeSMTP)

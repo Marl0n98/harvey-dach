@@ -37,14 +37,14 @@ icp:
 ```
 
 ## Noch offen
-- Die Einwilligungssperre gilt nur für Gmail, Microsoft 365 und SMTP, nicht für Instantly. Instantly hier nicht nutzen.
+- Die Einwilligungssperre hält auch .com- und Gmail-Adressen zurück, sobald `icp.geography` einen Ort in DE, AT oder CH nennt oder leer ist und `brain.language: de` gilt. Bei Instantly fliegen solche Kontakte aus dem Upload.
 - Orte als "Berlin, Deutschland" schreiben, "Berlin, DE" gilt weiter als Delaware.
 - Impressumspflichtangaben unter Mails sind nicht eingebaut, nur `postal_address` und `opt_out_line`.
 - Das Dashboard ist weiter englisch.
 - Der Precleared-Check kennt nur GB und US als Absenderland.
 - Echter Versand und echte Postfächer sind nicht getestet, der Gesamtablauf lief mit einem Fake-Postfach.
 - Signale gibt es nur auf einem Teil der Websites, Werbe-Pixel sind hinter Cookie-Bannern meist unsichtbar.
-- Geprüfte Adressen brauchen einen Schlüssel für einen Prüfdienst wie Reoon.
+- Ohne Schlüssel für einen Prüfdienst (Reoon, ZeroBounce, Hunter) fragt Harvey selbst beim Mailserver nach (`HARVEY_SMTP_CHECK`, standardmäßig an, auch in `harvey run` und `harvey contacts`). Das läuft über deine eigene IP. Nur „bestätigt“ macht eine Adresse versandfähig, Catch-all und Microsoft bleiben geraten. Abschalten mit `HARVEY_SMTP_CHECK=0`.
 
 ## Möglichst viele Firmen finden
 
@@ -61,7 +61,7 @@ icp:
 
 Spalte „Quelle“: Karte, Website, Muster von Website (Schreibweise einer anderen Adresse dort), geraten. Spalte „Prüfung“: bestätigt, ungültig, Catch-all (Server nimmt alles an), angenommen (Microsoft, unsicher), nicht prüfbar.
 
-Viele Mailserver lehnen Prüfungen von privaten Internetanschlüssen ab. Auf einem Server mit fester IP und Reverse-DNS klappen mehr. Alternativ prüft ein selbst gehosteter Reacher (github.com/reacherhq/check-if-email-exists, AGPL-3.0): `REACHER_URL=http://localhost:8080` setzen, dann fragt `harvey leads` ihn statt selbst. Ein Lauf lässt sich abbrechen und fortsetzen; `--refresh` liest alles neu, `--export-only` schreibt nur die Datei.
+Von einem privaten Internetanschluss aus steht in der Spalte „Prüfung“ meist „nicht prüfbar“: Viele Mailserver lehnen solche Prüfungen ab, und manche Anbieter sperren Port 25 ganz. Merkt Harvey das, schaltet es die Prüfung für den Lauf ab, statt bei jeder Firma zu warten. Firmen, bei denen das Lesen fehlschlägt, versucht der nächste Lauf noch einmal. Auf einem Server mit fester IP und Reverse-DNS klappen mehr. Alternativ prüft ein selbst gehosteter Reacher (github.com/reacherhq/check-if-email-exists, AGPL-3.0): `REACHER_URL=http://localhost:8080` setzen, dann fragt `harvey leads` ihn statt selbst. Ein Lauf lässt sich abbrechen und fortsetzen; `--refresh` liest alles neu, `--export-only` schreibt nur die Datei.
 
 ## Erstkontakt als Frage
 
@@ -74,6 +74,15 @@ channels:
 Statt drei Mails schreibt Harvey eine einzige: eine Beobachtung und eine Frage, ohne Angebot, Link, Terminwunsch oder Folgemails. Erst auf eine Antwort stellt der Entwurf in zwei Sätzen vor, was du machst, und fragt, ob die Person mehr hören will. Fragt jemand, wer du bist, sagt Harvey es offen. Jeder Entwurf wartet auf deine Freigabe.
 
 Rechtlich ändert das nichts: In Deutschland und Österreich zählt der Zweck einer Mail, nicht ihr Wortlaut. Eine Mail, die zu einem Kunden führen soll, ist Werbung, auch ohne Angebot. Die Einwilligungssperre (`compliance.consent_required_countries`) hält solche Mails deshalb weiter zurück. Sie abzuschalten ist deine Entscheidung und dein Risiko (Abmahnung, Unterlassungserklärung).
+
+## Entwürfe ansehen, ohne etwas zu senden
+
+```bash
+harvey contacts --limit 10
+harvey entwuerfe --limit 2
+```
+
+`harvey entwuerfe` schreibt erste Mails für höchstens so viele Kontakte und hört dann auf. Die Entwürfe landen in der Outbox (`harvey outbox`, `harvey dashboard`) und warten immer auf deine Freigabe. Im Frage-Modus prüft Harvey jeden Entwurf noch einmal: Link, Produktname, Preis oder eine Terminbitte, und er wird verworfen.
 
 ## Eigener Mail-Stil
 

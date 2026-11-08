@@ -519,20 +519,32 @@ MIGRATIONS: list[str] = [
     -- knows about the recipient. Empty until then.
     ALTER TABLE prospects ADD COLUMN timezone TEXT DEFAULT '';
     """,
-    # ── v15: what the map knows about a business besides its phone ──
-    """
-    ALTER TABLE companies ADD COLUMN email TEXT DEFAULT '';
-    ALTER TABLE companies ADD COLUMN address TEXT DEFAULT '';
-
-    -- The lead list (harvey leads): what each company's own site publishes,
-    -- one JSON document per company, so a long run can stop and resume.
-    CREATE TABLE IF NOT EXISTS leads (
-        company_id TEXT PRIMARY KEY REFERENCES companies(id),
-        data TEXT DEFAULT '{}',
-        checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """,
 ]
+
+# Harvey DACH's own schema, kept outside MIGRATIONS so the fork never takes a
+# version number upstream will use next. Idempotent: it runs on every start.
+DACH_COLUMNS = {"companies": (("email", "TEXT DEFAULT ''"), ("address", "TEXT DEFAULT ''"))}
+DACH_TABLES = """
+-- The lead list (harvey leads): what each company's own site publishes,
+-- one JSON document per company, so a long run can stop and resume.
+CREATE TABLE IF NOT EXISTS leads (
+    company_id TEXT PRIMARY KEY REFERENCES companies(id),
+    data TEXT DEFAULT '{}',
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+
+async def ensure_dach_schema(db) -> None:
+    for table, columns in DACH_COLUMNS.items():
+        async with db.execute(f"PRAGMA table_info({table})") as cursor:
+            have = {row[1] for row in await cursor.fetchall()}
+        for name, kind in columns:
+            if name not in have:
+                await db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
+    await db.executescript(DACH_TABLES)
+    await db.commit()
+
 
 BRAIN_PROVIDERS = ("claude", "codex")
 _USAGE_LOG_COLUMN = {"claude": "claude_calls", "codex": "codex_calls"}
@@ -589,12 +601,23 @@ class StateManager:
 
             async with db.execute("PRAGMA user_version") as cursor:
                 (version,) = await cursor.fetchone()
+            if version > len(MIGRATIONS):
+                # An earlier Harvey DACH numbered its own schema as the next
+                # migration. That schema now lives in ensure_dach_schema, so
+                # step back and let upstream's real next migration run later.
+                async with db.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='leads'") as cursor:
+                    if await cursor.fetchone():
+                        version = len(MIGRATIONS)
+                        await db.execute(f"PRAGMA user_version = {version}")
+                        await db.commit()
 
             for target, script in enumerate(MIGRATIONS, start=1):
                 if version < target:
                     await db.executescript(script)
                     await db.execute(f"PRAGMA user_version = {target}")
                     await db.commit()
+            await ensure_dach_schema(db)
 
     # ── Companies ──
 

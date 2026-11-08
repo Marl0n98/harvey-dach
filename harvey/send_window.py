@@ -186,6 +186,8 @@ COUNTRY_ALIASES = {
     "england": "GB", "scotland": "GB", "wales": "GB", "northern ireland": "GB",
     "usa": "US", "us": "US", "united states of america": "US", "america": "US",
     "the netherlands": "NL", "holland": "NL", "deutschland": "DE",
+    "osterreich": "AT", "oesterreich": "AT", "schweiz": "CH", "suisse": "CH",
+    "svizzera": "CH", "liechtenstein": "LI",
     "south korea": "KR", "korea": "KR", "uae": "AE", "czechia": "CZ",
     "republic of ireland": "IE", "eire": "IE",
 }

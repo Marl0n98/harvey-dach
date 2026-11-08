@@ -569,8 +569,20 @@ def compliance_notice(config) -> str:
         missing.append("a way to opt out (compliance.opt_out_line)")
     if not missing:
         return ""
+    if getattr(getattr(config, "brain", None), "language", "en") == "de":
+        fehlt = []
+        if not compliance.postal_address.strip():
+            fehlt.append("Name und Anschrift des Absenders (compliance.postal_address)")
+        if not compliance.opt_out_line.strip():
+            fehlt.append("ein Satz zum Abmelden (compliance.opt_out_line)")
+        return (
+            "Unter deinen Mails fehlt " + " und ".join(fehlt) + ". Geschäftliche Mails "
+            "nach DE, AT und CH brauchen eine Absenderkennung mit Anschrift, und jeder "
+            "Empfänger muss widersprechen können. Trag beides in harvey.local.yaml ein, "
+            "bevor etwas rausgeht."
+        )
     return (
-        "Cold emails are going out without " + " or ".join(missing) + ". US law "
+        "Cold emails will go out without " + " or ".join(missing) + ". US law "
         "(CAN-SPAM) requires both in every cold email. Set them in harvey.yaml "
         "(or harvey.local.yaml if you trained Harvey)."
     )

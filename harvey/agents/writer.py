@@ -79,6 +79,32 @@ EMAIL_RULES_PROBLEM_KEY = "email_rules_problem"
 BUILT_IN_FOOTER = "- No postal address, unsubscribe or opt-out line: Harvey adds them when it sends."
 
 
+# What gives a question-mode email away as a pitch, checked after it is written.
+_CTA = re.compile(
+    r"(?i)\b(termin vereinbaren|kurzes? (gespräch|telefonat|call)|lassen sie uns|"
+    r"darf ich ihnen|ich würde ihnen gern|wir helfen|wir bieten|unser angebot|"
+    r"book a call|schedule a call|we help|we offer|free trial|kostenlos testen)\b")
+_URL = re.compile(r"(?i)\b(https?://|www\.)\S+")
+
+
+def pitch_problem(text: str, config) -> str:
+    """Why a question-mode draft reads as a pitch, or "". The prompt says no
+    offer; this makes sure, because on autopilot nobody reads it first."""
+    product = getattr(config, "product", None)
+    offer = getattr(product, "offer", None)
+    if _URL.search(text or ""):
+        return "contains a link"
+    for label, value in (("product name", getattr(product, "name", "")),
+                         ("price", getattr(product, "pricing", "")),
+                         ("booking link", getattr(offer, "booking_url", ""))):
+        value = str(value or "").strip()
+        if len(value) >= 4 and value.lower() in (text or "").lower():
+            return f"mentions the {label}"
+    if m := _CTA.search(text or ""):
+        return f"asks for something ('{m.group(0)}')"
+    return ""
+
+
 def operator_rules_block(rules: str) -> str:
     """The operator's email rules as a prompt section ("" when there are none).
 
@@ -138,6 +164,8 @@ class Writer:
         self.state = state
         self.config = config
         self.env = env
+        # `harvey entwuerfe --limit N`: write for at most N people this run.
+        self.max_prospects: int | None = None
 
     @property
     def is_native(self) -> bool:
@@ -185,6 +213,8 @@ class Writer:
                 "Writer: No prospects with deliverable (verified/risky) emails yet."
             )
             return
+        if self.max_prospects:
+            prospects_with_email = prospects_with_email[:self.max_prospects]
 
         # Batch prospects into campaign groups (by industry/title for relevance)
         batches = self._group_prospects(prospects_with_email)
@@ -496,6 +526,10 @@ Return ONLY JSON: {{"subject": "...", "body": "..."}}"""
         body = str(result.get("body") or "").strip()
         if not subject or not body:
             return None
+        if self._question_first():
+            if problem := pitch_problem(subject + "\n" + body, self.config):
+                logger.warning(f"Writer: question-mode draft for {prospect.email} dropped: {problem}")
+                return None
         return {"subject": subject[:120], "body": body[:2000]}
 
     async def _write_sequence(self, prospects: list) -> list[EmailStep]:
@@ -663,7 +697,13 @@ Return ONLY a JSON array (no markdown fences, no commentary):
             steps[0].delay_days = 0  # first email always sends immediately
 
         if self._question_first():
-            return steps[:1]        # a question gets no follow-ups
+            # A question gets no follow-ups, and a template that pitches gets no send.
+            steps = steps[:1]
+            if steps and (problem := pitch_problem(steps[0].subject + "\n" + steps[0].body,
+                                                   self.config)):
+                logger.warning(f"Writer: question-mode template dropped: {problem}")
+                return []
+            return steps
         if len(steps) < 3:
             logger.warning(f"Writer: Expected 3 emails, got {len(steps)}.")
         return steps

@@ -61,7 +61,11 @@ _HONORIFIC = re.compile(r"^(?:dr|mr|mrs|ms|miss|prof|rev|hon)\.?\s+", re.I)
 _CREDENTIAL = (r"(?:dds|dmd|md|do|dvm|od|phd|jd|esq|cpa|pe|ra|rn|np|pa|mba|ms|ma|"
                r"facs|fagd|ccc-slp|jr|sr|ii|iii|iv|bsc|msc|bakk|mas|mag|dipl|ing)")
 _CREDENTIAL_TAIL = re.compile(rf"(?:\s*,?\s+{_CREDENTIAL}\.?)+\s*$", re.I)
-_NAME_TOKEN = re.compile(r"^[A-ZÄÖÜ][a-zäöüßéèêáàçñ]+(?:[-'’][A-ZÄÖÜ]?[a-zäöüßéèêáàçñ]+)*\.?$|^[A-Z]\.$|^[A-Z]$")
+# Upper and lower case letters of names common in DACH: German, French, Italian,
+# Balkan, Polish, Turkish and Nordic ones (Kovačević, Yılmaz, Łukasz, Søren).
+_UP = "A-ZÄÖÜÇČĆŠŽĐŁØÅÉİŞĞ"
+_LO = "a-zäöüßéèêëáàâçñčćšžđłøåışğíóúýăîôœæ"
+_NAME_TOKEN = re.compile(rf"^[{_UP}][{_LO}]+(?:[-'’][{_UP}]?[{_LO}]+)*\.?$|^[A-Z]\.$|^[A-Z]$")
 
 
 def _word_ok(token: str) -> bool:
@@ -90,7 +94,7 @@ def split_person_name(text: str) -> tuple[str, str] | None:
     if any(ch.isdigit() for ch in text) or "@" in text:
         return None
     first = tokens[0]
-    if not re.match(r"^[A-ZÄÖÜ][a-zäöüßéèêáàçñ]+(?:[-'’][A-ZÄÖÜ]?[a-zäöüßéèêáàçñ]+)*$", first) or not _word_ok(first):
+    if not re.match(rf"^[{_UP}][{_LO}]+(?:[-'’][{_UP}]?[{_LO}]+)*$", first) or not _word_ok(first):
         return None
     rest = tokens[1:]
     # Surname: any particles that start it, then capitalised words.
@@ -103,7 +107,7 @@ def split_person_name(text: str) -> tuple[str, str] | None:
         if not (_NAME_TOKEN.match(t) and (len(t.strip(".")) == 1 or _word_ok(t))):
             return None
     last_word = surname[-1]
-    if not re.match(r"^[A-ZÄÖÜ][a-zA-ZäöüÄÖÜßéèêáàçñ]*(?:[-'’][A-ZÄÖÜ]?[a-zA-ZäöüÄÖÜßéèêáàçñ]+)*$", last_word) or len(last_word) < 2:
+    if not re.match(rf"^[{_UP}][{_UP}{_LO}]*(?:[-'’][{_UP}]?[{_UP}{_LO}]+)*$", last_word) or len(last_word) < 2:
         return None
     if last_word.isupper() and len(last_word) > 2:      # "RAY T", "HVAC"
         return None

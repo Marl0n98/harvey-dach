@@ -90,16 +90,30 @@ def consent_hold(config, to_email: str, country: str = "") -> str:
     code = (country or "").upper() or {"DE": "DE", "AT": "AT", "CH": "CH", "LI": "CH"}.get(tld, "")
     if code and code not in required:
         return ""
-    if not code and not _dach_icp(config):
+    # Country unknown (a .com or gmail address, no location): hold, unless the
+    # ICP names only places that are certainly outside the consent countries.
+    if not code and _icp_outside(config, required):
         return ""
     return ("Consent needed: this country requires prior consent for advertising email, "
             "also to businesses. Add the address to compliance.consent_list once you have it.")
 
 
-def _dach_icp(config) -> bool:
-    words = ("deutschland", "germany", "österreich", "oesterreich", "austria", "schweiz",
-             "switzerland", "dach")
-    return any(w in str(place).lower() for place in getattr(getattr(config, "icp", None), "geography", []) for w in words)
+def _icp_outside(config, required: set[str]) -> bool:
+    """True only when every ICP place is certainly in a country outside `required`.
+    A city alone ("München") or a region counts as possibly inside; so does an
+    empty geography when Harvey writes German."""
+    from harvey.send_window import country_for
+    places = [str(p) for p in getattr(getattr(config, "icp", None), "geography", []) or []]
+    if not places:
+        # No places named: a German-language setup is aimed at DACH, anything else isn't.
+        return getattr(getattr(config, "brain", None), "language", "en") != "de"
+    for place in places:
+        if any(w in place.lower() for w in ("dach", "deutschland", "österreich", "schweiz")):
+            return False
+        code, certain = country_for(place)
+        if not certain or code.upper() in required or (code.upper() == "LI" and "CH" in required):
+            return False
+    return True
 
 
 def _utcnow() -> datetime:
@@ -343,6 +357,9 @@ class Sender:
             held = autopilot_review("", fields, self.config, recipient=p.email)
             if listed := do_not_contact_match(p.email, live_do_not_contact(self.config)):
                 held = [f"'{listed}' is on the do-not-contact list", *held]
+            # Instantly sends on its own schedule, so the consent hold acts here.
+            if reason := consent_hold(self.config, p.email, getattr(p, "country", "") or ""):
+                held = [reason, *held]
             if held:
                 logger.warning(f"Sender: left {p.email} out of the Instantly upload: {held}")
             else:
@@ -667,7 +684,12 @@ class Sender:
             # office hours; follow-ups keep their delay, then move into it.
             zone = await self._zone_or_default(prospect) if window is not None else ""
             cumulative_days = 0
+            # first_touch: question means one email; campaigns written before the
+            # switch keep their follow-ups in the database but never stage them.
+            question = getattr(self.config.channels.email, "first_touch", "") == "question"
             for step in campaign.sequence:
+                if question and step.step > 1:
+                    continue
                 cumulative_days += max(0, step.delay_days)
                 send_at = now + timedelta(days=cumulative_days)
                 if window is not None:
