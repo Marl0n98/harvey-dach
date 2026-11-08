@@ -519,6 +519,19 @@ MIGRATIONS: list[str] = [
     -- knows about the recipient. Empty until then.
     ALTER TABLE prospects ADD COLUMN timezone TEXT DEFAULT '';
     """,
+    # ── v15: what the map knows about a business besides its phone ──
+    """
+    ALTER TABLE companies ADD COLUMN email TEXT DEFAULT '';
+    ALTER TABLE companies ADD COLUMN address TEXT DEFAULT '';
+
+    -- The lead list (harvey leads): what each company's own site publishes,
+    -- one JSON document per company, so a long run can stop and resume.
+    CREATE TABLE IF NOT EXISTS leads (
+        company_id TEXT PRIMARY KEY REFERENCES companies(id),
+        data TEXT DEFAULT '{}',
+        checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """,
 ]
 
 BRAIN_PROVIDERS = ("claude", "codex")
@@ -612,14 +625,15 @@ class StateManager:
             cursor = await db.execute(
                 """INSERT OR IGNORE INTO companies
                    (id, name, domain, website, description, industry,
-                    company_size, location, phone, source, source_url,
+                    company_size, location, phone, email, address, source, source_url,
                     external_id, notes, tech_stack_json, signals_json,
                     created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     company.id, company.name, company.domain, company.website,
                     company.description, company.industry, company.company_size,
-                    company.location, company.phone, company.source,
+                    company.location, company.phone, company.email, company.address,
+                    company.source,
                     company.source_url, company.external_id, company.notes,
                     json.dumps(company.tech_stack), json.dumps(company.signals),
                     company.created_at.isoformat(),

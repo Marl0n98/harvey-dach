@@ -75,6 +75,33 @@ SENDABLE_EMAIL_STATUSES = {"verified"}
 SENDABLE_EMAIL_STATUSES_WITH_RISKY = {"verified", "risky"}
 
 
+def consent_hold(config, to_email: str, country: str = "") -> str:
+    """Why a cold email waits for consent, or "". The country is the known
+    one, else the address's top-level domain; with neither, an ICP that is
+    only in consent countries counts, because a guess must not send."""
+    compliance = compliance_of(config)
+    required = {c.upper() for c in compliance.consent_required_countries}
+    if not required:
+        return ""
+    address = (to_email or "").strip().lower()
+    if do_not_contact_match(address, compliance.consent_list):
+        return ""
+    tld = address.rsplit(".", 1)[-1].upper()
+    code = (country or "").upper() or {"DE": "DE", "AT": "AT", "CH": "CH", "LI": "CH"}.get(tld, "")
+    if code and code not in required:
+        return ""
+    if not code and not _dach_icp(config):
+        return ""
+    return ("Consent needed: this country requires prior consent for advertising email, "
+            "also to businesses. Add the address to compliance.consent_list once you have it.")
+
+
+def _dach_icp(config) -> bool:
+    words = ("deutschland", "germany", "österreich", "oesterreich", "austria", "schweiz",
+             "switzerland", "dach")
+    return any(w in str(place).lower() for place in getattr(getattr(config, "icp", None), "geography", []) for w in words)
+
+
 def _utcnow() -> datetime:
     """Naive UTC now, as the outbox stores times. Tests pin it."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -775,6 +802,10 @@ class Sender:
             colleague = await self.state.colleague_who_replied(prospect.id)
             if colleague:
                 return "cancelled", f"{COLLEAGUE_REPLIED} ({colleague})"
+            held = consent_hold(self.config, item["to_email"], await self._recipient_country(prospect))
+            if held:
+                logger.warning(f"Sender: holding email to {item['to_email']}: {held}")
+                return "pending_review", held
         gate = pre_send_check(
             item["to_email"], item["subject"], self._outgoing_body(item),
             prospect=prospect, allow_risky=allow_risky, kind=item["kind"],

@@ -46,6 +46,12 @@ REAL_SLEEP = asyncio.sleep
 
 
 @pytest.fixture(autouse=True)
+def _one_overpass_round(monkeypatch):
+    """These tests count one walk over the mirrors; retry rounds are tested on their own."""
+    monkeypatch.setattr(D.OpenStreetMap, "ROUNDS", 1)
+
+
+@pytest.fixture(autouse=True)
 def offline(monkeypatch):
     """No test reaches the network, and none of them wait a real second.
 

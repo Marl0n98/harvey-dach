@@ -40,6 +40,14 @@ def _public_address(value: str) -> str:
     return str(address)
 
 
+def _translated(value: str) -> bool:
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return any(address in network for network in _TRANSLATION_NETWORKS)
+
+
 class PublicHTTPTransport(httpx.AsyncBaseTransport):
     def __init__(self):
         # Different domains may resolve to the same IP. Do not reuse a TLS
@@ -77,7 +85,13 @@ class PublicHTTPTransport(httpx.AsyncBaseTransport):
                     asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM),
                     timeout=connect_budget,
                 )
-                addresses = list(dict.fromkeys(_public_address(row[4][0]) for row in answers))
+                addresses = list(dict.fromkeys(row[4][0] for row in answers))
+                # An IPv6-only network (a phone hotspot, say) adds NAT64 answers
+                # beside the real ones. Never connect to those, but they don't
+                # condemn a host that also has a checked address. Alone, or next
+                # to anything private, they still fail below.
+                direct = [value for value in addresses if not _translated(value)]
+                addresses = [_public_address(value) for value in (direct or addresses)]
                 if not addresses:
                     raise ValueError("DNS returned no addresses")
                 # Many operator machines have no IPv6 route even when DNS

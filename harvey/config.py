@@ -260,6 +260,12 @@ class EmailChannelConfig(BaseModel):
     # outbox, so it holds campaigns and escalates replies while this is true.
     # Set false explicitly for full autopilot once you trust the output.
     require_approval: bool = True
+    # "sequence" (default): three cold emails. "question": one email that only
+    # asks the prospect a question, no offer and no follow-ups; what you do
+    # comes up only in the reply to their answer. It makes the email read less
+    # like advertising. It does not make cold email legal where consent is
+    # required (compliance.consent_required_countries still holds it back).
+    first_touch: str = "sequence"
     # Your own domains besides the sending address's and the booking link's
     # (e.g. your main site when you send from a secondary domain). On
     # autopilot, an email linking anywhere else waits in the Outbox.
@@ -276,6 +282,14 @@ class EmailChannelConfig(BaseModel):
     send_window: SendWindowConfig | None = None
     # A logo under every email (see SignatureConfig). Native providers only.
     signature: SignatureConfig = SignatureConfig()
+
+    @field_validator("first_touch", mode="before")
+    @classmethod
+    def _valid_first_touch(cls, v) -> str:
+        v = str(v or "sequence").strip().lower()
+        if v not in ("sequence", "question"):
+            raise ValueError('first_touch must be "sequence" or "question"')
+        return v
 
     @field_validator("warmup", mode="before")
     @classmethod
@@ -424,7 +438,7 @@ DEFAULT_OPT_OUT_LINE = 'Not interested? Reply "no thanks" and I won\'t email aga
 # The replies the Handler always honours as an opt-out on their own; an
 # opt_out_line must ask for one of them ("Reply STOP", 'reply "no thanks"').
 OPT_OUT_WORDS = ("no thanks", "no thank you", "unsubscribe", "stop", "remove me",
-                 "opt out")
+                 "opt out", "nein danke", "abmelden", "stopp")
 # The same in Hebrew ('השיבו "הסר"', 'תגידו לי "לא תודה"').
 HEBREW_OPT_OUT_WORDS = ("הסר", "הסירו", "הסרה", "לא תודה", "הסירו אותי", "תורידו אותי")
 # The same in Spanish ('Responda "no, gracias"', 'Responda BAJA').
@@ -433,7 +447,7 @@ _OPT_OUT_WORD_RE = "(?:" + "|".join(
     r"[\s,]+".join(map(re.escape, w.split()))
     for w in OPT_OUT_WORDS + HEBREW_OPT_OUT_WORDS + SPANISH_OPT_OUT_WORDS) + ")"
 _ASKS_FOR_OPT_OUT_RE = re.compile(
-    r"\b(?:reply(?:\s+with)?|(?:responda|responde|respondan|conteste|contesta|escriba)(?:\s+con)?)"
+    r"\b(?:reply(?:\s+with)?|(?:antworten\s+sie(?:\s+einfach|\s+mit)?|antworte(?:\s+einfach|\s+mit)?|schreiben\s+sie(?:\s+einfach)?)|(?:responda|responde|respondan|conteste|contesta|escriba)(?:\s+con)?)"
     r"\s*[\"'\u201c\u2018]?\s*" + _OPT_OUT_WORD_RE + r"\b", re.IGNORECASE)
 # Reply / answer / write / tell me, then a few words at most ("במייל חוזר").
 _ASKS_FOR_OPT_OUT_HE_RE = re.compile(
@@ -463,6 +477,13 @@ class ComplianceConfig(BaseModel):
     # send time, so it holds for an email a human already approved, and for
     # replies as well as cold mail — "never contact" means never.
     do_not_contact: list[str] = []
+    # Advertising email needs prior consent in these countries, also to
+    # businesses (DE: § 7 UWG, AT: § 174 TKG, CH: Art. 3 lit. o UWG). Cold email
+    # to them is held unless the address or its domain is in consent_list.
+    # An empty list switches the check off.
+    consent_required_countries: list[str] = ["DE", "AT", "CH"]
+    # Addresses or domains that agreed beforehand. Keep the proof of each.
+    consent_list: list[str] = []
 
     @field_validator("postal_address", "opt_out_line", mode="before")
     @classmethod
@@ -620,6 +641,8 @@ class BrainConfig(BaseModel):
     your own Claude Code / Codex settings are never read or changed.
     """
 
+    # The language of every email Harvey drafts: "en" (default) or "de".
+    language: str = "en"
     provider: str = "claude"
     model: str = ""  # empty = the provider's own default
     reasoning_effort: str = ""  # codex only; empty = model default

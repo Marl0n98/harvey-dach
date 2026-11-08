@@ -20,6 +20,8 @@ class Company(BaseModel):
     company_size: str = ""
     location: str = ""
     phone: str = ""
+    email: str = ""           # an address the map lists for the business
+    address: str = ""         # street, postcode and town, when the source has them
     source: str = ""          # how we found them: google_dork, linkedin, company_scrape
     source_url: str = ""      # specific URL where we found the info
     # Provider-stable identity ("dataforseo:ChIJ...", "osm:node/123"). The

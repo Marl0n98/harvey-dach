@@ -59,9 +59,9 @@ _PARTICLES = frozenset("van von de der den del della di da la le du dos das st".
 _HONORIFIC = re.compile(r"^(?:dr|mr|mrs|ms|miss|prof|rev|hon)\.?\s+", re.I)
 # Credentials and suffixes that follow a name: "John Smith, DDS", "Calvin Marsh, Esq."
 _CREDENTIAL = (r"(?:dds|dmd|md|do|dvm|od|phd|jd|esq|cpa|pe|ra|rn|np|pa|mba|ms|ma|"
-               r"facs|fagd|ccc-slp|jr|sr|ii|iii|iv)")
+               r"facs|fagd|ccc-slp|jr|sr|ii|iii|iv|bsc|msc|bakk|mas|mag|dipl|ing)")
 _CREDENTIAL_TAIL = re.compile(rf"(?:\s*,?\s+{_CREDENTIAL}\.?)+\s*$", re.I)
-_NAME_TOKEN = re.compile(r"^[A-Z][a-z]+(?:[-'’][A-Z]?[a-z]+)*\.?$|^[A-Z]\.$|^[A-Z]$")
+_NAME_TOKEN = re.compile(r"^[A-ZÄÖÜ][a-zäöüßéèêáàçñ]+(?:[-'’][A-ZÄÖÜ]?[a-zäöüßéèêáàçñ]+)*\.?$|^[A-Z]\.$|^[A-Z]$")
 
 
 def _word_ok(token: str) -> bool:
@@ -90,7 +90,7 @@ def split_person_name(text: str) -> tuple[str, str] | None:
     if any(ch.isdigit() for ch in text) or "@" in text:
         return None
     first = tokens[0]
-    if not re.match(r"^[A-Z][a-z]+(?:[-'’][A-Z]?[a-z]+)*$", first) or not _word_ok(first):
+    if not re.match(r"^[A-ZÄÖÜ][a-zäöüßéèêáàçñ]+(?:[-'’][A-ZÄÖÜ]?[a-zäöüßéèêáàçñ]+)*$", first) or not _word_ok(first):
         return None
     rest = tokens[1:]
     # Surname: any particles that start it, then capitalised words.
@@ -103,7 +103,7 @@ def split_person_name(text: str) -> tuple[str, str] | None:
         if not (_NAME_TOKEN.match(t) and (len(t.strip(".")) == 1 or _word_ok(t))):
             return None
     last_word = surname[-1]
-    if not re.match(r"^[A-Z][a-zA-Z]*(?:[-'’][A-Z]?[a-zA-Z]+)*$", last_word) or len(last_word) < 2:
+    if not re.match(r"^[A-ZÄÖÜ][a-zA-ZäöüÄÖÜßéèêáàçñ]*(?:[-'’][A-ZÄÖÜ]?[a-zA-ZäöüÄÖÜßéèêáàçñ]+)*$", last_word) or len(last_word) < 2:
         return None
     if last_word.isupper() and len(last_word) > 2:      # "RAY T", "HVAC"
         return None
@@ -123,12 +123,14 @@ def is_person_name(text: str) -> bool:
 # Titles that mean "the person who decides" at a small business. Any one of
 # them satisfies an ICP that lists any other, so "Proprietor" is found by an
 # ICP that says "Owner", and "Founder & CEO" by one that says "President".
-_OWNER_FAMILY = ("owner", "co-owner", "founder", "co-founder", "cofounder", "president",
+_OWNER_FAMILY = ("inhaber", "inhaberin", "geschäftsführer", "geschäftsführerin", "gründer", "gründerin",
+                 "owner", "co-owner", "founder", "co-founder", "cofounder", "president",
                  "ceo", "chief executive", "chief executive officer", "principal",
                  "proprietor", "managing partner", "founding partner", "managing member",
                  "owner/operator", "owner-operator")
 _OWNER_TITLE = re.compile(
-    r"\b(?:co-?owner|owner|co-?founder|founder|proprietor|ceo|chief executive(?: officer)?|"
+    r"\b(?:inhaber(?:in)?|gesch(?:ä|ae)ftsf(?:ü|ue)hrer(?:in)?|gesch(?:ä|ae)ftsf(?:ü|ue)hrende[rs]?|gr(?:ü|ue)nder(?:in)?|"
+    r"co-?owner|owner|co-?founder|founder|proprietor|ceo|chief executive(?: officer)?|"
     r"president|managing (?:partner|member)|founding (?:partner|attorney|dentist|doctor)|"
     r"principal(?! (?:designer|engineer|consultant|architect|associate|scientist|developer)))\b", re.I)
 # Words that make an owner title about someone else ("Assistant to the CEO")
@@ -420,6 +422,54 @@ def people_from_lines(html: str, domain: str = "", site_name: str = "", url: str
     return found
 
 
+# ── people in an Impressum ───────────────────────────────────────────────
+
+_IMPRINT_DEGREES = re.compile(
+    r"(?i)\b(?:herr|frau|prof\.?|dr\.?|med\.?|dent\.?|jur\.?|rer\.?|pol\.?|oec\.?|nat\.?|phil\.?|h\.\s?c\.?|"
+    r"dipl\.?-?\s?\w*\.?|mag\.?|mba|ll\.?\s?m\.?|m\.?\s?a\.?|b\.?\s?a\.?|lic\.?|iur\.?|ing\.?|"
+    r"rechtsanw(?:ä|ae|a)lt(?:in)?|steuerberater(?:in)?|wirtschaftspr(?:ü|ue)fer(?:in)?|zahn(?:ä|ae)rzt(?:in)?|zahnarzt|ra|stb)(?=\s|$|,)")
+_IMPRINT_ROLE = re.compile(
+    r"(?i)(?P<title>medieninhaber(?:in)?|gesch(?:ä|ae)ftsleitung|verantwortlich(?:\s+f(?:ü|ue)r\s+den\s+inhalt)?|gesch(?:ä|ae)ftsf(?:ü|ue)hr(?:er|erin|ung|ende[rs]?)|inhaber(?:in)?|"
+    r"vertreten\s+durch|vertretungsberechtigt(?:e[rs]?)?(?:\s+gesch(?:ä|ae)ftsf(?:ü|ue)hrer(?:in)?)?)"
+    r"(?:\s*\(?in\)?)?\s*:?\s*(?P<names>[^\n]{0,120})")
+_IMPRINT_STOP = re.compile(r"(?i)\b(?:gmbh|ag|ug|kg|ohg|mbb|e\.\s?v\.|strasse|straße|tel|telefon|e-?mail|fax|hrb|handelsregister)\b")
+
+
+def people_from_impressum(html: str, url: str = "") -> list[dict]:
+    """The person a German, Austrian or Swiss site names as legally responsible:
+    "Geschäftsführer: Jürgen Müller", "Vertreten durch: Dr. Anna Wolf und Max Bär"."""
+    found, seen = [], set()
+    lines = page_lines(html)
+    for i, line in enumerate(lines):
+        m = _IMPRINT_ROLE.search(line)
+        if not m:
+            continue
+        raw = m.group("names").strip(" :,")
+        # "Vertreten durch:" often stands on its own with the name below.
+        if len(raw) < 3 and i + 1 < len(lines):
+            raw = lines[i + 1]
+        elif not m.group("names").strip(" :") and i + 1 < len(lines):
+            raw = lines[i + 1]
+        for part in re.split(r"\s*(?:,|;|/|\bund\b|&)\s*", raw):
+            part = _IMPRINT_DEGREES.sub(" ", part)
+            part = re.sub(r"\s+", " ", part).strip(" .:")
+            if not part or _IMPRINT_STOP.search(part):
+                continue
+            name = split_person_name(part)
+            if not name:
+                continue
+            key = (name[0].lower(), name[1].lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            word = m.group("title").lower()
+            title = ("Inhaber" if word.startswith(("inhaber", "medieninhaber")) else
+                     "Geschäftsführer" if word.startswith("gesch") else "laut Impressum")
+            found.append(_person(name[0], name[1], title, source="card", owner=True,
+                                 full_name=part, evidence=line, url=url))
+    return found
+
+
 # ── people in schema.org ─────────────────────────────────────────────────
 
 _ORG_KEYS = (("founder", "Founder"), ("founders", "Founder"), ("employee", ""),
@@ -659,6 +709,7 @@ def find_people(pages: list[tuple[str, str]], domain: str, site_name: str = "") 
         batches = [
             [dict(p, source="card", owner=False, evidence=f"{p['full_name']} — {p['title']}",
                   evidence_url=url) for p in detect(html, domain=domain, site_name=site_name)],
+            people_from_impressum(html, url=url),
             people_from_schema(html, url=url),
             people_from_prose(html, domain, site_name, url=url),
         ]
@@ -706,10 +757,10 @@ def find_people(pages: list[tuple[str, str]], domain: str, site_name: str = "") 
 # ── which pages to read ──────────────────────────────────────────────────
 
 _LINK_WEIGHTS = (
-    (3, r"team|meet|leadership|staff|people|doctors?|dentists?|attorneys?|"
+    (3, r"impressum|imprint|legal-notice|mentions-legales|anw(?:ä|ae)lte|unser-team|das-team|team|meet|leadership|staff|people|doctors?|dentists?|attorneys?|"
         r"lawyers?|physicians?|providers?|owners?|founders?|principals?|partners|who-?we-?are|bios?"),
-    (2, r"about|story|history|company|firm|practice|family"),
-    (1, r"contact"),
+    (2, r"(?:ü|ue)ber-?uns|wir|kanzlei|praxis|unternehmen|about|story|history|company|firm|practice|family"),
+    (1, r"kontakt|contact"),
 )
 # A keyword counts in a whole path segment ("/our-team/", "/attorneys/",
 # "/meet-the-dentists.html") or a short menu label ("Meet the Team") — not

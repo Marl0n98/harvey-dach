@@ -16,8 +16,9 @@ from datetime import datetime, timezone
 from harvey.brain import Brain, BrainUnavailable
 from harvey.config import (
     DEFAULT_OPT_OUT_LINE, HarveyConfig, EnvConfig, compliance_of, legacy_sending_held,
-    live_do_not_contact,
+    live_do_not_contact, load_email_rules,
 )
+from harvey.agents.writer import operator_rules_block
 from harvey.gate import autopilot_review, do_not_contact_match, pre_send_check
 from harvey.humanize import humanize, humanizer_enabled
 from harvey.integrations.instantly import InstantlyClient
@@ -50,6 +51,24 @@ INTENT_LABELS = {
 
 # Intents that get an automated reply. Everything else is closed,
 # deferred, or escalated to a human.
+# channels.email.first_touch = "question": the first email offered nothing, so
+# the reply to their answer is the first time the offer comes up.
+QUESTION_FIRST_REPLY = """
+
+YOUR FIRST EMAIL ONLY ASKED A QUESTION AND OFFERED NOTHING.
+- If they answered it or sound open: thank them, respond to what they said in one or two
+  sentences, then say in at most two sentences what {company} does that fits their answer,
+  and ask whether they would like to hear more. No price, no attachment, no link unless asked.
+- If they ask who you are or why you asked: say plainly that you run {company} and what it
+  does. Never claim the question was research, a survey or curiosity.
+- One offer, one question. If they don't pick it up, don't push in a later email."""
+
+# The operator's house style (writer.email_rules) also shapes replies.
+REPLY_RULES_NOTE = """
+- In this reply, follow the OPERATOR'S EMAIL RULES for wording, tone, greeting and sign-off,
+  and their section on replies if they have one. If they show example emails, write like
+  them, but take every fact from this conversation, never from the examples."""
+
 AUTO_REPLY_INTENTS = {"interested", "objection", "question", "wrong_person"}
 # Replies that don't stop the cold email to the rest of their company.
 NO_COMPANY_STOP_INTENTS = {"ooo", "wrong_person"}
@@ -57,6 +76,25 @@ NO_COMPANY_STOP_INTENTS = {"ooo", "wrong_person"}
 # Hard opt-out phrases. If any of these appear, we ALWAYS honor the
 # opt-out regardless of what the LLM classifier says.
 OPT_OUT_PATTERNS = (
+    "abmelden",
+    "abbestellen",
+    "austragen",
+    "kein interesse",
+    "keine werbung",
+    "keine weiteren mails",
+    "keine weiteren e-mails",
+    "keine e-mails mehr",
+    "keine mails mehr",
+    "nicht mehr schreiben",
+    "nicht mehr anschreiben",
+    "nicht mehr kontaktieren",
+    "schreiben sie mir nicht",
+    "schreib mir nicht",
+    "kontaktieren sie mich nicht",
+    "aus ihrem verteiler",
+    "aus dem verteiler",
+    "daten löschen",
+    "widerspreche",
     "unsubscribe",
     "opt out",
     "opt-out",
@@ -80,12 +118,12 @@ NO_THANKS_RE = re.compile(
     r"(?<!\bor )\bno,?[ \t]+thank(?:s|[ \t]+you)\b(?![ \t]+(?:needed|necessary|required))")
 # A reply that says only this (signature aside) is an opt-out ("Reply STOP").
 # "הסר" is the Hebrew one, the word Israeli marketing asks for ("להסרה השיבו הסר").
-BARE_OPT_OUTS = {"stop", "unsubscribe", "remove", "remove me", "opt out",
+BARE_OPT_OUTS = {"nein danke", "nein, danke", "stopp", "abmelden", "stop", "unsubscribe", "remove", "remove me", "opt out",
                  "no thanks", "no thank you", "baja", "no gracias", "de baja", "dar de baja",
                  "darme de baja",
                  "הסר", "הסירו", "הסירי", "תסיר", "תסירו", "להסיר", "הסרה", "להסרה"}
 # Said around a bare opt-out without changing it ("הסר בבקשה", "הסר, תודה").
-_BARE_COURTESIES = {"בבקשה", "נא", "תודה", "רבה", "por", "favor", "gracias", "saludos"}
+_BARE_COURTESIES = {"bitte", "danke", "gruß", "grüße", "בבקשה", "נא", "תודה", "רבה", "por", "favor", "gracias", "saludos"}
 _MOBILE_SIGNATURE_RE = re.compile(
     r"^[ \t\u200e\u200f]*(?:sent from my \w[^\n]*|get outlook for \w[^\n]*"
     r"|sent from \w+ mail[^\n]*|נשלח מ[^\n]*|קבל(?:ו)? את outlook[^\n]*"
@@ -528,6 +566,7 @@ class Handler:
         self.instantly = InstantlyClient(env.instantly_api_key)
         self.provider = get_mail_provider(config, env)
         self.skills = ""
+        self.email_rules = None       # writer.email_rules, read on the first reply
         self.last_read_problem = ""   # why the last mailbox read failed, for the heartbeat
 
     @property
@@ -1236,6 +1275,19 @@ Respond with ONLY the category label, nothing else."""
 
         return current_stage
 
+    def _email_rules(self) -> str:
+        """The operator's house style for replies ("" when none or unusable).
+
+        A reply is a draft for review, so a broken rules file only costs the
+        style here; the Writer is the one that stops and reports it."""
+        if self.email_rules is None:
+            try:
+                self.email_rules = load_email_rules(self.config)
+            except Exception as e:  # EmailRulesError and anything odd in the file
+                logger.warning(f"Handler: email rules not used for replies: {e}")
+                self.email_rules = ""
+        return self.email_rules
+
     async def _generate_response(
         self, intent: str, reply_text: str, prospect, convo: Conversation
     ) -> str:
@@ -1259,6 +1311,11 @@ Product: {self.config.product.name} — {self.config.product.description}"""
         # Inject objection handling + sales methodology skills
         if self.skills:
             prompt += "\n\n" + self.skills
+        if getattr(getattr(getattr(self.config, "channels", None), "email", None), "first_touch", "") == "question":
+            prompt += QUESTION_FIRST_REPLY.format(company=self.config.persona.company or "your company")
+        rules = self._email_rules()
+        if rules:
+            prompt += operator_rules_block(rules) + REPLY_RULES_NOTE
         # A startup's founder (YC, another accelerator, a raise they
         # announced) gets the founder playbook. An optional lookup never
         # stops a reply: startup_facts reads a failure as "not a startup".

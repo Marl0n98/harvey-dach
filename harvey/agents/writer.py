@@ -49,6 +49,29 @@ PERSONAL_SHAPE = """- Under 75 words. One specific observation from the FACTS ab
 SEQUENCE_SHAPE = """- Email 1: Personalized cold observation + one question. Under 75 words. No pitch.
 - Email 2: Follow-up 3 days later. Different angle, one concrete proof point. Under 75 words.
 - Email 3: Break-up email 4 days after that. Under 40 words. Gracious, not guilt-tripping."""
+# channels.email.first_touch = "question": one email, a question and nothing to sell.
+# The part of question mode no house style can change: it asks, it doesn't sell.
+QUESTION_CORE = """- ONE email, no follow-ups. It asks the person one genuine question and offers nothing.
+- No offer, product, service, price, link, attachment, call to action or meeting request.
+  Never "we help", "we offer", "I'd like to show you". Don't explain what your company does.
+- Never pose as a customer, student, journalist or survey. Sign with your name and company.
+- This overrides any rule above that asks for a product mention, proof point or link."""
+# How it reads when the operator wrote no house style of their own.
+QUESTION_STYLE = """- Get to the point: the question comes in the first or second sentence. If you open with
+  an observation, it is one concrete thing about THIS business from the FACTS (a page, a
+  detail, a job ad), never a general statement about their industry ("In most practices...",
+  "Many owners..."), never praise, never "I came across", "I noticed", "I hope this finds you".
+- One open question about how they handle that, which a busy owner can answer in one line.
+- Plain words, short sentences, the way a person types a quick email. No dashes as
+  punctuation, no rhetorical setup, no summary at the end.
+- Under 60 words. Subject: 2-5 words about them, not about you."""
+QUESTION_SHAPE = QUESTION_CORE + "\n" + QUESTION_STYLE
+# Question mode with the operator's own style: their wording, the core still holds.
+QUESTION_WITH_RULES = QUESTION_CORE + """
+- For wording, length, greeting, opening, subject line and sign-off, follow the
+  OPERATOR'S EMAIL RULES above. If they show example emails, write like those examples
+  (tone, sentence length, how they open and close) but take every fact from the FACTS here,
+  never from the examples."""
 SEQUENCE_STYLE = """- Never be pushy or salesy. Be consultative and value-driven.
 - Subject lines: lowercase, 2-5 words."""
 # Why the Writer stopped: Today and `harvey status` show it.
@@ -97,6 +120,10 @@ def footer_rule(config, rules: str) -> str:
             "- Harvey adds no opt-out line. If the operator's rules give a sentence that\n"
             "  lets the reader say no, write it into the body as they say.")
     return "\n".join(lines)
+
+
+# Younger than this and "your site has gone quiet" isn't a true opening line.
+STALE_SITE_DAYS = 180
 
 
 class Writer:
@@ -223,6 +250,10 @@ class Writer:
                 f"{len(sequence)} emails for {len(prospects)} prospects."
             )
 
+    def _question_first(self) -> bool:
+        email = getattr(getattr(self.config, "channels", None), "email", None)
+        return getattr(email, "first_touch", "sequence") == "question"
+
     async def _count_failed_attempt(self, batch_name: str, prospects: list):
         """Count one unusable sequence against each prospect in the batch.
 
@@ -340,6 +371,27 @@ class Writer:
             + lines
         )
 
+    async def _observed_facts(self, company_id) -> list[str]:
+        """What `harvey discover` and the profile pass read on their site. Only
+        readings that hold up as an opening line, newest reading of each."""
+        try:
+            rows = await self.state.get_observations(company_id=company_id, latest_only=True)
+        except Exception as e:
+            logger.debug(f"Writer: no observations for {company_id}: {e}")
+            return []
+        facts = []
+        for row in rows:
+            code, num, text = row.get("signal_code"), row.get("value_num"), row.get("value_text") or ""
+            if code == "BLOG_STALE" and (num or 0) >= STALE_SITE_DAYS:
+                facts.append(f"- Observed on their website: nothing new published for {int(num)} days ({text})")
+            elif code == "HIRING_ROLE" and text:
+                facts.append(f"- Observed on their website: hiring {text}")
+            elif code == "RUNNING_META_ADS" and num == 1:
+                facts.append("- Observed on their website: a Meta pixel is installed, which suggests ads but doesn't prove them")
+            elif code == "INCUMBENT_AGENCY" and text:
+                facts.append(f"- Observed on their website: credits this agency: {text}")
+        return facts[:4]
+
     async def _write_personal_email(self, prospect) -> dict | None:
         """One grounded draft for one person. Facts in, one email out."""
         inbox_rule = ""
@@ -376,6 +428,8 @@ class Writer:
                 facts.append(
                     f"- Signal ({signal.get('type', 'signal')}): {signal.get('detail', '')}"
                 )
+        if prospect.company_id:
+            facts.extend(await self._observed_facts(prospect.company_id))
         if prospect.personalization_notes:
             facts.append(f"- Research notes: {prospect.personalization_notes}")
         startup = await self._startup(prospect.company_id)
@@ -409,6 +463,9 @@ class Writer:
         else:
             shape = PERSONAL_SHAPE
             strict = "- Follow every STRICT EMAIL RULE above."
+        if self._question_first():
+            shape = ((QUESTION_WITH_RULES if rules else QUESTION_SHAPE)
+                     + "\n- Write the actual text (no merge variables — you know their name/company).")
 
         prompt += f"""
 
@@ -509,10 +566,19 @@ Pricing: {self.config.product.pricing}"""
         else:
             shape, style = SEQUENCE_SHAPE, "\n" + SEQUENCE_STYLE
             strict = "- Follow every rule in the STRICT EMAIL RULES above. No exceptions."
+        question = self._question_first()
+        if question:
+            shape, style = (QUESTION_WITH_RULES if rules else QUESTION_SHAPE), ""
+        what = ("a single first email (no follow-ups)" if question
+                else "a 3-email cold outreach sequence")
+        example = ('  {{"step": 1, "subject": "...", "body": "...", "delay_days": 0}}' if question else
+                   '  {{"step": 1, "subject": "...", "body": "...", "delay_days": 0}},\n'
+                   '  {{"step": 2, "subject": "...", "body": "...", "delay_days": 3}},\n'
+                   '  {{"step": 3, "subject": "...", "body": "...", "delay_days": 4}}').replace("{{", "{").replace("}}", "}")
 
         prompt += f"""
 
-Write a 3-email cold outreach sequence for prospects like these:
+Write {what} for prospects like these:
 {fence(prospect_summary, "sample prospects")}
 
 {UNTRUSTED_RULE}
@@ -525,9 +591,7 @@ Requirements:
 
 Return ONLY a JSON array (no markdown fences, no commentary):
 [
-  {{"step": 1, "subject": "...", "body": "...", "delay_days": 0}},
-  {{"step": 2, "subject": "...", "body": "...", "delay_days": 3}},
-  {{"step": 3, "subject": "...", "body": "...", "delay_days": 4}}
+{example}
 ]"""
 
         result = await self.brain.think_json(
@@ -598,6 +662,8 @@ Return ONLY a JSON array (no markdown fences, no commentary):
         if steps and steps[0].delay_days != 0:
             steps[0].delay_days = 0  # first email always sends immediately
 
+        if self._question_first():
+            return steps[:1]        # a question gets no follow-ups
         if len(steps) < 3:
             logger.warning(f"Writer: Expected 3 emails, got {len(steps)}.")
         return steps

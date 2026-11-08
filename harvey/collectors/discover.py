@@ -70,6 +70,10 @@ JUNK_DOMAIN_PATTERNS = tuple(re.compile(p, re.I) for p in (
     r"(news|magazine|journal|gazette|tribune|herald)\.(com|org|net)$",
     # institutional
     r"\.(edu|gov|mil)$",
+    r"(^|\.)(ag|ai|ar|be|bl|bs|fr|ge|gl|gr|ju|lu|ne|nw|ow|sg|sh|so|sz|tg|ti|ur|vd|vs|zg|zh)\.ch$",
+    r"\.gv\.at$",
+    r"(^|\.)(bund|bayern|berlin|hamburg|nrw|sachsen|hessen)\.de$",
+    r"(anwaltskammer|rakwien|rak-|staatsanwalt|justiz|gericht|handelskammer|ihk|wko)\w*\.",
     r"(hospital|healthsystem|medicalcenter)\.",
     r"health\.org$",
     # startup databases, launch sites and tech press (the YC preset's noise)
@@ -328,7 +332,8 @@ async def resolve_coordinates(state, queries: list["DiscoveryQuery"],
     user did not spell out. Distinct cities are geocoded once each, however
     many queries share them.
     """
-    needed = {q.location for q in queries if q.location and not q.coordinate}
+    needed = {q.location for q in queries if q.location and not q.coordinate
+              and q.location.strip().lower() not in OSM_AREAS}
     points: dict[str, str] = {}
     for i, city in enumerate(sorted(needed)):
         if i:
@@ -352,6 +357,7 @@ class Business:
     domain: str = ""
     website: str = ""
     phone: str = ""
+    email: str = ""
     address: str = ""
     location: str = ""
     category: str = ""
@@ -1068,15 +1074,17 @@ class OpenStreetMap(DiscoveryProvider):
     # Overpass etiquette for a shipped tool: modest volume, no parallelism.
     MIN_INTERVAL = 2.0
     BACKOFF = 5.0
+    ROUNDS = 3
+    ROUND_WAIT = 60.0
     # A free instance queues before it computes: node(1) — the smallest query
     # Overpass accepts — measured 38s of pure waiting on a busy afternoon. The
     # module-wide 45s read budget leaves nothing for a real query over a 40km
     # radius, so Overpass gets its own and asks the server for a matching
     # slice of execution time. Slow beats empty-handed, and a run that cannot
     # afford the wait stops on MAX_PROSPECTS_PER_CYCLE, not on a timeout.
-    HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0,
+    HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=200.0, write=10.0,
                                  pool=10.0)
-    SERVER_TIMEOUT = 90
+    SERVER_TIMEOUT = 180
     # Statuses that say "this mirror, right now" rather than "this query":
     # throttling, a gateway that lost its backend, an overloaded instance, a
     # timed-out one. Every one of them is another mirror's problem to solve, so
@@ -1085,6 +1093,48 @@ class OpenStreetMap(DiscoveryProvider):
 
     # A friendly term maps to the OSM tags that actually carry those businesses.
     TAG_MAP = {
+        # German terms (DE, AT, CH)
+        "dachdecker": ['craft=roofer'],
+        "spengler": ['craft=roofer', 'craft=plumber'],
+        "sanitär": ['craft=plumber', 'craft=hvac'],
+        "installateur": ['craft=plumber', 'craft=hvac'],
+        "klempner": ['craft=plumber'],
+        "heizung": ['craft=hvac'],
+        "elektriker": ['craft=electrician'],
+        "elektro": ['craft=electrician'],
+        "tischler": ['craft=carpenter'],
+        "schreiner": ['craft=carpenter'],
+        "maler": ['craft=painter'],
+        "gärtner": ['craft=gardener', 'shop=garden_centre'],
+        "garten": ['craft=gardener', 'shop=garden_centre'],
+        "bauunternehm": ['craft=builder', 'office=construction_company'],
+        "zahnarzt": ['amenity=dentist'],
+        "zahnärzt": ['amenity=dentist'],
+        "tierarzt": ['amenity=veterinary'],
+        "arztpraxis": ['amenity=doctors'],
+        "physiotherap": ['healthcare=physiotherapist'],
+        "apotheke": ['amenity=pharmacy'],
+        "rechtsanw": ['office=lawyer'],
+        "anwalt": ['office=lawyer'],
+        "kanzlei": ['office=lawyer'],
+        "steuerberat": ['office=tax_advisor', 'office=accountant'],
+        "treuhand": ['office=accountant', 'office=tax_advisor'],
+        "buchhalt": ['office=accountant'],
+        "marketingagentur": ['office=advertising_agency'],
+        "werbeagentur": ['office=advertising_agency'],
+        "agentur": ['office=advertising_agency'],
+        "immobilienmakler": ['office=estate_agent'],
+        "makler": ['office=estate_agent'],
+        "versicherung": ['office=insurance'],
+        "friseur": ['shop=hairdresser'],
+        "coiffeur": ['shop=hairdresser'],
+        "kosmetik": ['shop=beauty'],
+        "bäckerei": ['shop=bakery'],
+        "restaurant": ['amenity=restaurant'],
+        "autowerkstatt": ['shop=car_repair'],
+        "werkstatt": ['shop=car_repair'],
+        "fitnessstudio": ['leisure=fitness_centre'],
+        "hotel": ['tourism=hotel'],
         "roof": ['craft=roofer', 'shop=roofing'],
         "plumb": ['craft=plumber'],
         "hvac": ['craft=hvac'],
@@ -1130,7 +1180,8 @@ class OpenStreetMap(DiscoveryProvider):
         return []
 
     async def fetch(self, client, env, query):
-        if not query.coordinate:
+        area = OSM_AREAS.get(query.location.strip().lower(), "")
+        if not query.coordinate and not area:
             logger.warning("osm: no coordinate for %r — Overpass needs a "
                            "lat,lng,radius to search", query.keyword())
             return []
@@ -1140,15 +1191,20 @@ class OpenStreetMap(DiscoveryProvider):
                 f"OpenStreetMap has no category for {query.term!r}. It can only "
                 f"search mapped trades ({', '.join(sorted(self.TAG_MAP))}). Use a "
                 f"listings or SERP provider for this one.")
-        lat, lng, radius_km = (query.coordinate.split(",") + ["", "", ""])[:3]
-        radius_m = int(float(radius_km or 25) * 1000)
+        if area:
+            key = "ISO3166-2" if "-" in area else "ISO3166-1"
+            scope, prefix = "(area.a)", f'area["{key}"="{area}"]->.a;'
+        else:
+            lat, lng, radius_km = (query.coordinate.split(",") + ["", "", ""])[:3]
+            radius_m = int(float(radius_km or 25) * 1000)
+            scope, prefix = f"(around:{radius_m},{lat},{lng})", ""
         clauses = "".join(
-            f'node[{tag.split("=")[0]}={tag.split("=")[1]}](around:{radius_m},{lat},{lng});'
-            f'way[{tag.split("=")[0]}={tag.split("=")[1]}](around:{radius_m},{lat},{lng});'
-            for tag in tags
+            f'nwr[{tag.split("=")[0]}={tag.split("=")[1]}]{scope};' for tag in tags
         )
-        body = (f"[out:json][timeout:{self.SERVER_TIMEOUT}];({clauses});"
-                f"out center {query.limit};")
+        # A limit of 0 takes everything mapped.
+        cap = f" {query.limit}" if query.limit else ""
+        body = (f"[out:json][timeout:{self.SERVER_TIMEOUT}];{prefix}({clauses});"
+                f"out center{cap};")
 
         # Overpass is a free volunteer service and throttles, 502s and times
         # out readily under load. Walk the mirrors, then RAISE: returning []
@@ -1157,20 +1213,28 @@ class OpenStreetMap(DiscoveryProvider):
         headers = {"User-Agent": "Harvey/0.1 (open-source sales agent; "
                                  "github.com/ethanplusai/harvey)"}
         r = None
-        for i, endpoint in enumerate(self.ENDPOINTS):
-            if i:
-                await asyncio.sleep(self.BACKOFF)
-            try:
-                r = await client.post(endpoint, content=body.encode(),
-                                      headers=headers,
-                                      timeout=self.HTTP_TIMEOUT)
-            except httpx.HTTPError as e:
-                logger.warning("osm: %s unreachable (%s)", endpoint, e)
+        # A long run hits throttling sooner or later, so walk the mirrors more
+        # than once before giving up on a query.
+        for attempt in range(self.ROUNDS):
+            if attempt:
+                await asyncio.sleep(self.ROUND_WAIT)
+            for i, endpoint in enumerate(self.ENDPOINTS):
+                if i:
+                    await asyncio.sleep(self.BACKOFF)
+                try:
+                    r = await client.post(endpoint, content=body.encode(),
+                                          headers=headers,
+                                          timeout=self.HTTP_TIMEOUT)
+                except httpx.HTTPError as e:
+                    logger.warning("osm: %s unreachable (%s)", endpoint, e)
+                    continue
+                if r.status_code not in self.RETRY_STATUSES:
+                    break
+                logger.warning("osm: %s is throttling or down (%s) — trying the "
+                               "next mirror", endpoint, r.status_code)
+            else:
                 continue
-            if r.status_code not in self.RETRY_STATUSES:
-                break
-            logger.warning("osm: %s is throttling or down (%s) — trying the "
-                           "next mirror", endpoint, r.status_code)
+            break
         else:
             raise RuntimeError(
                 "Every public Overpass mirror is unavailable or throttling "
@@ -1189,13 +1253,21 @@ class OpenStreetMap(DiscoveryProvider):
             site = tags.get("website") or tags.get("contact:website") or ""
             city = ", ".join(x for x in (tags.get("addr:city"),
                                          tags.get("addr:state")) if x)
+            # A country-wide search keeps the country next to the town.
+            country = query.location.rpartition(",")[2].strip() if area else ""
+            if city and country and country.lower() not in city.lower():
+                city = f"{city}, {country}"
+            street = " ".join(x for x in (tags.get("addr:street"),
+                                          tags.get("addr:housenumber")) if x)
+            town = " ".join(x for x in (tags.get("addr:postcode"),
+                                        tags.get("addr:city")) if x)
             out.append(Business(
                 name=name,
                 domain=normalize_domain(site),
                 website=site,
                 phone=tags.get("phone") or tags.get("contact:phone") or "",
-                address=" ".join(x for x in (tags.get("addr:housenumber"),
-                                             tags.get("addr:street")) if x),
+                email=(tags.get("email") or tags.get("contact:email") or "").strip().lower(),
+                address=", ".join(x for x in (street, town) if x),
                 location=city or query.location,
                 category=tags.get("craft") or tags.get("shop") or tags.get("office") or "",
                 has_website=bool(site),
@@ -1648,6 +1720,31 @@ def preset_problem(preset: str, provider_key: str, config=None) -> str | None:
     return None
 
 
+# Whole countries and German states, searched by boundary instead of a radius.
+# Germany is one query per state: as one query it ran past Overpass's time limit.
+GERMAN_STATES = {
+    "Baden-Württemberg": "DE-BW", "Bayern": "DE-BY", "Berlin": "DE-BE",
+    "Brandenburg": "DE-BB", "Bremen": "DE-HB", "Hamburg": "DE-HH", "Hessen": "DE-HE",
+    "Mecklenburg-Vorpommern": "DE-MV", "Niedersachsen": "DE-NI",
+    "Nordrhein-Westfalen": "DE-NW", "Rheinland-Pfalz": "DE-RP", "Saarland": "DE-SL",
+    "Sachsen": "DE-SN", "Sachsen-Anhalt": "DE-ST", "Schleswig-Holstein": "DE-SH",
+    "Thüringen": "DE-TH",
+}
+OSM_AREAS = {"österreich": "AT", "schweiz": "CH",
+             **{f"{k}, Deutschland".lower(): v for k, v in GERMAN_STATES.items()}}
+
+
+def expand_places(places: list[str]) -> list[str]:
+    """"Deutschland" means every state; everything else stays as written."""
+    out: list[str] = []
+    for place in places:
+        if place.strip().lower() == "deutschland":
+            out.extend(f"{state}, Deutschland" for state in GERMAN_STATES)
+        else:
+            out.append(place)
+    return list(dict.fromkeys(out))
+
+
 def build_queries(config, cities: list[str] | None = None,
                   depth: int = 30, limit: int = 100, preset: str = "") -> list[DiscoveryQuery]:
     """Turn the configured ICP into a concrete query list.
@@ -1675,7 +1772,7 @@ def build_queries(config, cities: list[str] | None = None,
         variants = getattr(icp, "keyword_variants", {}) or {}
         terms = list(dict.fromkeys(
             v.strip() for t in terms for v in [t, *variants.get(t, [])] if v.strip()))
-        places = cities if cities is not None else list(icp.geography) or [""]
+        places = expand_places(cities if cities is not None else list(icp.geography) or [""])
     coords = getattr(icp, "geo_coordinates", {}) or {}
 
     return [
@@ -1917,6 +2014,8 @@ async def _upsert(state, biz: Business, query: DiscoveryQuery) -> tuple[str, boo
         domain=biz.domain,
         website=biz.website,
         phone=biz.phone,
+        email=biz.email,
+        address=biz.address,
         industry=biz.category or query.term,
         location=biz.location or query.location,
         source=f"discover:{biz.provider}",

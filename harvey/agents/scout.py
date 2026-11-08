@@ -93,10 +93,14 @@ LOCAL_BUSINESS_SOURCES = ("discover:osm", "discover:dataforseo_listings")
 # only mailboxes it will use, most likely read by the owner first. An
 # allowlist, not a blocklist: a personal address (jane.doe@) on a contact
 # page is a person Harvey chose not to target, never "the team".
-INBOX_PAGES = ("/contact", "/contact-us")
+INBOX_PAGES = ("/contact", "/contact-us", "/kontakt", "/impressum")
 INBOX_PREFERRED = ("owner", "office", "info", "contact", "contactus", "hello",
                    "team", "service", "sales", "estimates", "quotes",
-                   "inquiries", "enquiries", "admin", "support")
+                   "inquiries", "enquiries", "admin", "support",
+                   # German-speaking businesses
+                   "kontakt", "praxis", "mail", "post", "buero", "kanzlei",
+                   "empfang", "rezeption", "termin", "termine", "anmeldung",
+                   "studio", "zentrale", "verwaltung")
 MAX_PROSPECTS_PER_CYCLE = 25
 
 # Hunter domain-searches per heartbeat. The monthly budget itself is shared
@@ -714,6 +718,43 @@ class Scout:
         return count
 
     # ── Strategy 1: LinkedIn ──
+
+    async def harvest_contacts(self, limit: int = 500, concurrency: int = 6) -> tuple[int, int]:
+        """The known-companies pass for a whole backlog, without its per-cycle caps.
+
+        Returns (companies visited, contacts added). Reads sites and stores contacts; it
+        never writes or sends anything.
+        """
+        self._seen_prospect_keys, self._seen_domains = set(), set()
+        self._site_reads, self._site_evidence, self._own_domains = {}, {}, {}
+        self._challenged = set()
+        self._queries_this_cycle = 0
+        default_industry = self.config.icp.industries[0] if self.config.icp.industries else ""
+        gate = asyncio.Semaphore(max(1, concurrency))
+        visited = found = 0
+
+        async def one(company):
+            nonlocal visited, found
+            domain = (company.get("domain") or "").strip()
+            async with gate:
+                try:
+                    contacts = await self._contacts_from_company(
+                        company_id=company["id"], domain=domain,
+                        company_name=company.get("name") or self._domain_to_name(domain),
+                        industry=company.get("industry") or default_industry,
+                        source="known_company_backfill")
+                    for contact in contacts:
+                        await self.state.add_prospect(contact)
+                    found += len(contacts)
+                except Exception as e:
+                    logger.warning(f"Contacts failed for {domain}: {e}")
+                await self.state.mark_prospects_checked(company["id"])
+                visited += 1
+                self._site_reads.pop(domain, None)
+
+        companies = await self.state.companies_needing_prospects(limit=limit)
+        await asyncio.gather(*(one(c) for c in companies))
+        return visited, found
 
     async def _prospect_via_linkedin(self) -> int:
         """Search LinkedIn for ICP-matching profiles."""

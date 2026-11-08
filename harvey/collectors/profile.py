@@ -97,11 +97,14 @@ TECH_FINGERPRINTS: dict[str, tuple[str, ...]] = {
     "Stripe": (r"js\.stripe\.com",),
 }
 
-GOOGLE_ADS = (r"googleadservices\.com", r"gtag/js\?id=AW-", r"google_conversion",
+GOOGLE_ADS = (r"googleadservices\.com", r"gtag/js\?id=AW-", r"['\"]AW-\d{6,}", r"google_conversion",
               r"googletagmanager\.com/gtag/js\?id=AW-")
 META_PIXEL = (r"connect\.facebook\.net/[^\"']*fbevents\.js", r"fbq\s*\(\s*['\"]init")
 
-BOOKING_HINTS = (r"calendly\.com", r"acuityscheduling", r"schedulicity",
+BOOKING_HINTS = (r"doctolib", r"jameda", r"clickdoc", r"samedi\.", r"dr-flex", r"etermin", r"terminland",
+                 r"shore\.com", r"timify", r"treatwell", r"planity", r"termin-?direkt", r"simplybook",
+                 r"termin(?:e)?[-_ ]?(?:online|buchen)", r"online[-_ ]?termin", r"cal\.com/",
+                 r"calendly\.com", r"acuityscheduling", r"schedulicity",
                  r"squareup\.com/appointments", r"setmore", r"book(ing)?[-_]?now",
                  r"schedule[-_]?(an?[-_])?(appointment|estimate|consultation)",
                  r"housecallpro", r"getjobber\.com", r"servicetitan")
@@ -109,17 +112,25 @@ BOOKING_HINTS = (r"calendly\.com", r"acuityscheduling", r"schedulicity",
 AI_CRAWLERS = ("gptbot", "google-extended", "ccbot", "anthropic-ai", "claudebot",
                "perplexitybot", "bytespider")
 
-TEAM_PATHS = ("/team", "/about", "/about-us", "/our-team", "/staff",
+TEAM_PATHS = ("/team", "/impressum", "/ueber-uns", "/about", "/about-us", "/our-team", "/staff",
               "/leadership", "/meet-the-team", "/company/team")
-CAREERS_PATHS = ("/careers", "/jobs", "/join-us", "/employment", "/hiring",
+# "(m/w/d)" is what German law makes every job ad carry, so it finds roles in
+# any trade. The rest are words only a job ad's title uses.
+_GERMAN_ROLE = re.compile(
+    r"\((?:[mwfd]\s*/\s*){2}[mwfd]\)|\(\s*all\s+genders\s*\)|"
+    r"\b(?:Ausbildung\s+zum|Ausbildung\s+zur|Azubi|Fachangestellte\w*|Geselle|Gesellin|"
+    r"Mitarbeiter(?:in)?\s+gesucht|Verst(?:ä|ae)rkung\s+gesucht)\b", re.I)
+
+CAREERS_PATHS = ("/karriere", "/stellenangebote", "/stellen", "/careers", "/jobs", "/join-us", "/employment", "/hiring",
                  "/about/careers", "/careers/")
 # A homepage link to the careers page beats guessing paths: careers.acme.com
 # and /company/jobs are as common as /careers. Whole path segments and whole
 # anchors only: "/scheduling/hiring-marketplaces" is a product page.
 _CAREERS_HOST = re.compile(r"^(careers?|jobs|join)\.", re.I)
-_CAREERS_SEGMENTS = frozenset("""careers career jobs join join-us joinus work-with-us
+_CAREERS_SEGMENTS = frozenset("""karriere stellenangebote stellen offene-stellen jobangebote
+careers career jobs join join-us joinus work-with-us
 open-roles open-positions hiring""".split())
-_CAREERS_ANCHOR = re.compile(r"^(careers?|jobs|join us|join (our|the) team|we['’]?re hiring"
+_CAREERS_ANCHOR = re.compile(r"^(karriere|stellenangebote|offene stellen|jobs? & karriere|wir suchen dich|wir stellen ein|careers?|jobs|join us|join (our|the) team|we['’]?re hiring"
                              r"|open (roles|positions)|work with us)$", re.I)
 # Roles recorded per company from a board. The first few say it; twenty rows
 # of "Account Executive, <city>" don't say more.
@@ -147,11 +158,18 @@ hoa hoas condo condos association associations board boards community
 communities management property properties owners residents customer care
 scope alignment implementation consistency communication process driven
 focused structured
+betreiber gemeinde marktgemeinde stadt institut praxis ordination zahnarzt
+zahnärztin zahnaerztin website webseite frau herr firma verein klinik zentrum
+kanzlei studio inhaber inhaberin impressum zahnmedizinisches medizinisches
+physiotherapie steuerberatung fitness gesundheit willkommen herzlich ihr ihre
+unser unsere team praxisgemeinschaft gruppenpraxis hinweis wichtiger
+unternehmen datenschutz haftung
 """.split())
 
 # Tokens that are words, not names, whatever the vertical: abstract nouns
 # ("Scope Alignment", "Board Communication") and shouted acronyms ("HOA").
-_NOUN_SUFFIX = re.compile(r"(tion|tions|sion|sions|ness)$")
+_NOUN_SUFFIX = re.compile(r"(tion|tions|sion|sions|ness|praxis|zentrum|institut|klinik|studio|kanzlei|"
+                          r"ordination|gemeinde|heit|keit|schaft|medizin|technik|therapie|beratung)$")
 
 
 def _is_name_token(token: str) -> bool:
@@ -918,13 +936,15 @@ class ProfileCollector:
             return
         if board and not chtml:
             curl, chtml = await self._careers_page(site, home, domain)
+        if not chtml and _GERMAN_ROLE.search(home or "") and self.wants("HIRING_ROLE"):
+            curl, chtml = site, home     # the role is on the homepage
         if chtml and self.wants("HIRING_ROLE"):
             roles = []
             for m in re.finditer(
                 r"(?is)<(h[2-5]|a|li)[^>]*>\s*([^<]{6,70})\s*</\1>", _strip_code(chtml)
             ):
                 t = re.sub(r"\s+", " ", m.group(2)).strip()
-                if re.search(r"\b(hiring|apply|position|opening|wanted|"
+                if _GERMAN_ROLE.search(t) or re.search(r"\b(hiring|apply|position|opening|wanted|"
                              r"technician|installer|sales|manager|foreman|"
                              r"estimator|crew|representative)\b", t, re.I):
                     if t.lower() not in [r.lower() for r in roles]:

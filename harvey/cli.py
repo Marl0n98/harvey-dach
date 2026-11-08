@@ -580,12 +580,122 @@ def cmd_profile(args):
     asyncio.run(_profile())
 
 
+STYLE_TEMPLATE = "skills/email_rules.beispiel.md"
+STYLE_FILE = "skills/email_rules.md"
+
+
+def cmd_stil(args):
+    """Set up your own email style, or preview first emails written in it."""
+    import shutil
+    from harvey.config import load_config
+    from harvey.paths import PROJECT_ROOT
+
+    config = load_config()
+    target = PROJECT_ROOT / STYLE_FILE
+    configured = str(getattr(config.writer, "email_rules", "") or "").strip()
+    if not args.probe:
+        if target.exists():
+            print(f"\n  {STYLE_FILE} exists. Edit it, then preview with: harvey stil --probe 3")
+        else:
+            shutil.copyfile(PROJECT_ROOT / STYLE_TEMPLATE, target)
+            print(f"\n  Created {STYLE_FILE} from the example. Replace the example emails"
+                  "\n  with emails you would send yourself.")
+        if not configured:
+            print('\n  Harvey doesn\'t use it yet. Add to harvey.local.yaml:\n'
+                  '    writer:\n      email_rules: "skills/email_rules.md"')
+        print()
+        return
+
+    async def _probe():
+        from harvey.agents.writer import Writer
+        from harvey.brain import Brain
+        from harvey.config import load_email_rules
+        from harvey.leads import sample_prospects
+        from harvey.state import StateManager
+
+        state = StateManager()
+        await state.init_db()
+        writer = Writer(Brain(state, config.brain), state, config)
+        writer.skills = writer.brain.load_skills_for_agent("writer")
+        writer.email_rules = load_email_rules(config)
+        prospects = await sample_prospects(state, args.probe)
+        if not prospects:
+            print("\n  No contacts to write for yet. Run harvey discover and harvey leads first.\n")
+            return
+        style = configured or "Harvey's built-in style"
+        mode = getattr(config.channels.email, "first_touch", "sequence")
+        print(f"\n  Preview in {style} (first_touch: {mode}). Nothing is saved or sent.\n")
+        for p in prospects:
+            draft = await writer._write_personal_email(p)
+            print(f"  --- {p.company} ({p.email})")
+            if not draft:
+                print("  (no draft)\n")
+                continue
+            print(f"  Betreff: {draft['subject']}\n")
+            print("\n".join("  " + line for line in draft["body"].splitlines()) + "\n")
+
+    asyncio.run(_probe())
+
+
+def cmd_leads(args):
+    """Build the lead list and write it as Excel and CSV."""
+    async def _leads():
+        from harvey.agents.scout import Scout
+        from harvey.brain import Brain
+        from harvey.config import EnvConfig, load_config
+        from harvey.leads import collect_leads, default_out_base, export_leads
+        from harvey.paths import PROJECT_ROOT
+        from harvey.state import StateManager
+
+        config = load_config()
+        state = StateManager()
+        await state.init_db()
+        if not args.export_only:
+            scout = Scout(Brain(state, config.brain), state, config, EnvConfig())
+            print("\n  Reading sites" + (" and asking mail servers" if args.verify else "") +
+                  ". Nothing is sent.\n")
+            done = await collect_leads(
+                state, scout, limit=args.limit, concurrency=args.concurrency,
+                verify=args.verify, refresh=args.refresh,
+                progress=lambda d, t: print(f"    {d} of {t} companies", flush=True))
+            print(f"\n  {done} companies read.")
+        out = args.out or default_out_base(PROJECT_ROOT)
+        c = await export_leads(state, out)
+        print(f"\n  LEADS — {c['companies']} companies → {out}.xlsx and {out}.csv")
+        print(f"    with website {c['with_website']}, with phone {c['with_phone']}, "
+              f"with a named person {c['with_person']}")
+        print(f"    with an email {c['with_email']}: confirmed {c['confirmed']}, "
+              f"catch-all {c['catch_all']}, Microsoft (unsure) {c['microsoft']}, "
+              f"not checkable {c['unknown']}")
+        print(f"    best address published by the business itself: {c['published']}\n")
+
+    asyncio.run(_leads())
+
+
+def cmd_contacts(args):
+    """Work through the discovered companies, without the per-cycle caps of `harvey run`."""
+    async def _contacts():
+        from harvey.agents.scout import Scout
+        from harvey.brain import Brain
+        from harvey.config import EnvConfig, load_config
+        from harvey.state import StateManager
+
+        config = load_config()
+        state = StateManager()
+        await state.init_db()
+        scout = Scout(Brain(state, config.brain), state, config, EnvConfig())
+        visited, found = await scout.harvest_contacts(args.limit, args.concurrency)
+        print(f"\n  CONTACTS — {visited} companies visited, {found} new contacts. Nothing was sent.\n")
+
+    asyncio.run(_contacts())
+
+
 def cmd_discover(args):
     """Find businesses. The only stage that spends money, so it estimates first."""
     from harvey.state import StateManager
     from harvey.config import load_config, load_env
     from harvey.collectors.discover import (
-        PROVIDERS, build_queries, preset_problem, provider_menu, run_discovery,
+        OSM_AREAS, PROVIDERS, build_queries, preset_problem, provider_menu, run_discovery,
     )
 
     async def _discover():
@@ -639,14 +749,15 @@ def cmd_discover(args):
         if problem:
             print(f"\n  {problem}\n")
             sys.exit(2)
+        limit = args.limit if args.limit is not None else (0 if args.provider == "osm" else 100)
         queries = build_queries(config, cities=cities,
-                                depth=args.depth, limit=args.limit, preset=preset)
+                                depth=args.depth, limit=limit, preset=preset)
 
         report = await run_discovery(state, config, args.provider, queries,
                                      max_spend=args.max_spend, dry_run=True)
         print(f"\n  {len(queries)} queries via {PROVIDERS[args.provider].label}")
         for q in queries[:8]:
-            print(f"    - {q.keyword()}" + ("" if q.coordinate else
+            print(f"    - {q.keyword()}" + ("" if q.coordinate or q.location.strip().lower() in OSM_AREAS else
                   "   (no coordinates — add icp.geo_coordinates for radius search)"))
         if len(queries) > 8:
             print(f"    ... and {len(queries) - 8} more")
@@ -1087,8 +1198,8 @@ def main():
                           '(default: icp.geography)')
     sub.add_argument("--depth", type=int, default=30,
                      help="SERP depth (default: 30 — depth 100 costs 10x since Sept 2025)")
-    sub.add_argument("--limit", type=int, default=100,
-                     help="Max records per query (default: 100)")
+    sub.add_argument("--limit", type=int, default=None,
+                     help="Max records per query (default: all for osm, 100 for paid providers)")
     sub.add_argument("--max-spend", type=float, default=1.0,
                      help="Hard cap in dollars (default: 1.00)")
     sub.add_argument("--preset", default="", choices=["", "yc", "hiring", "accelerator", "funding"],
@@ -1103,6 +1214,31 @@ def main():
     sub.add_argument("--no-profile", action="store_true",
                      help="Don't profile what was found (profiling is free)")
     sub.set_defaults(func=cmd_discover)
+
+    sub = subparsers.add_parser(
+        "leads", help="Write every discovered company to Excel and CSV, with phones, people and checked emails (sends nothing)")
+    sub.add_argument("--limit", type=int, default=0, help="Max companies to read this run (default: all)")
+    sub.add_argument("--concurrency", type=int, default=8, help="Companies read at once (default: 8)")
+    sub.add_argument("--no-verify", dest="verify", action="store_false",
+                     help="Don't ask mail servers whether addresses exist")
+    sub.add_argument("--refresh", action="store_true", help="Read companies again that already have an entry")
+    sub.add_argument("--export-only", action="store_true", help="Only write the file from what is stored")
+    sub.add_argument("--out", default="", help="File name without extension (default: data/exports/leads-<date>)")
+    sub.set_defaults(func=cmd_leads)
+
+    sub = subparsers.add_parser(
+        "stil", help="Your own email style: create skills/email_rules.md, or preview emails in it")
+    sub.add_argument("--probe", type=int, default=0, metavar="N",
+                     help="Write N first emails for stored contacts and print them (sends nothing)")
+    sub.set_defaults(func=cmd_stil)
+
+    sub = subparsers.add_parser(
+        "contacts", help="Find contacts at every discovered company (free, no Claude, sends nothing)")
+    sub.add_argument("--limit", type=int, default=500,
+                     help="Max companies to visit (default: 500)")
+    sub.add_argument("--concurrency", type=int, default=6,
+                     help="Sites read at once (default: 6)")
+    sub.set_defaults(func=cmd_contacts)
 
     sub = subparsers.add_parser(
         "profile", help="Read discovered companies' websites (free, no Claude)")

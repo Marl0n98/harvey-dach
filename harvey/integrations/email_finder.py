@@ -24,6 +24,7 @@ import logging
 import os
 import random
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
@@ -98,8 +99,14 @@ def _clean_domain(domain: str) -> str:
     return domain
 
 
+_UMLAUTS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+
+
 def _clean_name_part(value: str) -> str:
-    return re.sub(r"[^a-z]", "", (value or "").lower())
+    """Jürgen -> juergen, Kovačić -> kovacic: how German-speaking businesses spell names in addresses."""
+    value = (value or "").lower().translate(_UMLAUTS)
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z]", "", value)
 
 
 def build_email(pattern: str, first: str, last: str, domain: str) -> str:
@@ -201,6 +208,8 @@ reception frontdesk front appointments appointment schedule scheduling dispatch
 customerservice customercare care clients client mail email general main owner
 manager management operations ops legal privacy compliance security it tech
 feedback reviews referrals warranty claims insurance parts shop store
+kontakt praxis buero kanzlei empfang rezeption termin termine anmeldung verwaltung
+zentrale post studio bewerbung karriere rechnung buchhaltung datenschutz
 """.split())
 
 def pattern_from_local(local: str) -> Optional[tuple[str, float]]:

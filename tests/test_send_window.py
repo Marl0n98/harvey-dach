@@ -704,7 +704,8 @@ async def test_sender_sends_no_country_for_a_guessed_state_code(state):
 
 
 @pytest.mark.asyncio
-async def test_sender_settles_a_state_code_by_the_cached_coordinates(state):
+async def test_sender_settles_a_state_code_by_the_cached_coordinates(state, monkeypatch):
+    monkeypatch.setattr("harvey.agents.sender.consent_hold", lambda *a: "")
     pid = await seed_at(state, "Berlin, DE", "lena@de-acme.example")
     await approved(state, pid, "lena@de-acme.example")
     await state.set_setting("geo:berlin, de", "52.52,13.40")

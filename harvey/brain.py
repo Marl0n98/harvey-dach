@@ -21,6 +21,25 @@ logger = logging.getLogger("harvey.brain")
 from harvey.paths import PROJECT_ROOT
 from harvey.textio import read_user_text
 
+GERMAN_RULES = """
+
+GERMAN OUTPUT — THIS OVERRIDES THE LANGUAGE OF ANYTHING ABOVE:
+- Write every subject line, email and reply in German, for readers in Germany, Austria and Switzerland.
+- Use "Sie" unless the prospect wrote to you with "du". Open with "Guten Tag Frau X" or "Guten Tag Herr X"
+  when the salutation is certain from the first name, else "Guten Tag Vorname Nachname".
+  A general inbox gets "Guten Tag". Never "Hi there", never "Sehr geehrte Damen und Herren".
+- Follow-ups: never "Guten Tag {{first_name}}" with "Sie". Open them with "Guten Tag," and no name.
+- Never offer a concrete day or time: you can't see a calendar. Ask which day suits them, or use the booking link if one is given.
+- Swiss recipients (.ch or a Swiss location): write "ss" instead of "ß". Keep Austrian and Swiss words the prospect uses.
+- Natural spoken business German, no translated English, no Marketing-Deutsch. No Gedankenstriche.
+- Never: "kostenlos", "gratis", "Garantie", "garantiert", "ohne Risiko", "Rabatt", "Sonderangebot", "nur heute",
+  "jetzt kaufen", "Geld verdienen", "Umsatz verdoppeln", "Gewinn", "dringend".
+- Never: "ich hoffe, es geht Ihnen gut", "ich wollte nur", "kurze Frage", "Gamechanger", "revolutionär", "nahtlos", "auf das nächste Level".
+- German needs a few more words: the word limits above stay as they are, so cut content, not clarity.
+- Sign with the sender's name and company only. Legal details are added when it is sent.
+- Subject lines keep normal German capitalisation, so nouns stay capitalised.
+"""
+
 PROMPTS_DIR = PROJECT_ROOT / "prompts"
 SKILLS_DIR = PROJECT_ROOT / "skills"
 
@@ -685,6 +704,8 @@ class Brain:
             return ""
         for key, value in kwargs.items():
             template = template.replace(f"{{{{{key}}}}}", str(value))
+        if prompt_name in ("writer", "handler") and getattr(self.config, "language", "en") == "de":
+            template += GERMAN_RULES
         # Surface templating mistakes early instead of sending {{foo}} to Claude
         leftover = re.findall(r"\{\{(\w+)\}\}", template)
         if leftover:

@@ -1,4 +1,10 @@
-# Harvey
+# Harvey DACH
+
+> **Deutsche Fassung für Deutschland, Österreich und die Schweiz.** Was hier anders ist
+> und wie du es nutzt, steht in [README-DACH.md](README-DACH.md). Basis ist
+> [ethanplusai/harvey](https://github.com/ethanplusai/harvey) von Ethan Rogers (MIT-Lizenz).
+> Keine Rechtsberatung: Kalte Werbemails sind in DE und AT ohne Einwilligung verboten.
+
 
 **An autonomous sales agent that runs on your Claude Code or Codex subscription.**
 
@@ -116,8 +122,8 @@ Profiling and outbox draining ride along on **every** cycle regardless, because 
 ### Easiest: let Claude set it up
 
 ```bash
-git clone https://github.com/ethanplusai/harvey.git
-cd harvey
+git clone https://github.com/Marl0n98/harvey-dach.git
+cd harvey-dach
 claude
 ```
 
@@ -157,8 +163,8 @@ above on macOS or Windows. On a remote Linux host, reach the dashboard through
 an SSH tunnel rather than exposing its port to the network.
 
 ```bash
-git clone https://github.com/ethanplusai/harvey.git
-cd harvey
+git clone https://github.com/Marl0n98/harvey-dach.git
+cd harvey-dach
 
 # Create the credentials file only if you do not already have one.
 test -e .env || cp .env.example .env
