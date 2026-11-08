@@ -38,8 +38,10 @@ AGENTS.md
 .DS_Store
 Thumbs.db
 
-# Claude
-.claude/
+# Claude: local settings stay private; the shipped agents and commands are shared
+.claude/*
+!.claude/agents/
+!.claude/commands/
 
 # Internal context (not for public repo)
 .context.md

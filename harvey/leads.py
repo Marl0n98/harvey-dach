@@ -544,7 +544,7 @@ COMPANY_COLUMNS = [
     "Telefon (Karte)", "Telefon (Website)", "Ansprechpartner", "Rolle",
     "Beste E-Mail", "Quelle", "Prüfung", "Weitere E-Mails", "Mailserver", "Catch-all",
     "Personen auf Website", "Online-Buchung", "Karriereseite", "Hinweis",
-    "Kartenlink", "Gefunden am",
+    "Zuordnung geprüft", "Prüfhinweis", "Kartenlink", "Gefunden am",
 ]
 EMAIL_COLUMNS = ["Firma", "Website", "E-Mail", "Person", "Quelle", "Prüfung", "Mailserver"]
 
@@ -621,13 +621,75 @@ def _person_behind(email: str, people: list[dict]) -> str:
     return found[0] if len(found) == 1 else ""
 
 
+_COUNTRY_CODES = {"AT": "43", "DE": "49", "CH": "41", "LI": "423"}
+
+
+def company_country(company: dict, lead: dict | None = None) -> str:
+    """AT, DE, CH or LI: the website's ending first, then a country or a big
+    city named as a whole word in the place (not the street: "Wiener Straße")."""
+    host = (company.get("domain") or (lead or {}).get("site") or "").lower().rstrip("/")
+    ending = host.rsplit(".", 1)[-1] if "." in host else ""
+    if ending in ("at", "de", "ch", "li"):
+        return ending.upper()
+    place = (company.get("location") or "").lower()
+    for words, code in ((("österreich", "austria", "wien", "graz", "salzburg", "innsbruck"), "AT"),
+                        (("schweiz", "suisse", "svizzera", "zürich", "zurich", "bern", "basel", "genf"), "CH"),
+                        (("liechtenstein",), "LI"), (("deutschland", "germany"), "DE")):
+        if any(re.search(rf"(?<![a-zäöüß]){w}(?![a-zäöüß])", place) for w in words):
+            return code
+    return ""
+
+
+def phone_key(phone: str, country: str = "") -> str:
+    """A phone number in one comparable form: +43 316 1234, 0043 316/1234 and
+    0316 1234 (in Austria) are the same key; nothing is cut off."""
+    raw = re.sub(r"^(\+\d{1,3})\s*\(0\)", r"\1", (phone or "").strip())   # +43 (0)316 -> +43 316
+    digits = re.sub(r"\D", "", raw)
+    if not digits:
+        return ""
+    if raw.startswith("+"):
+        return digits
+    if digits.startswith("00"):
+        return digits[2:]
+    if digits.startswith("0") and _COUNTRY_CODES.get(country):
+        return _COUNTRY_CODES[country] + digits[1:]
+    return "n" + digits          # national form, country unknown: compared as written
+
+
+def review_removed(lead: dict, country: str = "") -> dict:
+    """What a check took out of a lead, normalised: emails, contacts, phone keys, description.
+    Reads the older single-value form (email, contact) too."""
+    rm = ((lead or {}).get("review") or {}).get("remove") or {}
+    emails = {e.lower() for e in (rm.get("emails") or []) + ([rm["email"]] if rm.get("email") else [])}
+    contacts = set(rm.get("contacts") or []) | ({rm["contact"]} if rm.get("contact") else set())
+    phones = {phone_key(p, country) for p in rm.get("phones") or []} - {""}
+    return {"emails": emails, "contacts": contacts, "phones": phones,
+            "description": bool(rm.get("description"))}
+
+
+def review_people(lead: dict, as_dicts: bool = False) -> list:
+    """The people of a lead that look like names and no check has removed."""
+    removed = review_removed(lead)["contacts"]
+    people = [p for p in lead.get("people") or []
+              if people_mod.is_person_name(p.get("name") or "") and p["name"] not in removed]
+    return people if as_dicts else [p["name"] for p in people]
+
+
 def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     """(company row, email rows) for the export."""
     # Entries stored before a name rule existed are filtered here too.
     people = [p for p in lead.get("people") or [] if people_mod.is_person_name(p["name"])]
     names = {p["name"] for p in people}
+    # What `harvey pruefen` or the agents took out stays out of the file.
+    review = lead.get("review") or {}
+    country = company_country(company, lead)
+    removed = review_removed(lead, country)
+    people = [p for p in people if p["name"] not in removed["contacts"]]
+    names = {p["name"] for p in people}
     emails = [e for e in lead.get("emails") or []
-              if not e.get("person") or e["person"] in names or e["source"] in (SOURCE_SITE, SOURCE_MAP)]
+              if (not e.get("person") or e["person"] in names or e["source"] in (SOURCE_SITE, SOURCE_MAP))
+              and e["email"].lower() not in removed["emails"]
+              and (e.get("person") or "") not in removed["contacts"]]
     best = best_email(emails)
     # The contact is whoever the best address belongs to. Only a general inbox
     # (no person on it) is shown with the first person named on the site.
@@ -642,6 +704,12 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
         contact = people[0] if people else None
     else:
         contact = None      # a personal address of someone the site doesn't name
+    if contact and contact["name"] in removed["contacts"]:
+        contact = None
+    site_phones = [p for p in lead.get("site_phones") or [] if phone_key(p, country) not in removed["phones"]]
+    map_phone = company.get("phone", "")
+    if map_phone and phone_key(map_phone, country) in removed["phones"]:
+        map_phone = ""
     others = [f"{e['email']} ({e['source']}, {e['check']})" for e in emails
               if not best or e["email"] != best["email"]]
     catch_all = lead.get("catch_all")
@@ -649,12 +717,12 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     row = {
         "Firma": company.get("name", ""),
         "Branche": company.get("industry", ""),
-        "Was sie machen (Website)": repair_mojibake(lead.get("description", "")),
+        "Was sie machen (Website)": "" if removed["description"] else repair_mojibake(lead.get("description", "")),
         "Website": company.get("website") or lead.get("site", ""),
         "Adresse": company.get("address", ""),
         "Ort": company.get("location", ""),
-        "Telefon (Karte)": company.get("phone", ""),
-        "Telefon (Website)": ", ".join(lead.get("site_phones") or []),
+        "Telefon (Karte)": map_phone,
+        "Telefon (Website)": ", ".join(site_phones),
         "Ansprechpartner": contact["name"] if contact else "",
         "Rolle": contact["title"] if contact else "",
         "Beste E-Mail": best["email"] if best else "",
@@ -667,6 +735,9 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
         "Online-Buchung": lead.get("booking", ""),
         "Karriereseite": "ja" if lead.get("careers") else "",
         "Hinweis": "; ".join(notes),
+        "Zuordnung geprüft": {"ok": "ja", "korrigiert": "korrigiert", "unsicher": "unsicher"}.get(
+            review.get("status", ""), "nein"),
+        "Prüfhinweis": "; ".join(review.get("notes") or []),
         "Kartenlink": company.get("source_url", ""),
         "Gefunden am": str(company.get("created_at", ""))[:10],
     }
@@ -836,12 +907,15 @@ async def sample_prospects(state, n: int) -> list:
     named, inboxes = [], []
     for record in records:
         lead = json.loads(record.get("lead") or "{}")
-        emails = lead.get("emails") or []
+        removed = review_removed(lead)
+        emails = [e for e in lead.get("emails") or []
+                  if e["email"].lower() not in removed["emails"]
+                  and (e.get("person") or "") not in removed["contacts"]]
         person, email = None, None
         for p in lead.get("people") or []:
             name = (p.get("name") or "").strip()
             mine = best_email([e for e in emails if (e.get("person") or "").strip() == name])
-            if people_mod.is_person_name(name) and mine:
+            if people_mod.is_person_name(name) and mine and name not in removed["contacts"]:
                 person, email = p, mine
                 break
         if not person:
@@ -850,7 +924,7 @@ async def sample_prospects(state, n: int) -> list:
                                                       record.get("name", ""))])
             if not email:
                 continue
-        notes = [lead.get("description") or ""]
+        notes = ["" if removed["description"] else (lead.get("description") or "")]
         if lead.get("booking"):
             notes.append(f"Online booking on their site: {lead['booking']}")
         elif lead.get("site"):

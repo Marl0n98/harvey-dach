@@ -59,6 +59,15 @@ def _is_role_address(email: str, people: list[dict] | None = None,
     return is_business_inbox(email, people, company_name, domain)
 
 
+def _same_person_in(name: str, names: set[str]) -> bool:
+    """Is this person among those names, titles ("Dr.", "Mag.") and case aside?"""
+    def key(n):
+        split = people_mod.split_person_name(n)
+        return (split[0].lower(), split[1].lower()) if split else n.lower().strip()
+    wanted = key(name)
+    return any(key(n) == wanted for n in names)
+
+
 def _confirmed_for(confirmed: list[dict], name: str, everyone: list[str] | None = None) -> str:
     """A lead-list address confirmed for this person: stored for them, or spelling
     their name and nobody else's on the site."""
@@ -1275,10 +1284,29 @@ class Scout:
         if not row:
             return []
         try:
-            emails = json.loads(row[0] or "{}").get("emails") or []
+            lead = json.loads(row[0] or "{}")
         except ValueError:
             return []
-        return [e for e in emails if e.get("check") == "bestätigt" and e.get("email")]
+        from harvey.leads import review_removed
+        removed = review_removed(lead)
+        return [e for e in lead.get("emails") or []
+                if e.get("check") == "bestätigt" and e.get("email")
+                and e["email"].lower() not in removed["emails"]
+                and (e.get("person") or "") not in removed["contacts"]]
+
+    async def _lead_removed_contacts(self, company_id: str) -> set[str]:
+        """People `harvey pruefen` or the check agents found not to belong here."""
+        if not company_id:
+            return set()
+        try:
+            async with self.state._connect() as db:
+                async with db.execute("SELECT data FROM leads WHERE company_id = ?",
+                                      (company_id,)) as cur:
+                    row = await cur.fetchone()
+            from harvey.leads import review_removed
+            return review_removed(json.loads(row[0] or "{}"))["contacts"] if row else set()
+        except Exception:
+            return set()
 
     async def _smtp_status(self, domain: str, email: str, status: str) -> str:
         """Ask the domain's mail server about an address no paid verifier checked.
@@ -1731,6 +1759,7 @@ Respond ONLY with the JSON array."""
         named_on_site = False
         considered = 0
         confirmed = await self._lead_confirmed(company_id)
+        not_theirs = await self._lead_removed_contacts(company_id)
         ranked = sorted(team_members, key=lambda m: -(m.get("rank") or 0))
         for member in ranked:
             title = member.get("title", "")
@@ -1742,6 +1771,8 @@ Respond ONLY with the JSON array."""
             last_name = member.get("last_name", "")
             if not first_name or not last_name:
                 continue
+            if _same_person_in(f"{first_name} {last_name}", not_theirs):
+                continue        # a check found this person doesn't belong to this company
             named_on_site = True
             if considered >= MAX_CONTACTS_PER_COMPANY:
                 break

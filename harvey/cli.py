@@ -706,6 +706,47 @@ def cmd_entwuerfe(args):
     asyncio.run(_drafts())
 
 
+def cmd_pruefen(args):
+    """Check the lead list: no value at the wrong company or person."""
+    async def _check():
+        import json as _json
+        from datetime import date as _date
+        from harvey import pruefen as P
+        from harvey.leads import default_out_base, export_leads
+        from harvey.paths import PROJECT_ROOT
+        from harvey.state import StateManager
+
+        state = StateManager()
+        await state.init_db()
+        if args.anwenden:
+            c = await P.apply_decisions(state, args.anwenden)
+            print(f"\n  Entscheidungen übernommen: {c['behalten']} bestätigt, {c['entfernt']} mit entfernten Werten.")
+        else:
+            records = await P.load_records(state, args.limit)
+            print(f"\n  Prüfe {len(records)} Firmen" + (" und lese ihre Websites neu" if args.live else "")
+                  + ". Es wird nichts gesendet.")
+            findings = P.rule_findings(records)
+            by = "regeln"
+            if args.live:
+                live = await P.live_findings(records, args.concurrency,
+                                             progress=lambda d, t: print(f"    {d} von {t} Firmen", flush=True))
+                findings, by = P.merge(findings, live), "regeln+live"
+            counts = await P.store_reviews(state, records, findings, by)
+            cases = P.open_cases(records, findings)
+            out_dir = PROJECT_ROOT / "data" / "exports"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            cases_path = out_dir / f"pruefung-{_date.today().isoformat()}.json"
+            cases_path.write_text(_json.dumps(cases, ensure_ascii=False, indent=1), encoding="utf-8")
+            print(f"\n  PRÜFUNG: {counts['ok']} in Ordnung, {counts['korrigiert']} korrigiert, "
+                  f"{counts['unsicher']} unsicher")
+            print(f"    Fälle für die Prüf-Agenten: {cases_path} ({len(cases)})")
+        out = str(default_out_base(PROJECT_ROOT)) + "-geprueft"
+        await export_leads(state, out)
+        print(f"    Geprüfte Liste: {out}.xlsx und {out}.csv\n")
+
+    asyncio.run(_check())
+
+
 def cmd_leads(args):
     """Build the lead list and write it as Excel and CSV."""
     async def _leads():
@@ -1294,6 +1335,14 @@ def main():
     sub.add_argument("--export-only", action="store_true", help="Nur die Datei aus dem Gespeicherten schreiben")
     sub.add_argument("--out", default="", help="Dateiname ohne Endung (Standard: data/exports/leads-<Datum>)")
     sub.set_defaults(func=cmd_leads)
+
+    sub = subparsers.add_parser(
+        "pruefen", help="Lead-Liste prüfen: kein Wert bei der falschen Firma oder Person (sendet nichts)")
+    sub.add_argument("--live", action="store_true", help="Websites neu lesen und jeden Wert dort suchen")
+    sub.add_argument("--limit", type=int, default=0, help="Höchstzahl Firmen (Standard: alle)")
+    sub.add_argument("--concurrency", type=int, default=6, help="Websites gleichzeitig (Standard: 6)")
+    sub.add_argument("--anwenden", default="", help="Entscheidungen der Prüf-Agenten (JSON-Datei) übernehmen")
+    sub.set_defaults(func=cmd_pruefen)
 
     sub = subparsers.add_parser(
         "entwuerfe", help="Erste Mails für wenige Kontakte als Entwurf schreiben (sendet nichts)")

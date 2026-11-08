@@ -76,6 +76,21 @@ Statt drei Mails schreibt Harvey eine einzige: eine Beobachtung und eine Frage, 
 
 Rechtlich ändert das nichts: In Deutschland und Österreich zählt der Zweck einer Mail, nicht ihr Wortlaut. Eine Mail, die zu einem Kunden führen soll, ist Werbung, auch ohne Angebot. Die Einwilligungssperre (`compliance.consent_required_countries`) hält solche Mails deshalb weiter zurück. Sie abzuschalten ist deine Entscheidung und dein Risiko (Abmahnung, Unterlassungserklärung).
 
+## Lead-Liste prüfen lassen
+
+Bevor du mit der Liste arbeitest, prüf sie. Ziel: keine E-Mail, keine Ansprechperson und keine Telefonnummer bei der falschen Firma.
+
+```bash
+harvey pruefen          # Regeln, kostenlos, jede Zeile
+harvey pruefen --live   # zusätzlich jede Website neu lesen
+```
+
+Die Regeln finden Adressen fremder Domains, dieselbe Adresse, Nummer oder Person bei mehreren Firmen und Personen, die nicht zur Adresse passen. Sie laufen so lange, bis sich nichts mehr ändert, damit auch die Adresse geprüft wird, die nach einer Entfernung nachrückt. `--live` liest Startseite, Impressum und Kontaktseite jeder Firma neu: Jede Adresse, Nummer und Person von der Website muss dort noch stehen. Leitet die Seite inzwischen auf eine andere Firma weiter, fliegt alles raus, was von ihr stammt (Adressen von der Website, Personen, Telefon, Beschreibung). Was aus der Karte kommt, bleibt. Ergebnis: `data/exports/leads-<Datum>-geprueft.xlsx` mit den Spalten „Zuordnung geprüft“ und „Prüfhinweis“.
+
+Was danach noch unsicher ist, prüfen in Claude Code zwei unabhängige Agenten mit `/leads-pruefen`: `zuordnungs-pruefer` prüft jeden Wert an der Website der Firma, `gegen-pruefer` sucht unabhängig davon Gründe, warum er nicht passt. Ein Wert bleibt nur, wenn beide zustimmen. Entfernen sie die beste Adresse, gehen auch die anderen ungeprüften Adressen von der Website raus, statt ungeprüft nachzurücken. KI-Aufrufe gibt es nur für die unsicheren Zeilen, nicht für die ganze Liste.
+
+Entfernungen addieren sich: Ein neuer Lauf holt nichts zurück, was eine frühere Prüfung oder die Agenten entfernt haben. Entfernte Werte fehlen in der Liste, in Probemails und Entwürfen, und `harvey contacts` legt solche Personen nicht wieder an. Gelöscht wird nichts, der gespeicherte Lead behält alles.
+
 ## Entwürfe ansehen, ohne etwas zu senden
 
 ```bash
