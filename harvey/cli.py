@@ -202,9 +202,11 @@ def cmd_status(args):
 
         print("\n  Harvey Pipeline Status")
         print("  " + "=" * 40)
-        print(f"  Prospects:            {summary['prospects']}")
+        by_status = summary.get("prospects") or {}
+        listed = ", ".join(f"{k} {v}" for k, v in sorted(by_status.items())) if isinstance(by_status, dict) else by_status
+        print(f"  Prospects:            {listed or 0}")
         print(f"  Ready to write for:   {summary.get('writable_prospects', 0)} "
-              "(new, with a verified or catch-all email)")
+              "(new, with a confirmed email)")
         write_failed = (summary.get("prospects") or {}).get("write_failed", 0)
         if write_failed:
             print(f"  Couldn't write for:   {write_failed} (the model's drafts kept coming back "
@@ -535,9 +537,13 @@ def cmd_outbox(args):
         print(f"\n  Outbox — {len(pending)} awaiting approval, "
               f"{len(approved)}+ approved/scheduled")
         print("  " + "=" * 60)
+        question = getattr(getattr(getattr(load_config_quiet(), "channels", None), "email", None),
+                           "first_touch", "") == "question"
         for item in pending:
-            print(f"\n  [{item['id']}] step {item['step']} ({item['kind']}) "
-                  f"→ {item['to_email']}  (send {item['send_at'][:16]})")
+            what = ("first email (question)" if question and item["step"] == 1 and item["kind"] == "sequence"
+                    else f"step {item['step']} ({item['kind']})")
+            print(f"\n  [{item['id']}] {what} "
+                  f"→ {item['to_email']}  (send {_local_time(item['send_at'])})")
             print(f"  Subject: {item['subject']}")
             body_preview = (item["body"][:200] + "...") if len(item["body"]) > 200 else item["body"]
             for line in body_preview.splitlines():
@@ -621,21 +627,43 @@ def cmd_stil(args):
         writer.email_rules = load_email_rules(config)
         prospects = await sample_prospects(state, args.probe)
         if not prospects:
-            print("\n  No contacts to write for yet. Run harvey discover and harvey leads first.\n")
+            print("\n  Noch keine Kontakte. Erst harvey discover und harvey leads ausführen.\n")
             return
-        style = configured or "Harvey's built-in style"
+        style = configured or "Harveys eingebautem Stil"
         mode = getattr(config.channels.email, "first_touch", "sequence")
-        print(f"\n  Preview in {style} (first_touch: {mode}). Nothing is saved or sent.\n")
+        print(f"\n  Vorschau in {style} (first_touch: {mode}). Nichts wird gespeichert oder gesendet.\n")
         for p in prospects:
             draft = await writer._write_personal_email(p)
             print(f"  --- {p.company} ({p.email})")
             if not draft:
-                print("  (no draft)\n")
+                print("  (kein Entwurf)\n")
                 continue
             print(f"  Betreff: {draft['subject']}\n")
             print("\n".join("  " + line for line in draft["body"].splitlines()) + "\n")
 
     asyncio.run(_probe())
+
+
+def load_config_quiet():
+    """The config, or None when it can't be read (display-only callers)."""
+    try:
+        from harvey.config import load_config
+        return load_config()
+    except Exception:
+        return None
+
+
+def _local_time(stamp: str) -> str:
+    """An outbox time (stored in UTC) in this computer's time zone, labelled."""
+    from datetime import datetime, timezone
+    try:
+        when = datetime.fromisoformat(str(stamp))
+    except ValueError:
+        return str(stamp)[:16]
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    local = when.astimezone()
+    return local.strftime("%Y-%m-%d %H:%M ") + (local.tzname() or "")
 
 
 def cmd_entwuerfe(args):
@@ -653,20 +681,20 @@ def cmd_entwuerfe(args):
         await state.init_db()
         writer = Writer(Brain(state, config.brain), state, config, EnvConfig())
         if not writer.is_native:
-            print("\n  Drafts go to the outbox only with provider gmail, microsoft or smtp"
-                  " (channels.email.provider). Nothing written.\n")
+            print("\n  Entwürfe landen nur mit Anbieter gmail, microsoft oder smtp in der Outbox"
+                  " (channels.email.provider). Nichts geschrieben.\n")
             return
         writer.max_prospects = args.limit or None
         before = {r["id"] for r in await state.get_outbox(status="pending_review")}
-        print(f"\n  Writing first emails for up to {args.limit or 'all'} contacts. Nothing is sent.\n")
+        print(f"\n  Schreibe erste Mails für bis zu {args.limit or 'alle'} Kontakte. Es wird nichts gesendet.\n")
         await writer.run()
         new = [r for r in await state.get_outbox(status="pending_review") if r["id"] not in before]
         for r in new:
             print(f"  --- {r.get('to_email', '')}\n  Betreff: {r.get('subject', '')}\n")
             print("\n".join("  " + line for line in (r.get("body") or "").splitlines()) + "\n")
-        print(f"  {len(new)} draft(s) waiting for your approval: harvey outbox or harvey dashboard.")
+        print(f"  {len(new)} Entwurf/Entwürfe warten auf deine Freigabe: harvey outbox oder harvey dashboard.")
         if not new:
-            print("  No contact with a checked address yet? Run harvey contacts, then harvey status.")
+            print("  Noch kein Kontakt mit bestätigter Adresse? Erst harvey contacts, dann harvey status.")
         print()
 
     asyncio.run(_drafts())

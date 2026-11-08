@@ -53,6 +53,23 @@ from harvey.public_http import public_http_client, page_text
 from harvey.state import StateManager
 from harvey.untrusted import UNTRUSTED_RULE, fence
 
+def _is_role_address(email: str) -> bool:
+    from harvey.leads import is_role_address
+    return is_role_address(email)
+
+
+def _confirmed_for(confirmed: list[dict], name: str) -> str:
+    """A lead-list address confirmed for this person: named for them, or spelling their name."""
+    from harvey.leads import _person_behind
+    for e in confirmed:
+        if (e.get("person") or "").strip() == name:
+            return e["email"]
+    for e in confirmed:
+        if not e.get("person") and _person_behind(e["email"], [{"name": name}]):
+            return e["email"]
+    return ""
+
+
 # The free mail-server check for addresses no paid verifier looked at.
 SMTP_CHECK_ENV = "HARVEY_SMTP_CHECK"
 # What a mail server's answer means for sending (harvey.leads verdicts). A guess
@@ -1241,6 +1258,25 @@ class Scout:
             return "", "invalid"
         return result.email, await self._smtp_status(domain, result.email, result.status)
 
+    async def _lead_confirmed(self, company_id: str) -> list[dict]:
+        """Addresses `harvey leads` confirmed for this company ([] when none or no list)."""
+        if not company_id:
+            return []
+        try:
+            async with self.state._connect() as db:
+                async with db.execute("SELECT data FROM leads WHERE company_id = ?",
+                                      (company_id,)) as cur:
+                    row = await cur.fetchone()
+        except Exception:
+            return []
+        if not row:
+            return []
+        try:
+            emails = json.loads(row[0] or "{}").get("emails") or []
+        except ValueError:
+            return []
+        return [e for e in emails if e.get("check") == "bestätigt" and e.get("email")]
+
     async def _smtp_status(self, domain: str, email: str, status: str) -> str:
         """Ask the domain's mail server about an address no paid verifier checked.
 
@@ -1684,6 +1720,7 @@ Respond ONLY with the JSON array."""
         contacts: list[Prospect] = []
         named_on_site = False
         considered = 0
+        confirmed = await self._lead_confirmed(company_id)
         ranked = sorted(team_members, key=lambda m: -(m.get("rank") or 0))
         for member in ranked:
             title = member.get("title", "")
@@ -1703,6 +1740,11 @@ Respond ONLY with the JSON array."""
             email, email_status = await self._resolve_email(
                 first_name, last_name, domain
             )
+            if email_status != "verified":
+                # `harvey leads` may already have confirmed this person's address.
+                known = _confirmed_for(confirmed, f"{first_name} {last_name}")
+                if known:
+                    email, email_status = known, "verified"
 
             prospect = Prospect(
                 first_name=first_name,
@@ -1738,9 +1780,23 @@ Respond ONLY with the JSON array."""
         reachable = any(c.email_status in ("verified", "risky") for c in contacts)
         if not reachable and (contacts or not named_on_site) \
                 and await self._company_uncontacted(company_id):
-            inbox = await self._company_inbox_prospect(
-                company_id, domain, company_name, industry, signal_note,
-            )
+            inbox = None
+            known_inbox = next((e["email"] for e in confirmed
+                                if not e.get("person") and _is_role_address(e["email"])), "")
+            if known_inbox:
+                inbox = Prospect(
+                    email=known_inbox, email_status="verified", email_verified=True,
+                    company=company_name, company_id=company_id, title="General inbox",
+                    industry=industry, source=COMPANY_INBOX_SOURCE,
+                    source_url=f"https://{domain}", personalization_notes=signal_note)
+                if await self._is_duplicate_prospect(inbox):
+                    inbox = None
+                else:
+                    self._remember_prospect(inbox)
+            if inbox is None:
+                inbox = await self._company_inbox_prospect(
+                    company_id, domain, company_name, industry, signal_note,
+                )
             if inbox:
                 contacts.append(inbox)
         return contacts

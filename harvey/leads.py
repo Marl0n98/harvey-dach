@@ -88,9 +88,28 @@ _IMPRINT_LINK = re.compile(
     r"""(?is)<a\b[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>(.*?)</a>""")
 
 
+_MOJIBAKE = re.compile("[ÃÂâ][\u0080-\u00bf\u2018-\u203a\u0152-\u017e]")
+
+
+def repair_mojibake(value: str) -> str:
+    """UTF-8 that was read as Latin-1 somewhere ("fÃ¼r" -> "für"), even when the
+    site itself publishes it that way. Text that isn't mojibake stays as it is."""
+    if not value or not _MOJIBAKE.search(value):
+        return value
+    for codec in ("cp1252", "latin-1"):
+        try:
+            fixed = value.encode(codec).decode("utf-8")
+        except UnicodeError:
+            continue
+        if not _MOJIBAKE.search(fixed):
+            return fixed
+    return value
+
+
 def _text(value: str, limit: int = 300) -> str:
     # Twice: some sites escape their meta description again ("&amp;uuml;").
     value = html_lib.unescape(html_lib.unescape(re.sub(r"(?s)<[^>]+>", " ", value or "")))
+    value = repair_mojibake(value)
     value = re.sub(r"\s+", " ", value).strip()
     return value[:limit]
 
@@ -497,6 +516,24 @@ def _provider_label(lead: dict) -> str:
     return f"{names.get(provider, 'eigener')} ({host})"
 
 
+def is_role_address(email: str) -> bool:
+    """info@, office@, praxis@: an inbox for the business, not one person's mailbox."""
+    local = (email or "").partition("@")[0].lower()
+    return local in ROLE_LOCALS or local.split(".")[0] in ROLE_LOCALS
+
+
+def _person_behind(email: str, people: list[dict]) -> str:
+    """The named person an address spells out (m.lindner@, martina.lindner@), or ""."""
+    local = (email or "").partition("@")[0].lower()
+    for p in people:
+        first, _, last = (p.get("name") or "").strip().partition(" ")
+        last = last.split()[-1] if last.split() else ""
+        f, l = _clean_name_part(first), _clean_name_part(last)
+        if l and len(l) >= 3 and l in local and (f[:1] and (local.startswith(f[:1]) or f in local)):
+            return p["name"]
+    return ""
+
+
 def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     """(company row, email rows) for the export."""
     # Entries stored before a name rule existed are filtered here too.
@@ -508,11 +545,15 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     # The contact is whoever the best address belongs to. Only a general inbox
     # (no person on it) is shown with the first person named on the site.
     owner = (best or {}).get("person") or ""
+    if not owner and best:
+        owner = _person_behind(best["email"], people)
     if owner:
         contact = next((p for p in people if p["name"] == owner), None) \
             or {"name": owner, "title": ""}
-    else:
+    elif best and is_role_address(best["email"]):
         contact = people[0] if people else None
+    else:
+        contact = None      # a personal address of someone the site doesn't name
     others = [f"{e['email']} ({e['source']}, {e['check']})" for e in emails
               if not best or e["email"] != best["email"]]
     catch_all = lead.get("catch_all")
@@ -520,7 +561,7 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
     row = {
         "Firma": company.get("name", ""),
         "Branche": company.get("industry", ""),
-        "Was sie machen (Website)": lead.get("description", ""),
+        "Was sie machen (Website)": repair_mojibake(lead.get("description", "")),
         "Website": company.get("website") or lead.get("site", ""),
         "Adresse": company.get("address", ""),
         "Ort": company.get("location", ""),
@@ -716,7 +757,9 @@ async def sample_prospects(state, n: int) -> list:
                 person, email = p, mine
                 break
         if not person:
-            email = best_email([e for e in emails if not e.get("person")])
+            email = best_email([e for e in emails if not e.get("person")
+                                and (is_role_address(e["email"])
+                                     or e["email"].rpartition("@")[2] not in FREEMAIL)])
             if not email:
                 continue
         notes = [lead.get("description") or ""]

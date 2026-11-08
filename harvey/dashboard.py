@@ -202,8 +202,10 @@ async def get_setup_status():
     checks.append({
         "id": "env_file", "label": "Environment file (.env)",
         "done": env_exists,
-        "required": True,
-        "help": "Go to the Settings tab to enter your API keys.",
+        # Finding companies, the lead list and drafts work without one; the
+        # mailbox check below says when sending needs keys from it.
+        "required": False,
+        "help": "Only needed to send or for API keys: enter them in the Settings tab.",
     })
 
     # 3. Email provider configured (matches channels.email.provider)

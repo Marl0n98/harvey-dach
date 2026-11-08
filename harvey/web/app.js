@@ -1644,7 +1644,8 @@ async function loadOutbox() {
   const anyMail = pending.length || (data.approved || []).length || (data.sent || []).length;
   if (data.compliance_notice && anyMail) {
     banner.innerHTML +=
-      '<div class="banner wait">' + icon('alert') + '<div><b>Add your postal address</b>' +
+      '<div class="banner wait">' + icon('alert') + '<div><b>' +
+        (/Anschrift/.test(data.compliance_notice) ? 'Absenderangaben fehlen' : 'Add your postal address') + '</b>' +
         '<p>' + escHtml(data.compliance_notice) + '</p></div></div>';
   }
 

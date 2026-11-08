@@ -239,3 +239,38 @@ def test_instantly_uploads_respect_the_consent_hold():
     p = SimpleNamespace(email="eva@praxis.de", first_name="Eva", last_name="Huber", company="P",
                         title="", personalization_notes="", country="")
     assert s._reviewed_leads([p]) == []
+
+
+def test_a_personal_gmail_without_a_name_is_no_inbox_for_the_owner():
+    lead = {"people": [{"name": "Martina Lindner", "title": "Inhaber"}],
+            "emails": [{"email": "petra.sommerfeld@gmail.com", "source": "Website",
+                        "person": "", "check": leads.OK}]}
+    row, _ = leads.rows_for({"name": "Praxis Linde"}, lead)
+    assert row["Ansprechpartner"] == "" and row["Beste E-Mail"] == "petra.sommerfeld@gmail.com"
+    lead["emails"][0]["email"] = "m.lindner@praxis-linde.at"
+    row, _ = leads.rows_for({"name": "Praxis Linde"}, lead)
+    assert row["Ansprechpartner"] == "Martina Lindner"
+    lead["emails"][0]["email"] = "office@praxis-linde.at"
+    row, _ = leads.rows_for({"name": "Praxis Linde"}, lead)
+    assert row["Ansprechpartner"] == "Martina Lindner"
+
+
+def test_contacts_reuse_addresses_the_lead_list_confirmed():
+    from harvey.agents.scout import _confirmed_for
+    confirmed = [{"email": "graz@gze.at", "person": "", "check": leads.OK},
+                 {"email": "c.huber@gze.at", "person": "", "check": leads.OK},
+                 {"email": "anna@gze.at", "person": "Anna Berg", "check": leads.OK}]
+    assert _confirmed_for(confirmed, "Anna Berg") == "anna@gze.at"
+    assert _confirmed_for(confirmed, "Carmen Huber") == "c.huber@gze.at"
+    assert _confirmed_for(confirmed, "Otto Graz") == ""
+
+
+def test_mojibake_from_the_site_itself_is_repaired():
+    assert leads._text("Fachpraxis f&Atilde;&frac14;r Physiotherapie") == "Fachpraxis für Physiotherapie"
+    assert leads._text("Café für Größe") == "Café für Größe"
+
+
+def test_outbox_times_are_local_and_labelled():
+    from harvey.cli import _local_time
+    out = _local_time("2026-11-08T14:42:00")
+    assert out[:4] == "2026" and len(out) > 16
