@@ -604,7 +604,7 @@ def _render_js(func: str, data, helpers=("escHtml", "formatDate")) -> str:
         assert match, name
         funcs.append(match.group(0))
     script = "\n".join(funcs) + f"\nprocess.stdout.write({func}({json.dumps(data)}));"
-    return subprocess.run([node, "-e", script], capture_output=True, text=True,
+    return subprocess.run([node, "-e", script], capture_output=True, text=True, encoding="utf-8",
                           check=True, timeout=30).stdout
 
 

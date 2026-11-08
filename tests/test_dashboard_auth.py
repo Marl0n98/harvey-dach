@@ -742,6 +742,7 @@ def test_real_server_started_like_the_cli(tmp_path):
     root = Path(dash.__file__).resolve().parent.parent
     proc = subprocess.Popen([sys.executable, "-u", str(script), str(tmp_path), str(port)],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                            encoding="utf-8", errors="replace",
                             env={**os.environ, "PYTHONPATH": str(root)})
     try:
         base = f"http://127.0.0.1:{port}"
@@ -817,7 +818,7 @@ def _node(hash_value):
     if not node:
         pytest.skip("node is not installed")
     out = subprocess.run([node, "-e", NODE_HARNESS, str(WEB / "auth.js"), hash_value],
-                         capture_output=True, text=True, check=True, timeout=30)
+                         capture_output=True, text=True, encoding="utf-8", check=True, timeout=30)
     return json.loads(out.stdout)
 
 
@@ -859,7 +860,7 @@ def test_collected_links_cannot_run_script_in_the_dashboard():
     urls = ["https://ok.example/a?b=1&c=2", "javascript:alert(1)", " JaVaScRiPt:x",
             "data:text/html,x", "//evil.example", "vbscript:x"]
     script = funcs + f"process.stdout.write(JSON.stringify({json.dumps(urls)}.map(safeHref)))"
-    out = json.loads(subprocess.run([node, "-e", script], capture_output=True, text=True,
+    out = json.loads(subprocess.run([node, "-e", script], capture_output=True, text=True, encoding="utf-8",
                                     check=True, timeout=30).stdout)
     assert out == ["https://ok.example/a?b=1&amp;c=2", "", "", "", "", ""]
     assert 'href="\' + escHtml(' not in src
