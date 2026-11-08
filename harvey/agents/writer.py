@@ -482,9 +482,10 @@ class Writer:
             except Exception:
                 company = None
         from harvey.leads import removed_for_company
-        site_not_theirs = (await removed_for_company(self.state, prospect.company_id))["site"]
+        removed = await removed_for_company(self.state, prospect.company_id)
+        site_not_theirs = removed["site"]
         if company and not site_not_theirs:
-            if company.description:
+            if company.description and not removed["description"]:
                 facts.append(f"- What the company says about itself: {company.description}")
             if company.tech_stack:
                 facts.append(f"- Tools detected on their website: {', '.join(company.tech_stack[:6])}")

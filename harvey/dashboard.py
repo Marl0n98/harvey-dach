@@ -536,6 +536,15 @@ async def get_companies():
             (SELECT COUNT(*) FROM prospects p WHERE p.company_id = c.id) as contact_count
         FROM companies c ORDER BY c.created_at DESC
     """)
+    from harvey.leads import hide_removed_site, prospect_hidden, removed_by_company
+    removed = await removed_by_company(query_db)
+    for c in rows:
+        rm = removed.get(c["id"])
+        if rm and c.get("contact_count"):
+            ps = await query_db("SELECT first_name, last_name, email FROM prospects "
+                                "WHERE company_id = ?", (c["id"],))
+            c["contact_count"] = sum(1 for p in ps if not prospect_hidden(p, rm, c.get("email") or ""))
+        hide_removed_site(c, rm)
     try:
         from harvey.config import load_config
         from harvey.register import build_register
@@ -583,6 +592,11 @@ async def get_company_profile(company_id: str):
         "WHERE o.company_id = ? AND o.prospect_id = '' ORDER BY o.observed_at DESC LIMIT 200",
         (company_id,),
     )
+    from harvey.leads import hide_removed_site, removed_by_company
+    rm = (await removed_by_company(query_db, [company_id])).get(company_id)
+    company = hide_removed_site(rows[0], rm)
+    if rm and rm.get("site"):
+        observations = []   # read from a site that isn't theirs
     register = {}
     try:
         from harvey.config import load_config
@@ -590,7 +604,7 @@ async def get_company_profile(company_id: str):
         register = next(iter(await build_register(query_db, load_config(), company_id)), {})
     except Exception as e:
         logger.warning(f"Company profile register unavailable: {e}")
-    return {"company": rows[0], "register": register, "observations": observations}
+    return {"company": company, "register": register, "observations": observations}
 
 
 @app.get("/api/companies/{company_id}/contacts")
@@ -600,7 +614,13 @@ async def get_company_contacts(company_id: str):
         "SELECT * FROM prospects WHERE company_id = ? ORDER BY score DESC",
         (company_id,),
     )
-    return rows
+    from harvey.leads import prospect_hidden, removed_by_company
+    rm = (await removed_by_company(query_db, [company_id])).get(company_id)
+    if not rm:
+        return rows
+    company = await query_db("SELECT email FROM companies WHERE id = ?", (company_id,))
+    map_email = (company[0].get("email") or "") if company else ""
+    return [p for p in rows if not prospect_hidden(p, rm, map_email)]
 
 
 # ── Feedback ──
@@ -1053,13 +1073,20 @@ async def _with_context(items: list[dict]) -> list[dict]:
         for (company_id, label), (_, values) in latest.items():
             signals.setdefault(company_id, {})[label] = ", ".join(v for v in values if v)
 
+    # A check that took a company's website (or its description) away keeps
+    # it out of the draft's context too: nothing from a site that isn't theirs.
+    from harvey.leads import removed_by_company
+    removed = await removed_by_company(query_db, company_ids)
+
     for item in items:
         p = people.get(item.get("prospect_id")) or {}
+        rm = removed.get(p.get("company_id")) or {}
         item["context"] = {
             "campaign": campaigns.get(item.get("campaign_id"), ""),
             "company": p.get("company_name", ""),
-            "website": p.get("website") or (f"https://{p['domain']}" if p.get("domain") else ""),
-            "description": p.get("description", ""),
+            "website": "" if rm.get("site") else (
+                p.get("website") or (f"https://{p['domain']}" if p.get("domain") else "")),
+            "description": "" if rm.get("description") else p.get("description", ""),
             "found_by": p.get("found_by", ""),
             "contact": " ".join(x for x in (p.get("first_name"), p.get("last_name")) if x),
             "contact_title": p.get("title", ""),
@@ -1067,7 +1094,7 @@ async def _with_context(items: list[dict]) -> list[dict]:
             "email_status": p.get("email_status", ""),
             "score": p.get("score"),
             "notes": p.get("personalization_notes", ""),
-            "signals": signals.get(p.get("company_id"), {}),
+            "signals": {} if rm.get("site") else signals.get(p.get("company_id"), {}),
         }
     return items
 
@@ -2459,8 +2486,11 @@ async def _cohort_companies(require: list[str], exclude: list[str],
                             ranges: list[dict] | None = None):
     state = _state()
     await state.init_db()
-    return await state.cohort_companies(require, exclude, offset, limit,
-                                        ranges=ranges)
+    size, rows = await state.cohort_companies(require, exclude, offset, limit,
+                                              ranges=ranges)
+    from harvey.leads import hide_removed_site, removed_by_company
+    removed = await removed_by_company(query_db, [r.get("id") for r in rows])
+    return size, [hide_removed_site(dict(r), removed.get(r.get("id"))) for r in rows]
 
 
 def _codes(raw) -> list[str]:
@@ -2681,9 +2711,9 @@ def _check_loopback_bind(host: str) -> str:
         name = name[1:-1]
     if not auth.is_loopback(name):
         raise DashboardSetupError(
-            f"Refusing to listen on {host!r}: the dashboard only listens on this machine "
-            "(127.0.0.1, ::1 or localhost). To reach it from elsewhere, tunnel instead: "
-            "ssh -L 5555:127.0.0.1:5555 <this-host>")
+            f"Harvey lauscht nicht auf {host!r}: Das Dashboard läuft nur auf diesem Rechner "
+            "(127.0.0.1, ::1 oder localhost). Von einem anderen Rechner aus geht es über einen Tunnel: "
+            "ssh -L 5555:127.0.0.1:5555 <dieser-rechner>")
     return name
 
 
@@ -2710,11 +2740,11 @@ def start_dashboard(host: str = "127.0.0.1", port: int = 5555):
     except (DashboardSetupError, auth.TokenError) as e:
         raise DashboardSetupError(str(e)) from e
 
-    print(f"\n  Harvey Dashboard running. Open this link to unlock it:\n\n    {url}\n")
-    print(f"  The token is stored in {token_store.path} (owner-only). Keep the link")
-    print("  private; anyone with it can use the dashboard. Press Ctrl+C to stop.\n")
+    print(f"\n  Harvey-Dashboard läuft. Öffne diesen Link, um es zu entsperren:\n\n    {url}\n")
+    print(f"  Das Token liegt in {token_store.path} (nur für dich lesbar). Gib den Link")
+    print("  nicht weiter: Wer ihn hat, kann das Dashboard bedienen. Beenden mit Strg+C.\n")
     if os.name == "nt":
-        print("  Windows: the token file is protected by your folder's permissions,")
-        print("  not POSIX file modes.\n")
+        print("  Windows: Die Token-Datei schützen die Rechte deines Ordners,")
+        print("  nicht POSIX-Dateirechte.\n")
     uvicorn.run(app, host=bind, port=port, log_level="warning",
                 proxy_headers=False, server_header=False, date_header=False)

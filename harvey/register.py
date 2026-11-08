@@ -124,13 +124,20 @@ async def build_register(query_db, config, company_id: str | None = None) -> lis
         for r in rows:
             by.setdefault(r["company_id"], []).append(r)
 
+    from harvey.leads import prospect_hidden, removed_by_company
+    # What a check took away (a website of another business, a wrong person or
+    # address) counts nowhere here: not in the columns, not in fit or status.
+    removed = await removed_by_company(query_db, None if company_id is None else [company_id])
     dnc = _do_not_contact(config)
     channels = getattr(config, "channels", None)
     send_to_risky = bool(getattr(getattr(channels, "email", None), "send_to_risky", False))
     rows = []
     for c in companies:
         cid = c["id"]
-        ps, obs = by_p.get(cid, []), by_obs.get(cid, [])
+        rm = removed.get(cid)
+        site_gone = bool(rm and rm["site"])
+        ps = [p for p in by_p.get(cid, []) if not prospect_hidden(p, rm, c.get("email") or "")]
+        obs = [] if site_gone else by_obs.get(cid, [])
         fit, reasons = company_fit(c, ps, obs, config, dnc)
         status, why = company_status(c, ps, by_o.get(cid, []), obs, dnc, send_to_risky)
         sector, area = c.get("industry") or "", c.get("location") or ""
@@ -139,8 +146,9 @@ async def build_register(query_db, config, company_id: str | None = None) -> lis
             # id and fit_reasons are for the dashboard; the CSV leaves them out.
             "id": cid,
             "fit_reasons": reasons,
-            "company": c.get("name") or c.get("domain") or "",
-            "website": c.get("website") or (f"https://{c['domain']}" if c.get("domain") else ""),
+            "company": c.get("name") or ("" if site_gone else c.get("domain") or ""),
+            "website": "" if site_gone else (
+                c.get("website") or (f"https://{c['domain']}" if c.get("domain") else "")),
             "sector": sector,
             "area": area,
             "fit": fit,

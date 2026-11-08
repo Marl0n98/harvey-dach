@@ -589,9 +589,11 @@ def cmd_outbox(args):
             print("  Fortsetzen mit: harvey sending resume")
 
         pending = await state.get_outbox(status="pending_review", limit=50)
-        approved = await state.get_outbox(status="approved", limit=10)
+        async with state._connect() as db:
+            async with db.execute("SELECT COUNT(*) FROM outbox WHERE status = 'approved'") as cur:
+                approved = (await cur.fetchone())[0]
         print(f"\n  Postausgang: {len(pending)} warten auf Freigabe, "
-              f"{len(approved)}+ freigegeben oder geplant")
+              f"{approved} freigegeben oder geplant")
         print("  " + "=" * 60)
         question = getattr(getattr(getattr(load_config_quiet(), "channels", None), "email", None),
                            "first_touch", "") == "question"

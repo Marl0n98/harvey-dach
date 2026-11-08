@@ -103,3 +103,40 @@ def test_register_export_failure_is_an_error(client, monkeypatch):
         raise RuntimeError("boom")
     monkeypatch.setattr(register, "build_register", broken)
     assert client.get("/api/export/companies.csv").status_code == 500
+
+
+def test_a_website_a_check_removed_shows_nowhere(env, client):
+    """DACH: a check that said the website belongs to another business hides
+    it (and what was read there) from the tab, the card and both exports."""
+    import json as _json
+    with sqlite3.connect(dash.DB_PATH) as c:
+        c.execute("UPDATE companies SET description = 'Fremde Beschreibung' WHERE id = 'c1'")
+        c.execute("INSERT INTO leads (company_id, data) VALUES ('c1', ?)",
+                  (_json.dumps({"review": {"remove": {"site": True}}}),))
+        c.execute("INSERT INTO leads (company_id, data) VALUES ('c2', 'kaputt')")
+    tab = {r["id"]: r for r in client.get("/api/companies").json()}
+    assert tab["c1"]["website"] == tab["c1"]["domain"] == tab["c1"]["description"] == ""
+    assert tab["c2"]["domain"] == "quiet.example"          # a broken row hides nothing else
+    card = client.get("/api/companies/c1/profile").json()
+    assert card["company"]["website"] == "" and card["observations"] == []
+    assert card["register"]["website"] == "" and card["register"]["hiring"] == ""
+    csv_text = client.get("/api/export/companies.csv").text
+    assert "acme.example" not in csv_text and "Forklift" not in csv_text
+    assert client.get("/api/companies/c1/contacts").json() == []   # read from that site
+    assert [p["id"] for p in client.get("/api/companies/c2/contacts").json()] == []
+
+
+def test_a_person_a_check_removed_is_not_listed_but_the_map_inbox_stays(env, client):
+    import json as _json
+    with sqlite3.connect(dash.DB_PATH) as c:
+        c.execute("UPDATE companies SET email = 'office@quiet.example' WHERE id = 'c2'")
+        c.executemany("INSERT INTO prospects (id, company_id, first_name, last_name, email, status) "
+                      "VALUES (?, 'c2', ?, ?, ?, 'new')",
+                      [("p2", "Karl", "Fremd", "k.fremd@other.example"),
+                       ("p3", "", "", "office@quiet.example")])
+        c.execute("INSERT INTO leads (company_id, data) VALUES ('c2', ?)",
+                  (_json.dumps({"review": {"remove": {"contacts": ["Karl Fremd"]}}}),))
+    assert [p["id"] for p in client.get("/api/companies/c2/contacts").json()] == ["p3"]
+    assert {r["id"]: r for r in client.get("/api/companies").json()}["c2"]["contact_count"] == 1
+    card = client.get("/api/companies/c2/profile").json()
+    assert "Fremd" not in card["register"]["contacts"] and "office@quiet.example" in card["register"]["contacts"]

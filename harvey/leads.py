@@ -696,6 +696,59 @@ def review_removed(lead: dict, country: str = "") -> dict:
             "map_phone": bool(rm.get("map_phone"))}
 
 
+async def removed_by_company(query_db, company_ids=None) -> dict[str, dict]:
+    """review_removed per company id, read with a dashboard-style ``query_db``.
+    A broken row counts as nothing removed for that company only."""
+    if company_ids is not None:
+        company_ids = sorted({c for c in company_ids if c})
+        if not company_ids:
+            return {}
+    if company_ids is not None and len(company_ids) <= 500:
+        rows = await query_db("SELECT company_id, data FROM leads WHERE company_id IN ("
+                              + ",".join("?" for _ in company_ids) + ")", tuple(company_ids))
+    else:
+        rows = await query_db("SELECT company_id, data FROM leads")
+    out = {}
+    wanted = None if company_ids is None else set(company_ids)
+    for r in rows or []:
+        if wanted is not None and r["company_id"] not in wanted:
+            continue
+        try:
+            out[r["company_id"]] = review_removed(json.loads(r["data"] or "{}"))
+        except Exception:
+            continue
+    return out
+
+
+def hide_removed_site(row: dict, removed: dict | None) -> dict:
+    """Blank what a check said doesn't belong to this company: its website
+    (address and domain, with the description from it) or only the description."""
+    if not removed:
+        return row
+    if removed.get("site"):
+        for key in ("website", "domain", "description"):
+            if key in row:
+                row[key] = ""
+    elif removed.get("description") and "description" in row:
+        row["description"] = ""
+    return row
+
+
+def prospect_hidden(prospect: dict, removed: dict | None, map_email: str = "") -> bool:
+    """Whether a check took this contact away: its address or name was removed,
+    or it was read from a website that isn't the company's (only the map's own
+    address stays then). Same rule the writer follows."""
+    if not removed:
+        return False
+    email = (prospect.get("email") or "").lower()
+    name = f"{prospect.get('first_name') or ''} {prospect.get('last_name') or ''}".strip()
+    if (email and email in removed["emails"]) or (name and name in removed["contacts"]):
+        return True
+    if removed["site"]:
+        return not map_email or email != map_email.lower()
+    return False
+
+
 async def removed_for_company(state, company_id: str) -> dict:
     """review_removed for one company's stored lead (nothing removed when there is none)."""
     empty = review_removed({})
@@ -761,7 +814,7 @@ def rows_for(company: dict, lead: dict) -> tuple[dict, list[dict]]:
         "Firma": company.get("name", ""),
         "Branche": company.get("industry", ""),
         "Was sie machen (Website)": "" if removed["description"] else repair_mojibake(lead.get("description", "")),
-        "Website": company.get("website") or lead.get("site", ""),
+        "Website": "" if removed["site"] else (company.get("website") or lead.get("site", "")),
         "Adresse": company.get("address", ""),
         "Ort": company.get("location", ""),
         "Telefon (Karte)": map_phone,

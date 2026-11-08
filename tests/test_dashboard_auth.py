@@ -666,7 +666,7 @@ def test_unusable_token_locks_the_api_but_not_the_shell(env, anon):
 def test_non_loopback_binds_are_refused(env, monkeypatch, host):
     import uvicorn
     monkeypatch.setattr(uvicorn, "run", lambda *a, **k: pytest.fail("must not start"))
-    with pytest.raises(dash.DashboardSetupError, match="only listens on this machine"):
+    with pytest.raises(dash.DashboardSetupError, match="läuft nur auf diesem Rechner"):
         dash.start_dashboard(host=host, port=5555)
 
 

@@ -315,6 +315,7 @@ async def test_a_website_of_another_business_leaves_only_the_map_data(state, tmp
     assert row["Beste E-Mail"] == "therapie@praxis-nord.at" and row["Weitere E-Mails"] == ""
     assert row["Ansprechpartner"] == "" and row["Telefon (Website)"] == "" and row["Telefon (Karte)"] == "0316 111111"
     assert row["Was sie machen (Website)"] == "" and {e["E-Mail"] for e in sheet} == {"therapie@praxis-nord.at"}
+    assert row["Website"] == "" and all(e["Website"] == "" for e in sheet)
 
     from harvey.agents.scout import Scout
     s = Scout.__new__(Scout)
