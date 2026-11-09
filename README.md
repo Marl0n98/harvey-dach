@@ -4,6 +4,8 @@
 > und wie du es nutzt, steht in [README-DACH.md](README-DACH.md). Basis ist
 > [ethanplusai/harvey](https://github.com/ethanplusai/harvey) von Ethan Rogers (MIT-Lizenz).
 > Keine Rechtsberatung: Kalte Werbemails sind in DE und AT ohne Einwilligung verboten.
+>
+> Als Plugin in Claude Code: `/plugin install harvey-dach --marketplace Marl0n98/harvey-dach`, dann "Richte Harvey für mich ein".
 
 
 **An autonomous sales agent that runs on your Claude Code or Codex subscription.**

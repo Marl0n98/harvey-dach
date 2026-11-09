@@ -4,6 +4,15 @@ Deutsche Fassung von [Harvey](https://github.com/ethanplusai/harvey) (Basis 6b6a
 
 ## Schnellstart
 
+Als Plugin in Claude Code (ab Version 2.1.275):
+```
+/plugin install harvey-dach --marketplace Marl0n98/harvey-dach
+```
+Ältere Versionen: erst `/plugin marketplace add Marl0n98/harvey-dach`, dann `/plugin install harvey-dach@harvey-dach`.
+
+Dann sag: **"Richte Harvey für mich ein"** (oder `/harvey-dach:harvey`). Claude klont das Repo nach `~/harvey-dach`, fragt nach deinem Business und öffnet das Dashboard. Die Lead-Prüfung startest du mit `/harvey-dach:leads-pruefen`.
+
+Ohne Plugin:
 ```bash
 git clone https://github.com/Marl0n98/harvey-dach.git
 cd harvey-dach

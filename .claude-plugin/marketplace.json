@@ -1,0 +1,14 @@
+{
+  "name": "harvey-dach",
+  "owner": { "name": "Marl0n98" },
+  "metadata": {
+    "description": "Harvey auf Deutsch für Deutschland, Österreich und die Schweiz: findet Firmen, baut Lead-Listen und schreibt Mails in deinem Stil."
+  },
+  "plugins": [
+    {
+      "name": "harvey-dach",
+      "source": "./plugin",
+      "description": "Richtet Harvey DACH ein, öffnet das Dashboard und prüft Lead-Listen mit zwei unabhängigen Prüf-Agenten. Sendet nichts ohne deine Freigabe."
+    }
+  ]
+}

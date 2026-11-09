@@ -1,0 +1,12 @@
+{
+  "name": "harvey-dach",
+  "version": "1.0.0",
+  "description": "Harvey DACH: KI-Vertriebler auf Deutsch. Einrichten, Dashboard öffnen, Lead-Liste prüfen.",
+  "homepage": "https://github.com/Marl0n98/harvey-dach",
+  "repository": "https://github.com/Marl0n98/harvey-dach",
+  "license": "MIT",
+  "author": {
+    "name": "Marl0n98",
+    "url": "https://github.com/Marl0n98"
+  }
+}
