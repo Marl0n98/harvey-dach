@@ -65,7 +65,7 @@ Sag danach kurz, was als Nächstes geht:
 - **Lead-Liste:** `.venv/bin/harvey leads` liest die Websites und schreibt eine Excel nach `data/exports/`.
 - **Liste prüfen:** `/harvey-dach:leads-pruefen` lässt zwei unabhängige Prüf-Agenten jede unsichere Zuordnung kontrollieren.
 - **Eigener Stil:** `.venv/bin/harvey stil` legt `skills/email_rules.md` an, mit `--probe 2` siehst du zwei Probemails.
-- **Entwürfe:** `.venv/bin/harvey entwuerfe --limit 2` schreibt erste Mails in den Postausgang des Dashboards. Gesendet wird nichts.
+- **Entwürfe:** erst `.venv/bin/harvey contacts --limit 10` (sucht Ansprechpersonen und Adressen, sendet nichts), dann `.venv/bin/harvey entwuerfe --limit 2`. Das schreibt erste Mails in den Postausgang des Dashboards. Gesendet wird nichts.
 
 ## Regeln
 
