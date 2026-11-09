@@ -20,11 +20,14 @@ Alle weiteren Befehle laufen in diesem Ordner.
 
 ## 2. Installieren
 
-Python 3.11 oder neuer:
+Harvey braucht Python 3.11 oder neuer. Auf dem Mac ist `python3` oft noch 3.9, deshalb die neueste vorhandene Version nehmen:
 ```bash
-cd ~/harvey-dach && python3 -m venv .venv && .venv/bin/pip install -e .
+cd ~/harvey-dach
+PY=$(for v in 3.14 3.13 3.12 3.11; do command -v python$v && break; done)
+[ -n "$PY" ] || PY=python3
+"$PY" -m venv --clear .venv && .venv/bin/pip install -q -e .
 ```
-Fehlt Python 3.11+, sag das und nenn den Weg (`brew install python@3.12` auf dem Mac).
+Meldet pip, dass Python zu alt ist, sag das und nenn den Weg (`brew install python@3.12` auf dem Mac).
 
 ## 3. Nach dem Business fragen
 
