@@ -524,10 +524,6 @@ async def test_instantly(request: Request):
 # ── Companies ──
 
 
-# The Companies tab shows the best-fit companies, up to this many; the CSV has all.
-COMPANIES_TAB_LIMIT = 2000
-
-
 @app.get("/api/companies")
 async def get_companies():
     """Companies with contact counts, fit score and register status, best fit first."""
@@ -558,7 +554,9 @@ async def get_companies():
     except Exception as e:
         # A config that won't load must not take the Companies tab down with it.
         logger.warning(f"Company fit unavailable: {e}")
-    return rows[:COMPANIES_TAB_LIMIT]
+    # Every company, so the tab's count matches the database (the browser pages
+    # through them 50 at a time). 3,700 companies are about 3 MB of JSON.
+    return rows
 
 
 @app.get("/api/export/companies.csv")

@@ -90,10 +90,17 @@ def test_register_csv_lists_every_company(client):
     assert "Quiet Mill" in resp.text and "Noch nicht bearbeitet" in resp.text
 
 
-def test_best_fit_first_across_more_than_the_page_cap(client, monkeypatch):
-    monkeypatch.setattr(dash, "COMPANIES_TAB_LIMIT", 2)
+def test_every_company_best_fit_first(env, client):
+    """DACH: the tab lists every company (its footer showed "von 2000" for a
+    database of 3,707), best fit first."""
+    with sqlite3.connect(dash.DB_PATH) as c:
+        c.executemany("INSERT INTO companies (id, name, industry, location, source) "
+                      "VALUES (?, ?, 'magazine', 'Springfield', 'discover:test')",
+                      [(f"x{i}", f"Extra {i}") for i in range(2100)])
     rows = client.get("/api/companies").json()
-    assert [r["id"] for r in rows] == ["c1", "c2"]
+    assert len(rows) == 2103
+    assert rows[0]["id"] == "c1"
+    assert [r["fit"] for r in rows] == sorted((r["fit"] for r in rows), reverse=True)
 
 
 def test_register_export_failure_is_an_error(client, monkeypatch):
